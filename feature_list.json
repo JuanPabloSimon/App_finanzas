@@ -1,0 +1,231 @@
+{
+  "project": "gestor-gastos",
+  "description": "Aplicación multiplataforma Mobile + Desktop con enfoque Mobile First (React Native con Expo / React Native CLI, JavaScript y SQLite local mediante expo-sqlite) para registrar y analizar gastos personales, detectar gastos recurrentes y recibir recomendaciones de un modelo de lenguaje. Grupo 3, Técnicas laborales para el desarrollo de software, ITU 2026.",
+  "rules": {
+    "one_feature_at_a_time": true,
+    "require_tests_to_close": true,
+    "require_approved_spec_to_implement": true,
+    "valid_status": [
+      "pending",
+      "spec_ready",
+      "in_progress",
+      "done",
+      "blocked"
+    ],
+    "sdd_required_when": "feature has \"sdd\": true",
+    "selection_order": "in_progress > spec_ready > pending con menor 'orden'",
+    "test_tag_format": "[<historia>-R<n>], por ejemplo [H9-R1]"
+  },
+  "features": [
+    {
+      "id": 1,
+      "historia": "H1",
+      "name": "h01_registrar_gasto",
+      "title": "Registrar un gasto",
+      "epic": "Registro",
+      "priority": "alta",
+      "points": 5,
+      "iteration": 1,
+      "acceptance": [
+        "CA1. Cuando el usuario completa un monto mayor que cero, una fecha y una categoría y confirma, el gasto queda guardado y aparece en el listado del mes.",
+        "CA2. Si el monto está vacío, es cero o es negativo, la aplicación no guarda el gasto y muestra un mensaje junto al campo.",
+        "CA3. La fecha se propone por defecto en el día actual y la subcategoría y la nota son opcionales."
+      ],
+      "sdd": true,
+      "status": "pending",
+      "orden": 2
+    },
+    {
+      "id": 2,
+      "historia": "H2",
+      "name": "h02_editar_eliminar_gasto",
+      "title": "Editar o eliminar un gasto",
+      "epic": "Registro",
+      "priority": "alta",
+      "points": 2,
+      "iteration": 1,
+      "acceptance": [
+        "CA1. Al editar un gasto, los cambios se reflejan en el listado y en el tablero sin reiniciar la aplicación.",
+        "CA2. Eliminar un gasto pide confirmación; al confirmar, el gasto desaparece y los totales se recalculan."
+      ],
+      "sdd": true,
+      "status": "pending",
+      "orden": 3
+    },
+    {
+      "id": 3,
+      "historia": "H3",
+      "name": "h03_listado_mensual",
+      "title": "Listado de gastos del mes",
+      "epic": "Registro",
+      "priority": "alta",
+      "points": 3,
+      "iteration": 1,
+      "acceptance": [
+        "CA1. El listado muestra los gastos del mes en curso ordenados por fecha descendente, con monto, categoría y nota.",
+        "CA2. Se muestra el total del mes; si no hay gastos, se presenta un estado vacío con acceso directo a la carga.",
+        "CA3. El usuario puede navegar al mes anterior."
+      ],
+      "sdd": true,
+      "status": "pending",
+      "orden": 4
+    },
+    {
+      "id": 4,
+      "historia": "H4",
+      "name": "h04_categorias_propias",
+      "title": "Crear categorías propias",
+      "epic": "Registro",
+      "priority": "media",
+      "points": 3,
+      "iteration": 2,
+      "acceptance": [
+        "CA1. El usuario crea una categoría con un nombre que no repite otro existente, sin distinguir mayúsculas, y queda disponible en la carga.",
+        "CA2. Las categorías predefinidas no pueden eliminarse, y una categoría propia con gastos asociados solo se elimina después de reasignarlos."
+      ],
+      "sdd": true,
+      "status": "pending",
+      "orden": 7
+    },
+    {
+      "id": 5,
+      "historia": "H5",
+      "name": "h05_ingreso_mensual",
+      "title": "Registrar el ingreso mensual",
+      "epic": "Registro",
+      "priority": "media",
+      "points": 2,
+      "iteration": 1,
+      "acceptance": [
+        "CA1. El usuario registra un ingreso por mes y el tablero muestra el porcentaje que cada categoría representa sobre ese ingreso.",
+        "CA2. Sin ingreso cargado, el tablero funciona normalmente y omite los porcentajes sobre el ingreso."
+      ],
+      "sdd": true,
+      "status": "pending",
+      "orden": 5
+    },
+    {
+      "id": 6,
+      "historia": "H6",
+      "name": "h06_grafico_categorias",
+      "title": "Gráfico de distribución por categoría",
+      "epic": "Visualización",
+      "priority": "alta",
+      "points": 5,
+      "iteration": 2,
+      "acceptance": [
+        "CA1. El gráfico muestra cada categoría del mes con su monto y su porcentaje, y la suma coincide con el total del listado.",
+        "CA2. Con uno o ningún gasto, el tablero presenta un estado coherente y sin errores."
+      ],
+      "sdd": true,
+      "status": "pending",
+      "orden": 6
+    },
+    {
+      "id": 7,
+      "historia": "H7",
+      "name": "h07_comparacion_mensual",
+      "title": "Comparar el mes actual con los anteriores",
+      "epic": "Visualización",
+      "priority": "media",
+      "points": 5,
+      "iteration": 2,
+      "acceptance": [
+        "CA1. Se muestran el total del mes actual y el de hasta cinco meses anteriores, con la variación porcentual respecto del mes anterior.",
+        "CA2. Si no existen meses previos, se informa que no hay datos para comparar."
+      ],
+      "sdd": true,
+      "status": "pending",
+      "orden": 9
+    },
+    {
+      "id": 8,
+      "historia": "H8",
+      "name": "h08_ranking_categorias",
+      "title": "Ranking de categorías",
+      "epic": "Visualización",
+      "priority": "media",
+      "points": 2,
+      "iteration": 2,
+      "acceptance": [
+        "CA1. Las categorías del mes se listan ordenadas de mayor a menor monto, con al menos las cinco primeras.",
+        "CA2. Ante montos iguales, el orden es alfabético."
+      ],
+      "sdd": true,
+      "status": "pending",
+      "orden": 8
+    },
+    {
+      "id": 9,
+      "historia": "H9",
+      "name": "h09_deteccion_recurrencias",
+      "title": "Detección de gastos recurrentes",
+      "epic": "Asistente",
+      "priority": "alta",
+      "points": 5,
+      "iteration": 3,
+      "acceptance": [
+        "CA1. Se marca como recurrente un consumo de la misma categoría que se repite al menos tres veces en sesenta días con montos que no difieren más de un 10 %.",
+        "CA2. Sobre el conjunto de prueba etiquetado, se detecta al menos el 85 % de las recurrencias conocidas.",
+        "CA3. El usuario puede descartar una recurrencia y esta no vuelve a sugerirse."
+      ],
+      "sdd": true,
+      "status": "pending",
+      "orden": 10
+    },
+    {
+      "id": 10,
+      "historia": "H10",
+      "name": "h10_recomendaciones_ia",
+      "title": "Recomendaciones con el modelo de lenguaje",
+      "epic": "Asistente",
+      "priority": "alta",
+      "points": 5,
+      "iteration": 3,
+      "acceptance": [
+        "CA1. La consulta al modelo envía solo un resumen agregado, con totales por categoría y recurrencias, sin notas, nombres ni identificadores del usuario.",
+        "CA2. Se muestran entre una y tres sugerencias en lenguaje natural, acompañadas de la advertencia sobre su carácter orientativo.",
+        "CA3. Si el servicio no responde en diez segundos o la respuesta no respeta el formato esperado, se muestra la respuesta de reserva basada en reglas.",
+        "CA4. Se respeta el límite mensual de consultas por usuario."
+      ],
+      "sdd": true,
+      "status": "pending",
+      "orden": 11
+    },
+    {
+      "id": 11,
+      "historia": "H11",
+      "name": "h11_exportar_historial",
+      "title": "Exportar el historial",
+      "epic": "Resguardo",
+      "priority": "media",
+      "points": 3,
+      "iteration": 3,
+      "acceptance": [
+        "CA1. Se genera un archivo CSV con todos los gastos (fecha, monto, categoría, subcategoría y nota) que puede guardarse o compartirse.",
+        "CA2. Al abrir el archivo en una planilla de cálculo, la cantidad de registros y el total coinciden con los de la aplicación."
+      ],
+      "sdd": true,
+      "status": "pending",
+      "orden": 12
+    },
+    {
+      "id": 12,
+      "historia": "H12",
+      "name": "h12_aviso_privacidad",
+      "title": "Aviso de privacidad y consentimiento",
+      "epic": "Resguardo",
+      "priority": "alta",
+      "points": 2,
+      "iteration": 1,
+      "acceptance": [
+        "CA1. En el primer inicio se muestra el aviso de privacidad y, sin aceptarlo, no es posible acceder a la aplicación.",
+        "CA2. El aviso informa la finalidad, el almacenamiento local y la transferencia al proveedor del modelo, y puede consultarse luego desde los ajustes.",
+        "CA3. La aceptación queda registrada con su fecha."
+      ],
+      "sdd": true,
+      "status": "pending",
+      "orden": 1
+    }
+  ]
+}
