@@ -7,7 +7,9 @@
 
 | Historia | Criterio | Requisitos | Pruebas | Estado |
 |---|---|---|---|---|
-| H12 | CA1, CA2, CA3 | — | — | Pendiente (`pending`) |
+| H12 | CA1 | R1, R2, R5, R6 | `[H12-R1]`, `[H12-R2]`, `[H12-R5]`, `[H12-R6]` (`test/features/privacy/PrivacyNoticeScreen.test.jsx`, `test/data/sqliteConsentRepository.test.js`) | En revisión (`in_progress`) |
+| H12 | CA2 | R3, R7, R8 | `[H12-R3]`, `[H12-R7]`, `[H12-R8]` (`test/domain/models/consent.test.js`, `test/features/privacy/PrivacyNoticeScreen.test.jsx`) | En revisión (`in_progress`) |
+| H12 | CA3 | R4, R6, R7 | `[H12-R4]`, `[H12-R6]`, `[H12-R7]` (`test/domain/models/consent.test.js`, `test/data/sqliteConsentRepository.test.js`, `test/features/privacy/PrivacyNoticeScreen.test.jsx`) | En revisión (`in_progress`) |
 | H1 | CA1, CA2, CA3 | — | — | Pendiente (`pending`) |
 | H2 | CA1, CA2 | — | — | Pendiente (`pending`) |
 | H3 | CA1, CA2, CA3 | — | — | Pendiente (`pending`) |

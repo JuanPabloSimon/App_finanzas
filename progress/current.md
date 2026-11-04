@@ -11,7 +11,7 @@
 
 ## Aprobaciones de spec
 
-_—_ (formato: `H12 aprobado por <nombre> el <AAAA-MM-DD>`)
+_—_ (formato: `H1 aprobado por <nombre> el <AAAA-MM-DD>`)
 
 ## Plan
 
@@ -23,4 +23,4 @@ _—_
 
 ## Próximo paso
 
-- Ejecutar `/siguiente-feature` para iniciar el flujo SDD con la primera historia en orden (`H12 — h12_aviso_privacidad`, `orden: 1`).
+- Ejecutar `/siguiente-feature` para iniciar el flujo SDD con la siguiente historia en orden (`H1 — h01_registrar_gasto`, `orden: 2`).

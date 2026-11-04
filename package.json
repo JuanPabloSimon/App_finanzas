@@ -8,7 +8,7 @@
     "dev": "vite",
     "build": "vite build",
     "lint": "eslint .",
-    "test": "node --test \"test/**/*.test.js\" \"test/**/*.test.jsx\"",
+    "test": "node --import ./tool/jsx_loader.mjs --test \"test/**/*.test.js\" \"test/**/*.test.jsx\"",
     "check:harness": "node tool/harness_check.mjs",
     "preview": "vite preview"
   },
