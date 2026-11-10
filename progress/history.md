@@ -88,6 +88,7 @@
   - Modelos inmutables `MonthlyIncome`, `Investment`, `Reminder` y `UserAccount`, migración SQLite v2 y repositorios SQLite en `src/data/repositories/sqliteMonthlyIncomeRepository.js`.
   - Pantalla `MonthlyOverviewScreen` (`src/features/income/MonthlyOverviewScreen.jsx`) con KPIs del mes (Ingresos, Gastos, Inversiones, Balance disponible), distribución por categoría con porcentaje sobre el ingreso (`CA1`/`CA2`), registro de inversiones para control de capital (Plazo Fijo, FCI, CEDEAR), recordatorios de vencimiento y consejos orientativos.
   - Integración de Login/Registro de cuenta local y botón de Cuenta Demo con datos precargados + persistencia en `localStorage` en `src/app/AppShell.jsx` y `src/App.jsx`.
+  - Configuración del skill `frontend-design` en `.agents/skills/frontend-design/SKILL.md` (y `.antigravity/skills/SKILL.md`) y aplicación de estética de Estado Patrimonial (tipografía editorial `Newsreader` + `Plus Jakarta Sans`, `tabular-nums`, plancha contable unificada y barras de asignación de capital).
   - 15 pruebas nuevas etiquetadas (`[H5-R1]`..`[H5-R8]`) en 3 suites nuevas (total: 61 pruebas en 9 suites).
 - **Verificación:** `reviewer` emitió `APPROVED` en `progress/review_h05_ingreso_mensual.md`; `./init.ps1`, `eslint` y `npm test` (61/61) en verde.
 - **Cierre:** `h05_ingreso_mensual` marcada `done` en `feature_list.json`. Próxima feature en orden: `H6 — h06_grafico_categorias` (`orden: 6`).

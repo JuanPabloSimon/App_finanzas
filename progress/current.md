@@ -22,10 +22,11 @@
 1. [x] Completar `H2 — h02_editar_eliminar_gasto` (`done`).
 2. [x] Completar `H3 — h03_listado_mensual` (`done`).
 3. [x] Completar `H5 — h05_ingreso_mensual` junto con el Panel de Resumen General del Mes, Cuenta Local, Registro de Inversiones, Recordatorios de vencimientos y Paleta Corporativa Azul Marino / Marrón Oscuro (`done`).
+4. [x] Configurar skill `frontend-design` en `.agents/skills/frontend-design/SKILL.md` y aplicar rediseño ejecutivo de Estado Patrimonial.
 
 ## Bitácora
 
-- `2026-11-10`: `H2`, `H3` y `H5` completadas, verificadas y cerradas en `done` con 61/61 pruebas en verde.
+- `2026-11-10`: `H2`, `H3` y `H5` completadas, verificadas y cerradas en `done` con 61/61 pruebas en verde. Skill `frontend-design` activo y aplicado.
 
 ## Próximo paso
 
