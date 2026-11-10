@@ -322,4 +322,55 @@ describe('H1 persistencia de gastos y categorías en SQLite (SqliteCategoryRepos
     assert.equal(remaining[0].id, second.id);
     assert.equal(remaining[0].amountCents, 250000);
   });
+
+  it('[H3-R1][H3-R5] devuelve los gastos del período ordenados por fecha descendente (y id descendente) y aísla los registros al consultar el mes anterior', async () => {
+    await expenseRepo.save(
+      new Expense({
+        amountCents: 95000,
+        date: '2026-10-25',
+        categoryId: 1,
+        note: 'Gasto de octubre',
+        createdAt: '2026-10-25T10:00:00',
+      }),
+    );
+    const novDay2 = await expenseRepo.save(
+      new Expense({
+        amountCents: 110000,
+        date: '2026-11-02',
+        categoryId: 1,
+        note: 'Día 2',
+        createdAt: '2026-11-02T09:00:00',
+      }),
+    );
+    const novDay6First = await expenseRepo.save(
+      new Expense({
+        amountCents: 130000,
+        date: '2026-11-06',
+        categoryId: 2,
+        note: 'Día 6 mañana',
+        createdAt: '2026-11-06T09:00:00',
+      }),
+    );
+    const novDay6Second = await expenseRepo.save(
+      new Expense({
+        amountCents: 170000,
+        date: '2026-11-06',
+        categoryId: 3,
+        note: 'Día 6 tarde',
+        createdAt: '2026-11-06T18:00:00',
+      }),
+    );
+
+    const novList = await expenseRepo.findByYearMonth('2026-11');
+    assert.equal(novList.length, 3);
+    assert.deepEqual(
+      novList.map((e) => e.id),
+      [novDay6Second.id, novDay6First.id, novDay2.id],
+    );
+
+    const octList = await expenseRepo.findByYearMonth('2026-10');
+    assert.equal(octList.length, 1);
+    assert.equal(octList[0].note, 'Gasto de octubre');
+    assert.equal(octList[0].amountCents, 95000);
+  });
 });

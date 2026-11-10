@@ -15,8 +15,11 @@
 | H1 | CA3 | R1, R6, R7 | `[H1-R1]`, `[H1-R6]`, `[H1-R7]` (`test/domain/models/expense.test.js`, `test/data/sqliteExpenseRepository.test.js`, `test/features/expenses/ExpenseFormScreen.test.jsx`) | Aprobada (`done`) |
 | H2 | CA1 | R1, R2, R3, R4, R8 | `[H2-R1]`, `[H2-R2]`, `[H2-R3]`, `[H2-R4]`, `[H2-R8]` (`test/domain/models/expense.test.js`, `test/data/sqliteExpenseRepository.test.js`, `test/features/expenses/ExpenseFormScreen.test.jsx`) | Aprobada (`done`) |
 | H2 | CA2 | R4, R5, R6, R7, R8 | `[H2-R4]`, `[H2-R5]`, `[H2-R6]`, `[H2-R7]`, `[H2-R8]` (`test/domain/models/expense.test.js`, `test/data/sqliteExpenseRepository.test.js`, `test/features/expenses/ExpenseFormScreen.test.jsx`) | Aprobada (`done`) |
-| H3 | CA1, CA2, CA3 | — | — | Pendiente (`pending`) |
-| H5 | CA1, CA2 | — | — | Pendiente (`pending`) |
+| H3 | CA1 | R1, R2, R8 | `[H3-R1]`, `[H3-R2]`, `[H3-R8]` (`test/data/sqliteExpenseRepository.test.js`, `test/features/expenses/ExpenseFormScreen.test.jsx`) | Aprobada (`done`) |
+| H3 | CA2 | R3, R4, R8 | `[H3-R3]`, `[H3-R4]`, `[H3-R8]` (`test/features/expenses/ExpenseFormScreen.test.jsx`) | Aprobada (`done`) |
+| H3 | CA3 | R5, R6, R7, R8 | `[H3-R5]`, `[H3-R6]`, `[H3-R7]`, `[H3-R8]` (`test/domain/models/expense.test.js`, `test/data/sqliteExpenseRepository.test.js`, `test/features/expenses/ExpenseFormScreen.test.jsx`) | Aprobada (`done`) |
+| H5 | CA1 | R1, R2, R4, R5, R6, R7, R8 | `[H5-R1]`, `[H5-R2]`, `[H5-R4]`, `[H5-R5]`, `[H5-R6]`, `[H5-R7]`, `[H5-R8]` (`test/domain/models/monthlyIncome.test.js`, `test/data/sqliteMonthlyIncomeRepository.test.js`, `test/features/income/MonthlyOverviewScreen.test.jsx`) | Aprobada (`done`) |
+| H5 | CA2 | R3, R8 | `[H5-R3]`, `[H5-R8]` (`test/domain/models/monthlyIncome.test.js`, `test/features/income/MonthlyOverviewScreen.test.jsx`) | Aprobada (`done`) |
 | H6 | CA1, CA2 | — | — | Pendiente (`pending`) |
 | H4 | CA1, CA2 | — | — | Pendiente (`pending`) |
 | H8 | CA1, CA2 | — | — | Pendiente (`pending`) |

@@ -480,4 +480,177 @@ describe('H1 pantalla de registro de gasto, validaciones, listado del mes y dise
     assert.match(desktopHtml, /data-testid="cancel-edit-button"/);
     assert.match(desktopHtml, /tabindex="0"/);
   });
+
+  it('[H3-R1][H3-R2][H3-R3] muestra por defecto el listado del mes en curso ordenado por fecha descendente con monto, categoría, nota y el total acumulado del mes', async () => {
+    await expenseRepo.save(
+      new Expense({
+        amountCents: 120000,
+        date: '2026-11-01',
+        categoryId: 1,
+        subcategory: 'Verdulería',
+        note: 'Frutas y verduras',
+        createdAt: '2026-11-01T10:00:00',
+      }),
+    );
+    await expenseRepo.save(
+      new Expense({
+        amountCents: 350050,
+        date: '2026-11-06',
+        categoryId: 3,
+        subcategory: 'Luz',
+        note: 'Factura mensual',
+        createdAt: '2026-11-06T12:00:00',
+      }),
+    );
+
+    const controller = ExpenseFormScreen.createController({
+      expenseRepository: expenseRepo,
+      categoryRepository: categoryRepo,
+      today: () => '2026-11-06',
+      viewportWidth: 390,
+    });
+
+    const state = await controller.initialize();
+    assert.equal(state.activeYearMonth, '2026-11');
+    assert.equal(state.expenses.length, 2);
+    assert.equal(state.expenses[0].date, '2026-11-06');
+    assert.equal(state.expenses[1].date, '2026-11-01');
+    assert.equal(state.monthlyTotalCents, 470050);
+
+    const html = renderToStaticMarkup(controller.renderElement());
+    const idxNov6 = html.indexOf('2026-11-06');
+    const idxNov1 = html.indexOf('2026-11-01');
+    assert.equal(idxNov6 < idxNov1, true);
+    assert.match(html, /Servicios · Luz/);
+    assert.match(html, /Factura mensual/);
+    assert.match(html, /\$ 3\.500,50/);
+    assert.match(html, /Alimentos · Verdulería/);
+    assert.match(html, /Frutas y verduras/);
+    assert.match(html, /\$ 1\.200/);
+    assert.match(html, /data-testid="month-total-amount"[^>]*>\$ 4\.700,50</);
+  });
+
+  it('[H3-R3][H3-R4] cuando no hay gastos en el mes muestra total $ 0 y presenta el estado vacío con acceso directo a la carga', async () => {
+    const controller = ExpenseFormScreen.createController({
+      expenseRepository: expenseRepo,
+      categoryRepository: categoryRepo,
+      today: () => '2026-11-06',
+      viewportWidth: 390,
+    });
+
+    const state = await controller.initialize();
+    assert.equal(state.expenses.length, 0);
+    assert.equal(state.monthlyTotalCents, 0);
+
+    const html = renderToStaticMarkup(controller.renderElement());
+    assert.match(html, /data-testid="month-total-amount"[^>]*>\$ 0</);
+    assert.match(html, /data-testid="empty-month-expenses"/);
+    assert.match(html, /data-testid="empty-state-cta-button"/);
+    assert.match(html, /Registrar gasto en este mes/);
+
+    await controller.goToPreviousMonth();
+    const afterCta = controller.activateEmptyStateCta();
+    assert.equal(afterCta.editingExpenseId, null);
+    assert.equal(afterCta.dateInput, '2026-10-01');
+    assert.equal(afterCta.focusRequestedOnAmount, true);
+
+    const htmlAfterCta = renderToStaticMarkup(controller.renderElement());
+    assert.match(htmlAfterCta, /data-focus-requested="true"/);
+    assert.match(htmlAfterCta, /value="2026-10-01"/);
+  });
+
+  it('[H3-R5][H3-R6] permite navegar al mes anterior y volver al mes siguiente recargando los gastos y el total de cada período sin avanzar más allá del mes actual', async () => {
+    await expenseRepo.save(
+      new Expense({
+        amountCents: 90000,
+        date: '2026-10-15',
+        categoryId: 2,
+        note: 'Viajes de octubre',
+        createdAt: '2026-10-15T09:00:00',
+      }),
+    );
+    await expenseRepo.save(
+      new Expense({
+        amountCents: 210000,
+        date: '2026-11-05',
+        categoryId: 1,
+        note: 'Supermercado noviembre',
+        createdAt: '2026-11-05T11:00:00',
+      }),
+    );
+
+    const controller = ExpenseFormScreen.createController({
+      expenseRepository: expenseRepo,
+      categoryRepository: categoryRepo,
+      today: () => '2026-11-06',
+      viewportWidth: 390,
+    });
+
+    const novState = await controller.initialize();
+    assert.equal(novState.activeYearMonth, '2026-11');
+    assert.equal(novState.canGoNextMonth, false);
+    assert.equal(novState.monthlyTotalCents, 210000);
+
+    const octState = await controller.goToPreviousMonth();
+    assert.equal(octState.activeYearMonth, '2026-10');
+    assert.equal(octState.canGoNextMonth, true);
+    assert.equal(octState.expenses.length, 1);
+    assert.equal(octState.expenses[0].note, 'Viajes de octubre');
+    assert.equal(octState.monthlyTotalCents, 90000);
+
+    const octHtml = renderToStaticMarkup(controller.renderElement());
+    assert.match(octHtml, /Octubre 2026 \(2026-10\)/);
+    assert.match(octHtml, /Viajes de octubre/);
+    assert.match(octHtml, /data-testid="month-total-amount"[^>]*>\$ 900</);
+
+    const backToNov = await controller.goToNextMonth();
+    assert.equal(backToNov.activeYearMonth, '2026-11');
+    assert.equal(backToNov.canGoNextMonth, false);
+    assert.equal(backToNov.expenses.length, 1);
+    assert.equal(backToNov.expenses[0].note, 'Supermercado noviembre');
+    assert.equal(backToNov.monthlyTotalCents, 210000);
+
+    const stayAtCurrent = await controller.goToNextMonth();
+    assert.equal(stayAtCurrent.activeYearMonth, '2026-11');
+  });
+
+  it('[H3-R8] presenta la barra de navegación mensual y el estado vacío con CTA aplicando diseño Mobile First (< 768px) y adaptación Desktop (>= 768px)', async () => {
+    const mobileController = ExpenseFormScreen.createController({
+      expenseRepository: expenseRepo,
+      categoryRepository: categoryRepo,
+      today: () => '2026-11-06',
+      viewportWidth: 390,
+    });
+    await mobileController.initialize();
+
+    const mobileStyles = ExpenseFormScreen.buildStyles(390);
+    assert.equal(mobileStyles.gridColumns, 1);
+    assert.equal(mobileStyles.monthNavButton.minHeight >= 44, true);
+    assert.equal(mobileStyles.emptyStateCtaButton.minHeight >= 48, true);
+    assert.equal(mobileStyles.emptyStateCtaButton.width, '100%');
+
+    const mobileHtml = renderToStaticMarkup(mobileController.renderElement());
+    assert.match(mobileHtml, /data-layout="mobile"/);
+    assert.match(mobileHtml, /data-testid="month-navigation-bar"/);
+    assert.match(mobileHtml, /data-testid="prev-month-button"/);
+    assert.match(mobileHtml, /data-testid="next-month-button"/);
+    assert.match(mobileHtml, /data-testid="empty-state-cta-button"/);
+
+    const desktopController = ExpenseFormScreen.createController({
+      expenseRepository: expenseRepo,
+      categoryRepository: categoryRepo,
+      today: () => '2026-11-06',
+      viewportWidth: 1280,
+    });
+    await desktopController.initialize();
+
+    const desktopStyles = ExpenseFormScreen.buildStyles(1280);
+    assert.equal(desktopStyles.gridColumns, 2);
+    assert.equal(desktopStyles.emptyStateCtaButton.width, 'auto');
+
+    const desktopHtml = renderToStaticMarkup(desktopController.renderElement());
+    assert.match(desktopHtml, /data-layout="desktop"/);
+    assert.match(desktopHtml, /data-columns="2"/);
+    assert.match(desktopHtml, /tabindex="0"/);
+  });
 });

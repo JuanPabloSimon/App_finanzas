@@ -1,4 +1,23 @@
+import { InvalidExpenseDate } from './errors.js';
+
 const ISO_DATE_REGEX = /^(\d{4})-(0[1-9]|1[0-2])-(0[1-9]|[12]\d|3[01])$/;
+
+const YEAR_MONTH_REGEX = /^(\d{4})-(0[1-9]|1[0-2])$/;
+
+const MONTH_NAMES_ES = Object.freeze([
+  'Enero',
+  'Febrero',
+  'Marzo',
+  'Abril',
+  'Mayo',
+  'Junio',
+  'Julio',
+  'Agosto',
+  'Septiembre',
+  'Octubre',
+  'Noviembre',
+  'Diciembre',
+]);
 
 const ISO_DATE_TIME_REGEX =
   /^(\d{4})-(0[1-9]|1[0-2])-(0[1-9]|[12]\d|3[01])T([01]\d|2[0-3]):([0-5]\d):([0-5]\d)$/;
@@ -49,6 +68,39 @@ export function extractYearMonth(isoDate) {
     throw new TypeError('Fecha inválida para extraer año-mes (YYYY-MM)');
   }
   return isoDate.slice(0, 7);
+}
+
+export function isValidYearMonth(value) {
+  if (typeof value !== 'string') {
+    return false;
+  }
+  return YEAR_MONTH_REGEX.test(value);
+}
+
+export function shiftYearMonth(yearMonth, deltaMonths) {
+  if (!isValidYearMonth(yearMonth) || !Number.isInteger(deltaMonths)) {
+    throw new InvalidExpenseDate('Período mensual inválido (AAAA-MM)');
+  }
+  const match = YEAR_MONTH_REGEX.exec(yearMonth);
+  const year = Number.parseInt(match[1], 10);
+  const monthIndex = Number.parseInt(match[2], 10) - 1;
+  const totalMonths = year * 12 + monthIndex + deltaMonths;
+  const targetYear = Math.floor(totalMonths / 12);
+  const targetMonth = ((totalMonths % 12) + 12) % 12 + 1;
+  if (targetYear < 1000 || targetYear > 9999) {
+    throw new InvalidExpenseDate('Período mensual fuera de rango (AAAA-MM)');
+  }
+  return `${String(targetYear).padStart(4, '0')}-${pad2(targetMonth)}`;
+}
+
+export function formatYearMonthLabel(yearMonth) {
+  if (!isValidYearMonth(yearMonth)) {
+    throw new InvalidExpenseDate('Período mensual inválido (AAAA-MM)');
+  }
+  const match = YEAR_MONTH_REGEX.exec(yearMonth);
+  const year = Number.parseInt(match[1], 10);
+  const monthIndex = Number.parseInt(match[2], 10) - 1;
+  return `${MONTH_NAMES_ES[monthIndex]} ${year} (${yearMonth})`;
 }
 
 export function isValidIsoDateTime(value) {

@@ -67,7 +67,7 @@
         "CA3. El usuario puede navegar al mes anterior."
       ],
       "sdd": true,
-      "status": "spec_ready",
+      "status": "done",
       "orden": 4
     },
     {
@@ -101,7 +101,7 @@
         "CA2. Sin ingreso cargado, el tablero funciona normalmente y omite los porcentajes sobre el ingreso."
       ],
       "sdd": true,
-      "status": "pending",
+      "status": "done",
       "orden": 5
     },
     {

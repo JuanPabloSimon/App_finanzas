@@ -66,3 +66,28 @@
   - 10 pruebas nuevas etiquetadas (`[H2-R1]`..`[H2-R8]`) en `test/domain/models/expense.test.js`, `test/data/sqliteExpenseRepository.test.js` y `test/features/expenses/ExpenseFormScreen.test.jsx`.
 - **Verificación:** `reviewer` emitió `APPROVED` en `progress/review_h02_editar_eliminar_gasto.md`; `./init.ps1`, `eslint` y `npm test` (39/39 pruebas en 6 suites) en verde.
 - **Cierre:** `h02_editar_eliminar_gasto` marcada `done` en `feature_list.json`. Próxima feature en orden: `H3 — h03_listado_mensual` (`orden: 4`).
+
+
+## 2026-11-10 — H3 (`h03_listado_mensual`) completada bajo SDD
+- **Agente:** Antigravity (`leader` → `spec_author` → `implementer` → `reviewer`) con Juan Pablo.
+- **Aprobación de spec:** `H3 aprobado por Juan Pablo el 2026-11-10`.
+- **Cambios:**
+  - Especificación SDD completa en `specs/h03_listado_mensual/{requirements,design,tasks}.md` (8 requisitos `R1..R8`, 7 tareas `T1..T7`).
+  - Utilidades de calendario `isValidYearMonth`, `shiftYearMonth` y `formatYearMonthLabel` en `src/core/dates.js`.
+  - Barra de navegación mensual (`prev-month-button`, `active-month-label`, `next-month-button` con tope en el mes actual) y estado vacío con acceso directo a la carga (`empty-state-cta-button` / `activateEmptyStateCta`) en `src/features/expenses/ExpenseFormScreen.jsx`.
+  - 7 pruebas nuevas etiquetadas (`[H3-R1]`..`[H3-R8]`) en `test/domain/models/expense.test.js`, `test/data/sqliteExpenseRepository.test.js` y `test/features/expenses/ExpenseFormScreen.test.jsx`.
+- **Verificación:** `reviewer` emitió `APPROVED` en `progress/review_h03_listado_mensual.md`; `./init.ps1`, `eslint` y `npm test` (46/46 pruebas en 6 suites) en verde.
+- **Cierre:** `h03_listado_mensual` marcada `done` en `feature_list.json`. Próxima feature en orden: `H5 — h05_ingreso_mensual` (`orden: 5`).
+
+
+## 2026-11-10 — H5 (`h05_ingreso_mensual`) + Panel de Resumen General, Cuenta Local, Registro de Inversiones, Recordatorios y Paleta Corporativa
+- **Agente:** Antigravity (`leader` → `spec_author` → `implementer` → `reviewer`) con Juan Pablo.
+- **Aprobación de spec:** `H5 aprobado por Juan Pablo el 2026-11-10`.
+- **Cambios:**
+  - Tema corporativo sobrio (`src/core/theme.js`, Azul Marino `#0F2942` y Marrón Oscuro `#4A3525`).
+  - Modelos inmutables `MonthlyIncome`, `Investment`, `Reminder` y `UserAccount`, migración SQLite v2 y repositorios SQLite en `src/data/repositories/sqliteMonthlyIncomeRepository.js`.
+  - Pantalla `MonthlyOverviewScreen` (`src/features/income/MonthlyOverviewScreen.jsx`) con KPIs del mes (Ingresos, Gastos, Inversiones, Balance disponible), distribución por categoría con porcentaje sobre el ingreso (`CA1`/`CA2`), registro de inversiones para control de capital (Plazo Fijo, FCI, CEDEAR), recordatorios de vencimiento y consejos orientativos.
+  - Integración de Login/Registro de cuenta local y botón de Cuenta Demo con datos precargados + persistencia en `localStorage` en `src/app/AppShell.jsx` y `src/App.jsx`.
+  - 15 pruebas nuevas etiquetadas (`[H5-R1]`..`[H5-R8]`) en 3 suites nuevas (total: 61 pruebas en 9 suites).
+- **Verificación:** `reviewer` emitió `APPROVED` en `progress/review_h05_ingreso_mensual.md`; `./init.ps1`, `eslint` y `npm test` (61/61) en verde.
+- **Cierre:** `h05_ingreso_mensual` marcada `done` en `feature_list.json`. Próxima feature en orden: `H6 — h06_grafico_categorias` (`orden: 6`).

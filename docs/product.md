@@ -20,9 +20,12 @@ carga**: la competencia real es el desuso.
 
 ## Alcance del producto (línea base)
 
+- Cuenta de usuario local en el dispositivo (registro e inicio de sesión local para proteger y personalizar el panel sin depender de servidores en la nube).
+- Panel de Resumen General del Mes (Dashboard Mobile First + Desktop) con paleta sobria/corporativa (azul marino `#0F2942` y marrón oscuro `#4A3525`).
 - Registro manual de gastos: monto, fecha, categoría, subcategoría opcional y nota.
 - Categorías predefinidas y categorías propias.
-- Ingreso mensual, solo como referencia para calcular proporciones.
+- Ingreso mensual, cálculo de balance disponible y proporción que cada categoría representa sobre el ingreso.
+- Registro informativo de inversiones para control de gestión del capital (monto, activo como Plazo Fijo/FCI/Bono/CEDEAR, plataforma/entidad y fecha de vencimiento opcional) y recordatorios de vencimientos.
 - Tablero: distribución por categoría, evolución mensual, comparación con el mes anterior y
   ranking de categorías.
 - Detección de gastos recurrentes mediante **reglas** sobre el historial.
@@ -38,12 +41,12 @@ carga**: la competencia real es el desuso.
 
 ## Límites (fuera del alcance)
 
-- Integración con bancos, tarjetas o banca abierta. **Es el límite más relevante.**
-- Procesamiento de pagos o movimiento de dinero real.
-- Sincronización en la nube entre dispositivos, registro y autenticación de usuarios.
+- Integración con bancos, tarjetas, brokers o banca abierta. **Es el límite más relevante.**
+- Procesamiento de pagos, ejecución de inversiones u operaciones con movimiento de dinero real (la app es exclusivamente de registro y control de gestión).
+- Sincronización en la nube entre dispositivos o servidores externos de cuentas.
 - Entrenamiento de un modelo de IA propio.
 - Asesoramiento financiero profesional (las sugerencias son orientativas).
-- Inversiones, deudas y créditos; cuentas compartidas; múltiples monedas.
+- Cuentas compartidas; múltiples monedas.
 - Lectura automática de comprobantes (OCR).
 - Publicación en tiendas oficiales durante el cursado.
 

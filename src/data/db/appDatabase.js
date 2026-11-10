@@ -49,6 +49,36 @@ const MIGRATION_V1_SQL = `
   );
 `;
 
+const MIGRATION_V2_SQL = `
+  CREATE TABLE IF NOT EXISTS user_accounts (
+    id INTEGER PRIMARY KEY AUTOINCREMENT,
+    full_name TEXT NOT NULL,
+    username TEXT NOT NULL UNIQUE COLLATE NOCASE,
+    password_hash TEXT NOT NULL,
+    created_at TEXT NOT NULL
+  );
+
+  CREATE TABLE IF NOT EXISTS investments (
+    id INTEGER PRIMARY KEY AUTOINCREMENT,
+    asset_name TEXT NOT NULL,
+    platform TEXT NOT NULL,
+    amount_cents INTEGER NOT NULL CHECK (amount_cents > 0),
+    date TEXT NOT NULL,
+    due_date TEXT NULL,
+    note TEXT NULL,
+    created_at TEXT NOT NULL
+  );
+
+  CREATE TABLE IF NOT EXISTS reminders (
+    id INTEGER PRIMARY KEY AUTOINCREMENT,
+    title TEXT NOT NULL,
+    due_date TEXT NOT NULL,
+    amount_cents INTEGER NULL,
+    is_completed INTEGER NOT NULL DEFAULT 0,
+    created_at TEXT NOT NULL
+  );
+`;
+
 export class AppDatabase {
   constructor(driver) {
     this.driver = driver;
@@ -79,6 +109,11 @@ export class AppDatabase {
         );
       }
       await this.exec('PRAGMA user_version = 1;');
+    }
+
+    if (currentVersion < 2) {
+      await this.exec(MIGRATION_V2_SQL);
+      await this.exec('PRAGMA user_version = 2;');
     }
   }
 
