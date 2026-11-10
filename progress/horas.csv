@@ -3,3 +3,5 @@ fecha,integrante,actividad,feature,herramienta,horas,nota
 
 2026-11-06,Juan Pablo,spec+impl+review,H1,antigravity,2.0,Ciclo SDD completo de h01_registrar_gasto (R1..R8 y T1..T9)
 2026-11-10,Juan Pablo,spec+impl+review,H2,antigravity,1.5,Ciclo SDD completo de h02_editar_eliminar_gasto (R1..R8 y T1..T8)
+2026-11-10,Juan Pablo,spec+impl+review,H3,antigravity,1.5,Ciclo SDD completo de h03_listado_mensual (R1..R8 y T1..T7)
+2026-11-10,Juan Pablo,spec+impl+review,H5,antigravity,2.0,Ciclo SDD completo de h05_ingreso_mensual + Panel de Resumen General + Cuenta Local + Inversiones y Recordatorios (R1..R8 y T1..T8)

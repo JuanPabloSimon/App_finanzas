@@ -60,12 +60,44 @@ Delivery, Suscripciones, Ropa, Educación, Otros.
 | policy_version | TEXT | PK |
 | accepted_at | TEXT | NOT NULL |
 
+### `user_accounts` (Cuenta local del dispositivo)
+| Columna | Tipo | Restricciones |
+|---|---|---|
+| id | INTEGER | PK autoincremental |
+| full_name | TEXT | NOT NULL |
+| username | TEXT | NOT NULL, único (`COLLATE NOCASE`) |
+| password_hash | TEXT | NOT NULL |
+| created_at | TEXT | NOT NULL |
+
+### `investments` (Control de gestión de capital invertido)
+| Columna | Tipo | Restricciones |
+|---|---|---|
+| id | INTEGER | PK autoincremental |
+| asset_name | TEXT | NOT NULL (ej. Plazo Fijo, FCI, CEDEAR, Bono) |
+| platform | TEXT | NOT NULL (ej. Banco Nación, Balanz, IOL) |
+| amount_cents | INTEGER | NOT NULL, CHECK (amount_cents > 0) |
+| date | TEXT | NOT NULL, `YYYY-MM-DD` |
+| due_date | TEXT | NULL, `YYYY-MM-DD` (fecha de vencimiento para recordatorio) |
+| note | TEXT | NULL (ej. TNA / detalle) |
+| created_at | TEXT | NOT NULL |
+
+### `reminders` (Recordatorios financieros y de vencimientos)
+| Columna | Tipo | Restricciones |
+|---|---|---|
+| id | INTEGER | PK autoincremental |
+| title | TEXT | NOT NULL |
+| due_date | TEXT | NOT NULL, `YYYY-MM-DD` |
+| amount_cents | INTEGER | NULL |
+| is_completed | INTEGER | NOT NULL, 0/1 |
+| created_at | TEXT | NOT NULL |
+
 ## Migraciones
 
 | Versión | Cambio | Feature |
 |---|---|---|
 | 1 | `categories`, `expenses`, `monthly_incomes`, `consents` + categorías predefinidas | Iteración 1 (H12, H1, H5) |
-| 2 | `dismissed_recurrences` | H9 |
-| 3 | `advice_requests` | H10 |
+| 2 | `user_accounts`, `investments`, `reminders` | H5 y Panel de Resumen General |
+| 3 | `dismissed_recurrences` | H9 |
+| 4 | `advice_requests` | H10 |
 
 Regla: nunca se modifica una migración ya publicada; se agrega una nueva versión en `src/data/db/`.

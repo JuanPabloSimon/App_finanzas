@@ -10,6 +10,9 @@ import {
   isValidIsoDate,
   formatIsoDate,
   extractYearMonth,
+  isValidYearMonth,
+  shiftYearMonth,
+  formatYearMonthLabel,
 } from '../../../src/core/dates.js';
 import {
   parseAmountToCents,
@@ -218,5 +221,26 @@ describe('H1 modelos de dominio Expense y Category, conversión a centavos y con
     await assert.rejects(() => expRepo.findById(1), /Not implemented/);
     await assert.rejects(() => expRepo.update({ id: 1 }), /Not implemented/);
     await assert.rejects(() => expRepo.deleteById(1), /Not implemented/);
+  });
+
+  it('[H3-R5] calcula correctamente el mes anterior y el mes siguiente en formato YYYY-MM incluyendo el cambio de año y formatea la etiqueta mensual', () => {
+    assert.equal(isValidYearMonth('2026-11'), true);
+    assert.equal(isValidYearMonth('2026-01'), true);
+    assert.equal(shiftYearMonth('2026-11', -1), '2026-10');
+    assert.equal(shiftYearMonth('2026-10', 1), '2026-11');
+    assert.equal(shiftYearMonth('2026-01', -1), '2025-12');
+    assert.equal(shiftYearMonth('2025-12', 1), '2026-01');
+    assert.equal(shiftYearMonth('2026-11', 0), '2026-11');
+    assert.equal(formatYearMonthLabel('2026-11'), 'Noviembre 2026 (2026-11)');
+    assert.equal(formatYearMonthLabel('2025-12'), 'Diciembre 2025 (2025-12)');
+  });
+
+  it('[H3-R7] rechaza períodos mensuales inválidos en shiftYearMonth y formatYearMonthLabel lanzando InvalidExpenseDate', () => {
+    for (const badPeriod of ['', '2026', '2026-00', '2026-13', '2026-1', '11-2026', null, undefined]) {
+      assert.equal(isValidYearMonth(badPeriod), false);
+      assert.throws(() => shiftYearMonth(badPeriod, -1), InvalidExpenseDate);
+      assert.throws(() => formatYearMonthLabel(badPeriod), InvalidExpenseDate);
+    }
+    assert.throws(() => shiftYearMonth('2026-11', 1.5), InvalidExpenseDate);
   });
 });

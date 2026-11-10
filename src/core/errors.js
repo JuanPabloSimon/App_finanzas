@@ -35,3 +35,21 @@ export class ExpenseNotFound extends DomainException {
     this.expenseId = id;
   }
 }
+
+export class InvalidInvestment extends DomainException {
+  constructor(detail = 'Datos de inversión inválidos') {
+    super(detail);
+  }
+}
+
+export class InvalidReminder extends DomainException {
+  constructor(detail = 'Datos de recordatorio inválidos') {
+    super(detail);
+  }
+}
+
+export class InvalidCredentials extends DomainException {
+  constructor(detail = 'Credenciales o datos de cuenta inválidos') {
+    super(detail);
+  }
+}

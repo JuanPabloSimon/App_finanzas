@@ -12,6 +12,9 @@ import {
   formatIsoDate,
   formatIsoDateTime,
   extractYearMonth,
+  isValidYearMonth,
+  shiftYearMonth,
+  formatYearMonthLabel,
 } from '../../core/dates.js';
 import {
   parseAmountToCents,
@@ -19,6 +22,7 @@ import {
   formatCentsToInput,
 } from '../../core/formatters.js';
 import { getViewportLayout } from '../../core/responsive.js';
+import { CORPORATE_THEME } from '../../core/theme.js';
 import { PREDEFINED_CATEGORIES } from '../../data/db/appDatabase.js';
 
 const h = React.createElement;
@@ -155,24 +159,25 @@ function buildExpenseFormStyles(viewportWidth = 390) {
     wrapper: Object.freeze({
       width: '100%',
       boxSizing: 'border-box',
-      padding: layout.isMobile ? 16 : 24,
+      padding: layout.isMobile ? 4 : 8,
       maxWidth: layout.isMobile ? '100%' : layout.containerMaxWidth,
       margin: '0 auto',
-      color: '#0f172a',
+      color: CORPORATE_THEME.textPrimary,
+      fontFamily: CORPORATE_THEME.fontSans,
     }),
     grid: Object.freeze({
       display: 'grid',
       gridTemplateColumns:
-        gridColumns === 1 ? '1fr' : 'minmax(0, 1fr) minmax(0, 1fr)',
-      gap: layout.isMobile ? 16 : 24,
+        gridColumns === 1 ? '1fr' : 'minmax(0, 0.95fr) minmax(0, 1.05fr)',
+      gap: layout.isMobile ? 16 : 22,
       alignItems: 'start',
     }),
     card: Object.freeze({
-      backgroundColor: '#ffffff',
-      border: '1px solid #e2e8f0',
-      borderRadius: layout.isMobile ? 12 : 16,
-      padding: layout.isMobile ? 16 : 24,
-      boxShadow: '0 2px 8px rgba(15, 23, 42, 0.06)',
+      backgroundColor: CORPORATE_THEME.surface,
+      border: `1px solid ${CORPORATE_THEME.border}`,
+      borderTop: `2px solid ${CORPORATE_THEME.navyPrimary}`,
+      borderRadius: 6,
+      padding: layout.isMobile ? 16 : 22,
     }),
     fieldGroup: Object.freeze({
       display: 'flex',
@@ -181,33 +186,40 @@ function buildExpenseFormStyles(viewportWidth = 390) {
       marginBottom: 14,
     }),
     label: Object.freeze({
-      fontSize: 14,
+      fontSize: 13,
       fontWeight: 600,
-      color: '#334155',
+      color: CORPORATE_THEME.textSecondary,
     }),
     amountInput: Object.freeze({
       minHeight: 48,
       padding: '10px 14px',
-      fontSize: 20,
+      fontSize: 21,
       fontWeight: 600,
-      borderRadius: 10,
-      border: '1px solid #cbd5e1',
+      fontFamily: CORPORATE_THEME.fontSerif,
+      fontVariantNumeric: CORPORATE_THEME.tabularNums,
+      borderRadius: 4,
+      border: `1px solid ${CORPORATE_THEME.borderStrong}`,
       boxSizing: 'border-box',
       width: '100%',
+      color: CORPORATE_THEME.navyPrimary,
     }),
     input: Object.freeze({
       minHeight: 44,
-      padding: '10px 12px',
-      fontSize: 15,
-      borderRadius: 10,
-      border: '1px solid #cbd5e1',
+      padding: '9px 12px',
+      fontSize: 14,
+      borderRadius: 4,
+      border: `1px solid ${CORPORATE_THEME.borderStrong}`,
       boxSizing: 'border-box',
       width: '100%',
       backgroundColor: '#ffffff',
+      color: CORPORATE_THEME.textPrimary,
     }),
     errorMessage: Object.freeze({
       margin: '4px 0 0 0',
-      color: '#dc2626',
+      padding: '7px 10px',
+      borderRadius: 4,
+      backgroundColor: CORPORATE_THEME.dangerBg,
+      color: CORPORATE_THEME.danger,
       fontSize: 13,
       fontWeight: 600,
     }),
@@ -215,12 +227,12 @@ function buildExpenseFormStyles(viewportWidth = 390) {
       minHeight: 48,
       width: '100%',
       padding: '12px 20px',
-      borderRadius: 10,
+      borderRadius: 4,
       border: 'none',
-      backgroundColor: '#0284c7',
+      backgroundColor: CORPORATE_THEME.navyPrimary,
       color: '#ffffff',
       fontWeight: 600,
-      fontSize: 16,
+      fontSize: 15,
       cursor: 'pointer',
       marginTop: 4,
     }),
@@ -228,14 +240,33 @@ function buildExpenseFormStyles(viewportWidth = 390) {
       minHeight: 48,
       width: '100%',
       padding: '10px 18px',
-      borderRadius: 10,
-      border: '1px solid #cbd5e1',
-      backgroundColor: '#f8fafc',
-      color: '#334155',
+      borderRadius: 4,
+      border: `1px solid ${CORPORATE_THEME.brownPrimary}`,
+      backgroundColor: CORPORATE_THEME.brownSoft,
+      color: CORPORATE_THEME.brownPrimary,
       fontWeight: 600,
-      fontSize: 15,
+      fontSize: 14,
       cursor: 'pointer',
       marginTop: 8,
+    }),
+    monthNavigationBar: Object.freeze({
+      display: 'flex',
+      justifyContent: 'space-between',
+      alignItems: 'center',
+      gap: 8,
+      marginBottom: 12,
+      flexWrap: 'wrap',
+    }),
+    monthNavButton: Object.freeze({
+      minHeight: 44,
+      padding: '7px 12px',
+      borderRadius: 4,
+      border: `1px solid ${CORPORATE_THEME.borderStrong}`,
+      backgroundColor: '#ffffff',
+      color: CORPORATE_THEME.textPrimary,
+      fontSize: 13,
+      fontWeight: 600,
+      cursor: 'pointer',
     }),
     monthSummaryBox: Object.freeze({
       display: 'flex',
@@ -243,16 +274,40 @@ function buildExpenseFormStyles(viewportWidth = 390) {
       alignItems: 'center',
       padding: '12px 14px',
       marginBottom: 14,
-      borderRadius: 10,
-      backgroundColor: '#f8fafc',
-      border: '1px solid #e2e8f0',
+      borderRadius: 4,
+      backgroundColor: CORPORATE_THEME.surfaceMuted,
+      border: `1px solid ${CORPORATE_THEME.border}`,
+      borderLeft: `3px solid ${CORPORATE_THEME.brownPrimary}`,
+      fontVariantNumeric: CORPORATE_THEME.tabularNums,
+    }),
+    emptyStateBox: Object.freeze({
+      display: 'flex',
+      flexDirection: 'column',
+      alignItems: 'flex-start',
+      gap: 12,
+      padding: 16,
+      borderRadius: 4,
+      backgroundColor: CORPORATE_THEME.surfaceMuted,
+      border: `1px dashed ${CORPORATE_THEME.borderStrong}`,
+    }),
+    emptyStateCtaButton: Object.freeze({
+      minHeight: 48,
+      width: layout.isMobile ? '100%' : 'auto',
+      padding: '10px 18px',
+      borderRadius: 4,
+      border: `1px solid ${CORPORATE_THEME.navyPrimary}`,
+      backgroundColor: CORPORATE_THEME.navySoft,
+      color: CORPORATE_THEME.navyPrimary,
+      fontSize: 14,
+      fontWeight: 600,
+      cursor: 'pointer',
     }),
     expenseItem: Object.freeze({
       display: 'flex',
       flexDirection: 'column',
       gap: 10,
       padding: '12px 0',
-      borderBottom: '1px solid #f1f5f9',
+      borderBottom: `1px solid ${CORPORATE_THEME.border}`,
     }),
     expenseItemMain: Object.freeze({
       display: 'flex',
@@ -268,23 +323,23 @@ function buildExpenseFormStyles(viewportWidth = 390) {
     }),
     actionButton: Object.freeze({
       minHeight: 44,
-      padding: '8px 14px',
-      borderRadius: 8,
-      border: '1px solid #cbd5e1',
+      padding: '6px 12px',
+      borderRadius: 4,
+      border: `1px solid ${CORPORATE_THEME.borderStrong}`,
       backgroundColor: '#ffffff',
-      color: '#0f172a',
-      fontSize: 14,
+      color: CORPORATE_THEME.textPrimary,
+      fontSize: 13,
       fontWeight: 600,
       cursor: 'pointer',
     }),
     deleteActionButton: Object.freeze({
       minHeight: 44,
-      padding: '8px 14px',
-      borderRadius: 8,
+      padding: '6px 12px',
+      borderRadius: 4,
       border: '1px solid #fecaca',
-      backgroundColor: '#fef2f2',
-      color: '#b91c1c',
-      fontSize: 14,
+      backgroundColor: CORPORATE_THEME.dangerBg,
+      color: CORPORATE_THEME.danger,
+      fontSize: 13,
       fontWeight: 600,
       cursor: 'pointer',
     }),
@@ -295,18 +350,18 @@ function buildExpenseFormStyles(viewportWidth = 390) {
       alignItems: layout.isMobile ? 'stretch' : 'center',
       gap: 10,
       padding: 12,
-      borderRadius: 10,
-      backgroundColor: '#fff1f2',
+      borderRadius: 4,
+      backgroundColor: CORPORATE_THEME.dangerBg,
       border: '1px solid #fecdd3',
     }),
     confirmDeleteButton: Object.freeze({
       minHeight: 44,
-      padding: '8px 14px',
-      borderRadius: 8,
+      padding: '7px 14px',
+      borderRadius: 4,
       border: 'none',
-      backgroundColor: '#dc2626',
+      backgroundColor: CORPORATE_THEME.danger,
       color: '#ffffff',
-      fontSize: 14,
+      fontSize: 13,
       fontWeight: 600,
       cursor: 'pointer',
     }),
@@ -332,9 +387,11 @@ class ExpenseFormController {
     const initialDate = formatIsoDate(this.today());
     this.categories = [];
     this.expenses = [];
-    this.activeYearMonth = extractYearMonth(initialDate);
+    this.currentYearMonth = extractYearMonth(initialDate);
+    this.activeYearMonth = this.currentYearMonth;
     this.editingExpenseId = null;
     this.confirmingDeleteId = null;
+    this.focusRequestedOnAmount = false;
     this.amountInput = '';
     this.dateInput = initialDate;
     this.categoryId = null;
@@ -353,7 +410,8 @@ class ExpenseFormController {
     }
     const defaultDate = formatIsoDate(this.today());
     this.dateInput = defaultDate;
-    this.activeYearMonth = extractYearMonth(defaultDate);
+    this.currentYearMonth = extractYearMonth(defaultDate);
+    this.activeYearMonth = this.currentYearMonth;
     this.expenses = await this.expenseRepository.findByYearMonth(this.activeYearMonth);
     this.initialized = true;
     return this.getState();
@@ -361,6 +419,7 @@ class ExpenseFormController {
 
   setAmountInput(value) {
     this.amountInput = value === null || value === undefined ? '' : String(value);
+    this.focusRequestedOnAmount = false;
     if (this.amountError) {
       this.amountError = null;
     }
@@ -398,6 +457,45 @@ class ExpenseFormController {
     return this.getState();
   }
 
+  async goToYearMonth(targetYearMonth) {
+    if (!isValidYearMonth(targetYearMonth)) {
+      throw new InvalidExpenseDate('Período mensual inválido (AAAA-MM)');
+    }
+    const boundedMonth =
+      targetYearMonth > this.currentYearMonth ? this.currentYearMonth : targetYearMonth;
+    this.activeYearMonth = boundedMonth;
+    this.confirmingDeleteId = null;
+    this.expenses = await this.expenseRepository.findByYearMonth(this.activeYearMonth);
+    return this.getState();
+  }
+
+  async goToPreviousMonth() {
+    const previousMonth = shiftYearMonth(this.activeYearMonth, -1);
+    return this.goToYearMonth(previousMonth);
+  }
+
+  async goToNextMonth() {
+    if (this.activeYearMonth >= this.currentYearMonth) {
+      return this.getState();
+    }
+    const nextMonth = shiftYearMonth(this.activeYearMonth, 1);
+    return this.goToYearMonth(nextMonth);
+  }
+
+  activateEmptyStateCta() {
+    this.editingExpenseId = null;
+    this.confirmingDeleteId = null;
+    this.amountError = null;
+    this.formError = null;
+    const defaultDate = formatIsoDate(this.today());
+    this.dateInput =
+      extractYearMonth(defaultDate) === this.activeYearMonth
+        ? defaultDate
+        : `${this.activeYearMonth}-01`;
+    this.focusRequestedOnAmount = true;
+    return this.getState();
+  }
+
   startEditExpense(expenseId) {
     const numericId = Number(expenseId);
     const target = this.expenses.find((item) => item.id === numericId);
@@ -409,6 +507,7 @@ class ExpenseFormController {
 
     this.editingExpenseId = target.id;
     this.confirmingDeleteId = null;
+    this.focusRequestedOnAmount = false;
     this.amountInput = formatCentsToInput(target.amountCents);
     this.dateInput = target.date;
     this.categoryId = target.categoryId;
@@ -490,6 +589,7 @@ class ExpenseFormController {
 
     this.amountError = null;
     this.formError = null;
+    this.focusRequestedOnAmount = false;
 
     let amountCents;
     try {
@@ -572,9 +672,12 @@ class ExpenseFormController {
       categories: [...this.categories],
       expenses: [...this.expenses],
       monthlyTotalCents,
+      currentYearMonth: this.currentYearMonth,
       activeYearMonth: this.activeYearMonth,
+      canGoNextMonth: this.activeYearMonth < this.currentYearMonth,
       editingExpenseId: this.editingExpenseId,
       confirmingDeleteId: this.confirmingDeleteId,
+      focusRequestedOnAmount: this.focusRequestedOnAmount,
       amountInput: this.amountInput,
       dateInput: this.dateInput,
       categoryId: this.categoryId,
@@ -593,8 +696,10 @@ class ExpenseFormController {
       categoryRepository: this.categoryRepository,
       initialCategories: state.categories,
       initialExpenses: state.expenses,
+      initialActiveYearMonth: state.activeYearMonth,
       initialEditingExpenseId: state.editingExpenseId,
       initialConfirmingDeleteId: state.confirmingDeleteId,
+      initialFocusRequested: state.focusRequestedOnAmount,
       initialAmount: state.amountInput,
       initialDate: state.dateInput,
       initialCategoryId: state.categoryId,
@@ -614,8 +719,10 @@ export function ExpenseFormScreen({
   categoryRepository = null,
   initialCategories = undefined,
   initialExpenses = undefined,
+  initialActiveYearMonth = undefined,
   initialEditingExpenseId = null,
   initialConfirmingDeleteId = null,
+  initialFocusRequested = false,
   initialAmount = '',
   initialDate = undefined,
   initialCategoryId = undefined,
@@ -629,6 +736,7 @@ export function ExpenseFormScreen({
   onExpenseSaved = undefined,
 } = {}) {
   const defaultToday = formatIsoDate(today());
+  const currentYearMonth = extractYearMonth(defaultToday);
   const resolvedCategories =
     initialCategories !== undefined ? initialCategories : buildDefaultCategories();
   const defaultCategoryId =
@@ -645,9 +753,17 @@ export function ExpenseFormScreen({
 
   const [categories, setCategories] = useState(resolvedCategories);
   const [expenses, setExpenses] = useState(initialExpenses ?? []);
+  const [activeYearMonth, setActiveYearMonth] = useState(
+    initialActiveYearMonth && isValidYearMonth(initialActiveYearMonth)
+      ? initialActiveYearMonth
+      : currentYearMonth,
+  );
   const [editingExpenseId, setEditingExpenseId] = useState(initialEditingExpenseId);
   const [confirmingDeleteId, setConfirmingDeleteId] = useState(
     initialConfirmingDeleteId,
+  );
+  const [focusRequestedOnAmount, setFocusRequestedOnAmount] = useState(
+    initialFocusRequested,
   );
   const [amountInput, setAmountInput] = useState(initialAmount);
   const [dateInput, setDateInput] = useState(initialDate ?? defaultToday);
@@ -657,8 +773,6 @@ export function ExpenseFormScreen({
   const [amountError, setAmountError] = useState(initialAmountError);
   const [formError, setFormError] = useState(initialFormError);
 
-  const activeYearMonth = extractYearMonth(defaultToday);
-
   useEffect(() => {
     let active = true;
     if (initialCategories !== undefined && initialExpenses !== undefined) {
@@ -666,7 +780,7 @@ export function ExpenseFormScreen({
     }
     Promise.all([
       catRepo.findAll(),
-      expRepo.findByYearMonth(extractYearMonth(dateInput)),
+      expRepo.findByYearMonth(activeYearMonth),
     ]).then(([loadedCats, loadedExpenses]) => {
       if (!active) {
         return;
@@ -680,7 +794,7 @@ export function ExpenseFormScreen({
     return () => {
       active = false;
     };
-  }, [catRepo, expRepo, dateInput, categoryId, initialCategories, initialExpenses]);
+  }, [catRepo, expRepo, activeYearMonth, categoryId, initialCategories, initialExpenses]);
 
   const styles = buildExpenseFormStyles(viewportWidth);
   const { layout, gridColumns } = styles;
@@ -692,10 +806,49 @@ export function ExpenseFormScreen({
 
   const monthlyTotalCents = calculateMonthlyTotalCents(expenses);
   const isEditing = editingExpenseId !== null && editingExpenseId !== undefined;
+  const canGoNextMonth = activeYearMonth < currentYearMonth;
+
+  const handlePreviousMonth = async () => {
+    const previousMonth = shiftYearMonth(activeYearMonth, -1);
+    setActiveYearMonth(previousMonth);
+    setConfirmingDeleteId(null);
+    const updatedList = await expRepo.findByYearMonth(previousMonth);
+    setExpenses(updatedList);
+  };
+
+  const handleNextMonth = async () => {
+    if (!canGoNextMonth) {
+      return;
+    }
+    const nextMonth = shiftYearMonth(activeYearMonth, 1);
+    const boundedMonth = nextMonth > currentYearMonth ? currentYearMonth : nextMonth;
+    setActiveYearMonth(boundedMonth);
+    setConfirmingDeleteId(null);
+    const updatedList = await expRepo.findByYearMonth(boundedMonth);
+    setExpenses(updatedList);
+  };
+
+  const handleEmptyStateCta = () => {
+    setEditingExpenseId(null);
+    setConfirmingDeleteId(null);
+    setAmountError(null);
+    setFormError(null);
+    setDateInput(
+      activeYearMonth === currentYearMonth ? defaultToday : `${activeYearMonth}-01`,
+    );
+    setFocusRequestedOnAmount(true);
+    if (typeof document !== 'undefined') {
+      const amountEl = document.getElementById('expense-amount-input');
+      if (amountEl && typeof amountEl.focus === 'function') {
+        amountEl.focus();
+      }
+    }
+  };
 
   const handleStartEdit = (item) => {
     setEditingExpenseId(item.id);
     setConfirmingDeleteId(null);
+    setFocusRequestedOnAmount(false);
     setAmountInput(formatCentsToInput(item.amountCents));
     setDateInput(item.date);
     setCategoryId(item.categoryId);
@@ -752,6 +905,7 @@ export function ExpenseFormScreen({
     }
     setAmountError(null);
     setFormError(null);
+    setFocusRequestedOnAmount(false);
 
     let amountCents;
     try {
@@ -804,7 +958,9 @@ export function ExpenseFormScreen({
         updatedAt: timestamp,
       });
       const saved = await expRepo.save(draft);
-      const updatedList = await expRepo.findByYearMonth(extractYearMonth(saved.date));
+      const savedYearMonth = extractYearMonth(saved.date);
+      setActiveYearMonth(savedYearMonth);
+      const updatedList = await expRepo.findByYearMonth(savedYearMonth);
       const updatedCategories = await catRepo.findAll();
       setExpenses(updatedList);
       setCategories(updatedCategories);
@@ -882,6 +1038,7 @@ export function ExpenseFormScreen({
           h('input', {
             id: 'expense-amount-input',
             'data-testid': 'expense-amount-input',
+            'data-focus-requested': focusRequestedOnAmount ? 'true' : 'false',
             type: 'text',
             inputMode: 'decimal',
             placeholder: 'Ej: 1500,50',
@@ -891,6 +1048,7 @@ export function ExpenseFormScreen({
             style: styles.amountInput,
             onChange: (e) => {
               setAmountInput(e?.target?.value ?? '');
+              setFocusRequestedOnAmount(false);
               if (amountError) {
                 setAmountError(null);
               }
@@ -1048,6 +1206,48 @@ export function ExpenseFormScreen({
         h(
           'div',
           {
+            'data-testid': 'month-navigation-bar',
+            style: styles.monthNavigationBar,
+          },
+          h(
+            'button',
+            {
+              type: 'button',
+              'data-testid': 'prev-month-button',
+              tabIndex: 0,
+              style: styles.monthNavButton,
+              onClick: handlePreviousMonth,
+            },
+            '← Mes anterior',
+          ),
+          h(
+            'span',
+            {
+              'data-testid': 'active-month-label',
+              style: { fontSize: 14, fontWeight: 700, color: '#334155' },
+            },
+            formatYearMonthLabel(activeYearMonth),
+          ),
+          h(
+            'button',
+            {
+              type: 'button',
+              'data-testid': 'next-month-button',
+              tabIndex: 0,
+              disabled: !canGoNextMonth,
+              style: {
+                ...styles.monthNavButton,
+                opacity: canGoNextMonth ? 1 : 0.45,
+                cursor: canGoNextMonth ? 'pointer' : 'not-allowed',
+              },
+              onClick: handleNextMonth,
+            },
+            'Mes siguiente →',
+          ),
+        ),
+        h(
+          'div',
+          {
             'data-testid': 'month-total-summary',
             style: styles.monthSummaryBox,
           },
@@ -1067,12 +1267,29 @@ export function ExpenseFormScreen({
         ),
         expenses.length === 0
           ? h(
-              'p',
+              'div',
               {
                 'data-testid': 'empty-month-expenses',
-                style: { margin: 0, color: '#64748b', fontSize: 15 },
+                style: styles.emptyStateBox,
               },
-              'Todavía no registraste gastos en este mes.',
+              h(
+                'p',
+                {
+                  style: { margin: 0, color: '#64748b', fontSize: 15 },
+                },
+                'Todavía no registraste gastos en este mes.',
+              ),
+              h(
+                'button',
+                {
+                  type: 'button',
+                  'data-testid': 'empty-state-cta-button',
+                  tabIndex: 0,
+                  style: styles.emptyStateCtaButton,
+                  onClick: handleEmptyStateCta,
+                },
+                'Registrar gasto en este mes',
+              ),
             )
           : h(
               'ul',
