@@ -11,6 +11,7 @@ Este repositorio utiliza un arnés **Spec Driven Development (SDD)** compatible 
 1. **Mapa de entrada:** [`AGENTS.md`](./AGENTS.md)
 2. **Reglas duras:** [`rules.md`](./rules.md)
 3. **Historias y estados:** [`feature_list.json`](./feature_list.json)
-4. **Verificación del entorno y arnés:**
+4. **Documento de Proyecto (Etapas 1, 2 y 3):** [`docs/Proyecto_Tec_Laborales_Grupo_3.pdf`](./docs/Proyecto_Tec_Laborales_Grupo_3.pdf) y resumen operativo en [`docs/product.md`](./docs/product.md)
+5. **Verificación del entorno y arnés:**
    - Linux / macOS / Git Bash: `./init.sh`
    - Windows PowerShell: `powershell -ExecutionPolicy Bypass -File ./init.ps1`

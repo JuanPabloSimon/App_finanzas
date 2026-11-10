@@ -1,6 +1,6 @@
 # Producto — Qué se construye y qué no
 
-> Resumen operativo del Documento de Proyecto (Etapas 1, 2 y 3). Si algo no está acá ni en
+> Resumen operativo del Documento de Proyecto ([`docs/Proyecto_Tec_Laborales_Grupo_3.pdf`](./Proyecto_Tec_Laborales_Grupo_3.pdf), Etapas 1, 2 y 3). Si algo no está acá ni en
 > `feature_list.json`, **no está en el alcance**.
 
 ## Propósito
@@ -69,13 +69,13 @@ Los criterios de aceptación están en `feature_list.json` (campo `acceptance`).
 
 ## Fechas que mandan
 
-| Hito | Fecha |
-|---|---|
-| Informe de Etapa 3 | 06/11/2026 |
-| Versión completa de la app | 07/11/2026 |
-| Prueba de usabilidad con 5 usuarios | 03/11 al 09/11/2026 |
-| Entrega final del documento único | 13/11/2026 |
-| Presentación oral | 18/11 o 25/11/2026 |
+| Hito | Fecha línea base (Etapa 2) | Fecha replanificada (Etapa 3) |
+|---|---|---|
+| Informe de Etapa 3 | 06/11/2026 | 06/11/2026 |
+| Versión completa de la app | 07/11/2026 | 12/11/2026 (sin H7 y H8, postergadas por R7) |
+| Prueba de usabilidad con 5 usuarios | 03/11 al 09/11/2026 | 11/11 y 12/11/2026 |
+| Entrega final del documento único | 13/11/2026 | 13/11/2026 |
+| Presentación oral | 18/11 o 25/11/2026 | 25/11/2026 |
 
 ## Metas que la app tiene que poder demostrar (Etapa 3)
 

@@ -33,6 +33,7 @@ Grupo 3 (ITU, Técnicas laborales), cierre el **13/11/2026**. Detalle en `docs/p
 | `progress/traceability.md` | Matriz CA ↔ R ↔ test | Al cerrar una feature |
 | `specs/<feature>/` | `requirements.md` + `design.md` + `tasks.md` | Antes de implementar |
 | `specs/_template/` | Plantillas | Al redactar un spec |
+| `docs/Proyecto_Tec_Laborales_Grupo_3.pdf` | Documento de Proyecto (Etapas 1, 2 y 3, informe académico en proceso del Grupo 3) | Para contexto general, gestión PMBOK, costos/beneficios y replanificación |
 | `docs/product.md` | Visión, alcance (Mobile + Desktop, Mobile First), límites, historias | Para entender el qué |
 | `docs/architecture.md` | Capas, dependencias, diseño Mobile First y decisiones | Antes de diseñar o programar |
 | `docs/data_model.md` | Esquema SQLite (`expo-sqlite`) y migraciones | Antes de tocar persistencia |

@@ -32,7 +32,7 @@
         "CA3. La fecha se propone por defecto en el día actual y la subcategoría y la nota son opcionales."
       ],
       "sdd": true,
-      "status": "pending",
+      "status": "done",
       "orden": 2
     },
     {
@@ -49,7 +49,7 @@
         "CA2. Eliminar un gasto pide confirmación; al confirmar, el gasto desaparece y los totales se recalculan."
       ],
       "sdd": true,
-      "status": "pending",
+      "status": "done",
       "orden": 3
     },
     {
@@ -67,7 +67,7 @@
         "CA3. El usuario puede navegar al mes anterior."
       ],
       "sdd": true,
-      "status": "pending",
+      "status": "spec_ready",
       "orden": 4
     },
     {
