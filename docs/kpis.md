@@ -1,5 +1,7 @@
 # Métricas clave (Etapa 3) y cómo se miden en el repositorio
 
+> Definidas en la Etapa 3 del Documento de Proyecto ([`docs/Proyecto_Tec_Laborales_Grupo_3.pdf`](./Proyecto_Tec_Laborales_Grupo_3.pdf)).
+
 | KPI | Fórmula | Meta | Alerta | Artefacto del repo |
 |---|---|---|---|---|
 | K1 Tiempo medio de carga | Σ tiempos / n cargas | ≤ 15 s | > 20 s | `progress/usabilidad.md` (planilla de la prueba) |
@@ -14,7 +16,7 @@
 
 ## Prueba de usabilidad (K1 a K3)
 
-Del 03/11 al 09/11/2026, cinco usuarios del segmento. Plantilla para `progress/usabilidad.md`:
+11 y 12/11/2026 (replanificada en Etapa 3; línea base del 03/11 al 09/11/2026), cinco usuarios del segmento. Plantilla para `progress/usabilidad.md`:
 
 ```markdown
 | Usuario | Carga 1 (s) | Carga 2 | Carga 3 | Carga 4 | Carga 5 | Promedio | Top 3 correcto (s/n, tiempo) | Utilidad (1-5) | Observaciones |

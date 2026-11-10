@@ -1,2 +1,5 @@
 fecha,integrante,actividad,feature,herramienta,horas,nota
 2026-11-03,Juan Pablo,spec+impl+review,H12,antigravity,1.5,Ciclo SDD completo de h12_aviso_privacidad (R1..R8 y T1..T11)
+
+2026-11-06,Juan Pablo,spec+impl+review,H1,antigravity,2.0,Ciclo SDD completo de h01_registrar_gasto (R1..R8 y T1..T9)
+2026-11-10,Juan Pablo,spec+impl+review,H2,antigravity,1.5,Ciclo SDD completo de h02_editar_eliminar_gasto (R1..R8 y T1..T8)

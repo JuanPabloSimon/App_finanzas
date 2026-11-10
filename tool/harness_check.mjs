@@ -28,6 +28,7 @@ const baseFiles = [
   'docs/conventions.md',
   'docs/specs.md',
   'docs/verification.md',
+  'docs/Proyecto_Tec_Laborales_Grupo_3.pdf',
 ];
 
 const horasHeader = 'fecha,integrante,actividad,feature,herramienta,horas,nota';

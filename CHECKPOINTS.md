@@ -9,7 +9,7 @@
 - [ ] Existen `AGENTS.md`, `CLAUDE.md`, `rules.md`, `feature_list.json`,
       `progress/current.md`, `progress/history.md`, `progress/horas.csv`.
 - [ ] Existen `docs/architecture.md`, `docs/conventions.md`, `docs/specs.md`,
-      `docs/verification.md`.
+      `docs/verification.md` y `docs/Proyecto_Tec_Laborales_Grupo_3.pdf`.
 - [ ] `./init.sh` (o `./init.ps1`) termina con código de salida 0.
 
 ## C2 — El estado es coherente

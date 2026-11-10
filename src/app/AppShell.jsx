@@ -1,8 +1,9 @@
 import React, { useState, useEffect } from 'react';
 import { Consent, CURRENT_POLICY_VERSION } from '../domain/models/consent.js';
-import { formatIsoDateTime } from '../core/dates.js';
+import { formatIsoDate, formatIsoDateTime } from '../core/dates.js';
 import { getViewportLayout } from '../core/responsive.js';
 import { PrivacyNoticeScreen } from '../features/privacy/PrivacyNoticeScreen.jsx';
+import { ExpenseFormScreen } from '../features/expenses/ExpenseFormScreen.jsx';
 
 const h = React.createElement;
 
@@ -26,6 +27,9 @@ function createBrowserFallbackConsentRepository() {
 class AppConsentController {
   constructor({
     consentRepository,
+    expenseRepository = null,
+    categoryRepository = null,
+    today = () => formatIsoDate(new Date()),
     now = () => new Date(),
     viewportWidth = 390,
   } = {}) {
@@ -33,6 +37,9 @@ class AppConsentController {
       throw new Error('Se requiere consentRepository');
     }
     this.consentRepository = consentRepository;
+    this.expenseRepository = expenseRepository;
+    this.categoryRepository = categoryRepository;
+    this.today = today;
     this.now = now;
     this.viewportWidth = viewportWidth;
     this.consent = null;
@@ -123,9 +130,12 @@ class AppConsentController {
       AppShell,
       {
         consentRepository: this.consentRepository,
+        expenseRepository: this.expenseRepository,
+        categoryRepository: this.categoryRepository,
         initialConsent: state.consent,
         initialView: state.view,
         viewportWidth: state.viewportWidth,
+        today: this.today,
         now: this.now,
       },
       children,
@@ -135,9 +145,12 @@ class AppConsentController {
 
 export function AppShell({
   consentRepository = null,
+  expenseRepository = null,
+  categoryRepository = null,
   initialConsent = undefined,
   initialView = 'main',
   viewportWidth = 390,
+  today = () => formatIsoDate(new Date()),
   now = () => new Date(),
   children = null,
 } = {}) {
@@ -300,9 +313,23 @@ export function AppShell({
       },
       children ??
         h(
-          'p',
-          { 'data-testid': 'app-ready-message' },
-          'Panel principal desbloqueado. Tus datos se almacenan localmente en este dispositivo.',
+          React.Fragment,
+          null,
+          h(
+            'p',
+            {
+              'data-testid': 'app-ready-message',
+              style: { marginTop: 0, marginBottom: 16, color: '#475569', fontSize: 14 },
+            },
+            'Panel principal desbloqueado. Tus datos se almacenan localmente en este dispositivo.',
+          ),
+          h(ExpenseFormScreen, {
+            expenseRepository,
+            categoryRepository,
+            today,
+            now,
+            viewportWidth,
+          }),
         ),
     ),
   );

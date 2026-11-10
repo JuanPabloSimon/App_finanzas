@@ -1,0 +1,483 @@
+import { describe, it, beforeEach, afterEach } from 'node:test';
+import assert from 'node:assert/strict';
+import React from 'react';
+import { renderToStaticMarkup } from 'react-dom/server';
+import { AppDatabase } from '../../../src/data/db/appDatabase.js';
+import { SqliteCategoryRepository } from '../../../src/data/repositories/sqliteCategoryRepository.js';
+import { SqliteExpenseRepository } from '../../../src/data/repositories/sqliteExpenseRepository.js';
+import { Expense } from '../../../src/domain/models/expense.js';
+import { ExpenseFormScreen } from '../../../src/features/expenses/ExpenseFormScreen.jsx';
+
+const h = React.createElement;
+
+describe('H1 pantalla de registro de gasto, validaciones, listado del mes y diseño Mobile First + Desktop', () => {
+  let db;
+  let categoryRepo;
+  let expenseRepo;
+
+  beforeEach(async () => {
+    db = await AppDatabase.openInMemory();
+    categoryRepo = new SqliteCategoryRepository(db);
+    expenseRepo = new SqliteExpenseRepository(db);
+  });
+
+  afterEach(async () => {
+    if (db) {
+      await db.close();
+    }
+  });
+
+  it('[H1-R1] al abrir el formulario propone la fecha del día actual (YYYY-MM-DD), ordena primero las categorías frecuentes y preselecciona una categoría válida', async () => {
+    const categories = await categoryRepo.findAll();
+    const transporte = categories.find((c) => c.name === 'Transporte');
+    await expenseRepo.save(
+      new Expense({
+        amountCents: 90000,
+        date: '2026-11-01',
+        categoryId: transporte.id,
+        createdAt: '2026-11-01T08:00:00',
+      }),
+    );
+
+    const controller = ExpenseFormScreen.createController({
+      expenseRepository: expenseRepo,
+      categoryRepository: categoryRepo,
+      today: () => '2026-11-06',
+      viewportWidth: 390,
+    });
+
+    const state = await controller.initialize();
+    assert.equal(state.dateInput, '2026-11-06');
+    assert.equal(state.categories[0].name, 'Transporte');
+    assert.equal(state.categoryId, transporte.id);
+
+    const html = renderToStaticMarkup(controller.renderElement());
+    assert.match(html, /data-testid="expense-date-input"/);
+    assert.match(html, /value="2026-11-06"/);
+    assert.match(html, /Categoría \(frecuentes primero\)/);
+    assert.match(html, /Transporte/);
+  });
+
+  it('[H1-R2][H1-R3] al confirmar un monto mayor que cero, fecha y categoría guarda el gasto en centavos enteros y actualiza de inmediato el listado del mes con monto formateado, fecha, categoría y nota', async () => {
+    const fixedNow = new Date(2026, 10, 6, 15, 30, 0);
+    const controller = ExpenseFormScreen.createController({
+      expenseRepository: expenseRepo,
+      categoryRepository: categoryRepo,
+      today: () => '2026-11-06',
+      now: () => fixedNow,
+      viewportWidth: 390,
+    });
+
+    await controller.initialize();
+    controller.setAmountInput('1500,50');
+    controller.setDateInput('2026-11-06');
+    controller.setCategoryId(1);
+    controller.setNoteInput('Compra en verdulería');
+
+    const afterSubmit = await controller.submitExpense();
+    assert.equal(afterSubmit.amountError, null);
+    assert.equal(afterSubmit.amountInput, '');
+    assert.equal(afterSubmit.expenses.length, 1);
+    assert.equal(afterSubmit.expenses[0].amountCents, 150050);
+    assert.equal(afterSubmit.expenses[0].date, '2026-11-06');
+    assert.equal(afterSubmit.expenses[0].categoryName, 'Alimentos');
+    assert.equal(afterSubmit.expenses[0].note, 'Compra en verdulería');
+    assert.equal(afterSubmit.expenses[0].createdAt, '2026-11-06T15:30:00');
+    assert.equal(afterSubmit.expenses[0].updatedAt, '2026-11-06T15:30:00');
+
+    const html = renderToStaticMarkup(controller.renderElement());
+    assert.match(html, /data-testid="month-expense-list"/);
+    assert.match(html, /\$ 1\.500,50/);
+    assert.match(html, /2026-11-06/);
+    assert.match(html, /Alimentos/);
+    assert.match(html, /Compra en verdulería/);
+  });
+
+  it('[H1-R4][H1-R5] si el monto está vacío, no es numérico, es cero o es negativo no guarda el gasto en SQLite y muestra un mensaje de validación junto al campo de monto', async () => {
+    const controller = ExpenseFormScreen.createController({
+      expenseRepository: expenseRepo,
+      categoryRepository: categoryRepo,
+      today: () => '2026-11-06',
+      viewportWidth: 390,
+    });
+
+    await controller.initialize();
+
+    for (const invalidAmount of ['', '   ', '0', '0,00', '-250', 'texto']) {
+      controller.setAmountInput(invalidAmount);
+      const state = await controller.submitExpense();
+
+      assert.equal(state.expenses.length, 0);
+      assert.match(state.amountError, /Ingresá un monto mayor que cero/);
+
+      const html = renderToStaticMarkup(controller.renderElement());
+      assert.match(html, /data-testid="amount-error"/);
+      assert.match(html, /Ingresá un monto mayor que cero/);
+    }
+
+    const dbRows = await db.all('SELECT * FROM expenses');
+    assert.equal(dbRows.length, 0);
+  });
+
+  it('[H1-R6] al confirmar el registro dejando vacíos subcategoría y nota guarda null en ambas columnas', async () => {
+    const controller = ExpenseFormScreen.createController({
+      expenseRepository: expenseRepo,
+      categoryRepository: categoryRepo,
+      today: () => '2026-11-06',
+    });
+
+    await controller.initialize();
+    controller.setAmountInput('800');
+    controller.setSubcategoryInput('   ');
+    controller.setNoteInput('');
+
+    const state = await controller.submitExpense();
+    assert.equal(state.expenses.length, 1);
+    assert.equal(state.expenses[0].subcategory, null);
+    assert.equal(state.expenses[0].note, null);
+
+    const html = renderToStaticMarkup(controller.renderElement());
+    assert.doesNotMatch(html, /data-testid="expense-item-note"/);
+  });
+
+  it('[H1-R7] al completar subcategoría y nota persiste ambos valores recortados (trim) y los muestra en el listado mensual', async () => {
+    const controller = ExpenseFormScreen.createController({
+      expenseRepository: expenseRepo,
+      categoryRepository: categoryRepo,
+      today: () => '2026-11-06',
+    });
+
+    await controller.initialize();
+    controller.setAmountInput('3200');
+    controller.setCategoryId(2);
+    controller.setSubcategoryInput('  Subte  ');
+    controller.setNoteInput('  Carga SUBE mensual  ');
+
+    const state = await controller.submitExpense();
+    assert.equal(state.expenses.length, 1);
+    assert.equal(state.expenses[0].subcategory, 'Subte');
+    assert.equal(state.expenses[0].note, 'Carga SUBE mensual');
+
+    const html = renderToStaticMarkup(controller.renderElement());
+    assert.match(html, /Transporte · Subte/);
+    assert.match(html, /Carga SUBE mensual/);
+    assert.match(html, /\$ 3\.200/);
+  });
+
+  it('[H1-R8] aplica diseño Mobile First (< 768px) en 1 columna con botón táctil >= 48px y se adapta a pantallas Desktop (>= 768px) en grilla de 2 columnas con soporte de teclado', async () => {
+    const categories = await categoryRepo.findAll();
+
+    const mobileTree = renderToStaticMarkup(
+      h(ExpenseFormScreen, {
+        initialCategories: categories,
+        initialExpenses: [],
+        initialDate: '2026-11-06',
+        viewportWidth: 390,
+      }),
+    );
+    assert.match(mobileTree, /data-layout="mobile"/);
+    assert.match(mobileTree, /data-columns="1"/);
+
+    const mobileStyles = ExpenseFormScreen.buildStyles(390);
+    assert.equal(mobileStyles.gridColumns, 1);
+    assert.equal(mobileStyles.submitButton.minHeight, 48);
+    assert.equal(mobileStyles.submitButton.width, '100%');
+    assert.equal(mobileStyles.amountInput.minHeight, 48);
+
+    const desktopTree = renderToStaticMarkup(
+      h(ExpenseFormScreen, {
+        initialCategories: categories,
+        initialExpenses: [],
+        initialDate: '2026-11-06',
+        viewportWidth: 1280,
+      }),
+    );
+    assert.match(desktopTree, /data-layout="desktop"/);
+    assert.match(desktopTree, /data-columns="2"/);
+
+    const desktopStyles = ExpenseFormScreen.buildStyles(1280);
+    assert.equal(desktopStyles.gridColumns, 2);
+    assert.equal(desktopStyles.wrapper.maxWidth, 960);
+
+    const controller = ExpenseFormScreen.createController({
+      expenseRepository: expenseRepo,
+      categoryRepository: categoryRepo,
+      today: () => '2026-11-06',
+      viewportWidth: 1280,
+    });
+    await controller.initialize();
+    const desktopHtml = renderToStaticMarkup(controller.renderElement());
+    assert.match(desktopHtml, /data-testid="expense-form"/);
+    assert.match(desktopHtml, /tabindex="0"/);
+  });
+
+  it('[H2-R1] al seleccionar editar sobre un gasto existente del listado mensual carga sus datos actuales en el formulario y activa el modo edición', async () => {
+    const saved = await expenseRepo.save(
+      new Expense({
+        amountCents: 185050,
+        date: '2026-11-04',
+        categoryId: 2,
+        subcategory: 'Subte',
+        note: 'Carga semanal',
+        createdAt: '2026-11-04T09:00:00',
+        updatedAt: '2026-11-04T09:00:00',
+      }),
+    );
+
+    const controller = ExpenseFormScreen.createController({
+      expenseRepository: expenseRepo,
+      categoryRepository: categoryRepo,
+      today: () => '2026-11-06',
+      viewportWidth: 390,
+    });
+
+    await controller.initialize();
+    const editState = controller.startEditExpense(saved.id);
+
+    assert.equal(editState.editingExpenseId, saved.id);
+    assert.equal(editState.amountInput, '1850,50');
+    assert.equal(editState.dateInput, '2026-11-04');
+    assert.equal(editState.categoryId, 2);
+    assert.equal(editState.subcategoryInput, 'Subte');
+    assert.equal(editState.noteInput, 'Carga semanal');
+
+    const html = renderToStaticMarkup(controller.renderElement());
+    assert.match(html, /data-mode="edit"/);
+    assert.match(html, /Editar gasto/);
+    assert.match(html, /Guardar cambios/);
+    assert.match(html, /data-testid="cancel-edit-button"/);
+    assert.match(html, /value="1850,50"/);
+    assert.match(html, /value="2026-11-04"/);
+    assert.match(html, /value="Subte"/);
+    assert.match(html, /value="Carga semanal"/);
+
+    const afterCancel = controller.cancelEditExpense();
+    assert.equal(afterCancel.editingExpenseId, null);
+    assert.equal(afterCancel.amountInput, '');
+  });
+
+  it('[H2-R2][H2-R3] al confirmar la edición de un gasto válido actualiza SQLite conservando created_at, refleja los cambios en el listado y recalcula el total del mes sin reiniciar', async () => {
+    const first = await expenseRepo.save(
+      new Expense({
+        amountCents: 100000,
+        date: '2026-11-03',
+        categoryId: 1,
+        subcategory: 'Almacén',
+        note: 'Pan y leche',
+        createdAt: '2026-11-03T10:00:00',
+        updatedAt: '2026-11-03T10:00:00',
+      }),
+    );
+    await expenseRepo.save(
+      new Expense({
+        amountCents: 200000,
+        date: '2026-11-05',
+        categoryId: 2,
+        subcategory: 'Colectivo',
+        note: 'SUBE',
+        createdAt: '2026-11-05T11:00:00',
+        updatedAt: '2026-11-05T11:00:00',
+      }),
+    );
+
+    const editNow = new Date(2026, 10, 10, 14, 45, 0);
+    const controller = ExpenseFormScreen.createController({
+      expenseRepository: expenseRepo,
+      categoryRepository: categoryRepo,
+      today: () => '2026-11-06',
+      now: () => editNow,
+      viewportWidth: 390,
+    });
+
+    const initialState = await controller.initialize();
+    assert.equal(initialState.monthlyTotalCents, 300000);
+
+    controller.startEditExpense(first.id);
+    controller.setAmountInput('1750,25');
+    controller.setCategoryId(3);
+    controller.setSubcategoryInput('  Internet  ');
+    controller.setNoteInput('  Fibra óptica  ');
+
+    const afterUpdate = await controller.submitExpense();
+    assert.equal(afterUpdate.editingExpenseId, null);
+    assert.equal(afterUpdate.amountInput, '');
+    assert.equal(afterUpdate.monthlyTotalCents, 375025);
+
+    const editedItem = afterUpdate.expenses.find((item) => item.id === first.id);
+    assert.notEqual(editedItem, undefined);
+    assert.equal(editedItem.amountCents, 175025);
+    assert.equal(editedItem.categoryId, 3);
+    assert.equal(editedItem.categoryName, 'Servicios');
+    assert.equal(editedItem.subcategory, 'Internet');
+    assert.equal(editedItem.note, 'Fibra óptica');
+    assert.equal(editedItem.createdAt, '2026-11-03T10:00:00');
+    assert.equal(editedItem.updatedAt, '2026-11-10T14:45:00');
+
+    const html = renderToStaticMarkup(controller.renderElement());
+    assert.match(html, /Servicios · Internet/);
+    assert.match(html, /Fibra óptica/);
+    assert.match(html, /\$ 1\.750,25/);
+    assert.match(html, /data-testid="month-total-amount"[^>]*>\$ 3\.750,25</);
+  });
+
+  it('[H2-R4] durante la edición rechaza montos vacíos, cero, negativos o no numéricos e identificadores inexistentes sin modificar el registro en SQLite', async () => {
+    const saved = await expenseRepo.save(
+      new Expense({
+        amountCents: 120000,
+        date: '2026-11-06',
+        categoryId: 1,
+        note: 'Original sin cambios',
+        createdAt: '2026-11-06T09:30:00',
+        updatedAt: '2026-11-06T09:30:00',
+      }),
+    );
+
+    const controller = ExpenseFormScreen.createController({
+      expenseRepository: expenseRepo,
+      categoryRepository: categoryRepo,
+      today: () => '2026-11-06',
+    });
+
+    await controller.initialize();
+    controller.startEditExpense(saved.id);
+
+    for (const badAmount of ['', '0', '-500', 'invalido']) {
+      controller.setAmountInput(badAmount);
+      const stateAfterInvalid = await controller.submitExpense();
+      assert.equal(stateAfterInvalid.editingExpenseId, saved.id);
+      assert.match(stateAfterInvalid.amountError, /Ingresá un monto mayor que cero/);
+      assert.equal(stateAfterInvalid.monthlyTotalCents, 120000);
+    }
+
+    const dbRow = await expenseRepo.findById(saved.id);
+    assert.equal(dbRow.amountCents, 120000);
+    assert.equal(dbRow.note, 'Original sin cambios');
+
+    const stateNotFoundEdit = controller.startEditExpense(9999);
+    assert.match(stateNotFoundEdit.formError, /No existe el gasto 9999/);
+
+    const stateNotFoundDelete = await controller.confirmDeleteExpense(9999);
+    assert.match(stateNotFoundDelete.formError, /No existe el gasto 9999/);
+  });
+
+  it('[H2-R5][H2-R6][H2-R7] solicita confirmación antes de eliminar, conserva el gasto si se cancela y al confirmar lo borra de SQLite y recalcula el total del mes', async () => {
+    const first = await expenseRepo.save(
+      new Expense({
+        amountCents: 150000,
+        date: '2026-11-04',
+        categoryId: 1,
+        note: 'Gasto 1',
+        createdAt: '2026-11-04T10:00:00',
+      }),
+    );
+    const second = await expenseRepo.save(
+      new Expense({
+        amountCents: 80000,
+        date: '2026-11-06',
+        categoryId: 2,
+        note: 'Gasto 2',
+        createdAt: '2026-11-06T12:00:00',
+      }),
+    );
+
+    const controller = ExpenseFormScreen.createController({
+      expenseRepository: expenseRepo,
+      categoryRepository: categoryRepo,
+      today: () => '2026-11-06',
+    });
+
+    const initial = await controller.initialize();
+    assert.equal(initial.expenses.length, 2);
+    assert.equal(initial.monthlyTotalCents, 230000);
+
+    const confirmingState = controller.requestDeleteExpense(first.id);
+    assert.equal(confirmingState.confirmingDeleteId, first.id);
+    assert.equal((await expenseRepo.findById(first.id)) !== null, true);
+
+    const confirmHtml = renderToStaticMarkup(controller.renderElement());
+    assert.match(confirmHtml, new RegExp(`data-testid="delete-confirm-box-${first.id}"`));
+    assert.match(
+      confirmHtml,
+      new RegExp(`data-testid="confirm-delete-button-${first.id}"`),
+    );
+    assert.match(
+      confirmHtml,
+      new RegExp(`data-testid="cancel-delete-button-${first.id}"`),
+    );
+
+    const cancelledState = controller.cancelDeleteExpense();
+    assert.equal(cancelledState.confirmingDeleteId, null);
+    assert.equal(cancelledState.expenses.length, 2);
+    assert.equal(cancelledState.monthlyTotalCents, 230000);
+    assert.notEqual(await expenseRepo.findById(first.id), null);
+
+    controller.requestDeleteExpense(first.id);
+    const afterDelete = await controller.confirmDeleteExpense(first.id);
+    assert.equal(afterDelete.confirmingDeleteId, null);
+    assert.equal(afterDelete.expenses.length, 1);
+    assert.equal(afterDelete.expenses[0].id, second.id);
+    assert.equal(afterDelete.monthlyTotalCents, 80000);
+    assert.equal(await expenseRepo.findById(first.id), null);
+
+    const finalHtml = renderToStaticMarkup(controller.renderElement());
+    assert.doesNotMatch(finalHtml, /Gasto 1/);
+    assert.match(finalHtml, /Gasto 2/);
+    assert.match(finalHtml, /data-testid="month-total-amount"[^>]*>\$ 800</);
+  });
+
+  it('[H2-R8] presenta los controles de edición, eliminación, confirmación y total mensual con diseño Mobile First (< 768px) y adaptación Desktop (>= 768px)', async () => {
+    const saved = await expenseRepo.save(
+      new Expense({
+        amountCents: 145000,
+        date: '2026-11-06',
+        categoryId: 1,
+        note: 'Almuerzo',
+        createdAt: '2026-11-06T13:00:00',
+      }),
+    );
+
+    const mobileController = ExpenseFormScreen.createController({
+      expenseRepository: expenseRepo,
+      categoryRepository: categoryRepo,
+      today: () => '2026-11-06',
+      viewportWidth: 390,
+    });
+    await mobileController.initialize();
+    mobileController.requestDeleteExpense(saved.id);
+
+    const mobileStyles = ExpenseFormScreen.buildStyles(390);
+    assert.equal(mobileStyles.gridColumns, 1);
+    assert.equal(mobileStyles.actionButton.minHeight >= 44, true);
+    assert.equal(mobileStyles.confirmDeleteButton.minHeight >= 44, true);
+    assert.equal(mobileStyles.confirmBox.flexDirection, 'column');
+
+    const mobileHtml = renderToStaticMarkup(mobileController.renderElement());
+    assert.match(mobileHtml, /data-layout="mobile"/);
+    assert.match(mobileHtml, /data-columns="1"/);
+    assert.match(mobileHtml, new RegExp(`data-testid="edit-expense-button-${saved.id}"`));
+    assert.match(
+      mobileHtml,
+      new RegExp(`data-testid="delete-expense-button-${saved.id}"`),
+    );
+    assert.match(mobileHtml, /data-testid="month-total-amount"/);
+
+    const desktopController = ExpenseFormScreen.createController({
+      expenseRepository: expenseRepo,
+      categoryRepository: categoryRepo,
+      today: () => '2026-11-06',
+      viewportWidth: 1280,
+    });
+    await desktopController.initialize();
+    desktopController.startEditExpense(saved.id);
+
+    const desktopStyles = ExpenseFormScreen.buildStyles(1280);
+    assert.equal(desktopStyles.gridColumns, 2);
+    assert.equal(desktopStyles.confirmBox.flexDirection, 'row');
+
+    const desktopHtml = renderToStaticMarkup(desktopController.renderElement());
+    assert.match(desktopHtml, /data-layout="desktop"/);
+    assert.match(desktopHtml, /data-columns="2"/);
+    assert.match(desktopHtml, /data-testid="cancel-edit-button"/);
+    assert.match(desktopHtml, /tabindex="0"/);
+  });
+});
