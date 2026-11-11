@@ -92,3 +92,15 @@
   - 15 pruebas nuevas etiquetadas (`[H5-R1]`..`[H5-R8]`) en 3 suites nuevas (total: 61 pruebas en 9 suites).
 - **Verificación:** `reviewer` emitió `APPROVED` en `progress/review_h05_ingreso_mensual.md`; `./init.ps1`, `eslint` y `npm test` (61/61) en verde.
 - **Cierre:** `h05_ingreso_mensual` marcada `done` en `feature_list.json`. Próxima feature en orden: `H6 — h06_grafico_categorias` (`orden: 6`).
+
+
+## 2026-11-10 — H6 (`h06_grafico_categorias`) — Gráfico de distribución por categoría
+- **Agente:** Antigravity (`leader` → `spec_author` → `implementer` → `reviewer`) con Juan Pablo.
+- **Aprobación de spec:** `H6 aprobado por Juan Pablo el 2026-11-10`.
+- **Cambios:**
+  - Extensión de `calculateCategoryIncomeBreakdown` en `src/domain/models/monthlyIncome.js` con `expenseCount`, `expensePercentage` (con compensación de redondeo para sumar `100 %` exacto), `colorHex` (`CHART_PALETTE`) y desempate alfabético.
+  - Nuevo componente `CategoryDistributionChart` (`src/features/income/CategoryDistributionChart.jsx`) con gráfico anular SVG (`category-donut-svg`), barra apilada, detalle por categoría, fila de conciliación (`100 %` = total del listado) y estado vacío con botón de acción directa.
+  - Integración en `src/features/income/MonthlyOverviewScreen.jsx` con recálculo inmediato al agregar, editar o eliminar gastos o al cambiar de mes.
+  - 5 pruebas nuevas etiquetadas (`[H6-R1]`..`[H6-R8]`) en `test/domain/models/monthlyIncome.test.js` y `test/features/income/MonthlyOverviewScreen.test.jsx` (total: 66 pruebas en 9 suites).
+- **Verificación:** `reviewer` emitió `APPROVED` en `progress/review_h06_grafico_categorias.md`; `./init.ps1`, `eslint` y `npm test` (66/66) en verde.
+- **Cierre:** `h06_grafico_categorias` marcada `done` en `feature_list.json`. Próxima feature en orden: `H4 — h04_categorias_propias` (`orden: 7`).

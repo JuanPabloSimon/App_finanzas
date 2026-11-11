@@ -118,7 +118,7 @@
         "CA2. Con uno o ningún gasto, el tablero presenta un estado coherente y sin errores."
       ],
       "sdd": true,
-      "status": "pending",
+      "status": "done",
       "orden": 6
     },
     {
