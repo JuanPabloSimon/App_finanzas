@@ -1,5 +1,6 @@
 import { InvalidAmount, InvalidExpenseDate } from '../../core/errors.js';
 import { isValidYearMonth, isValidIsoDateTime } from '../../core/dates.js';
+import { CHART_PALETTE } from '../../core/theme.js';
 
 export class MonthlyIncome {
   constructor({ yearMonth, amountCents, updatedAt = null }) {
@@ -52,40 +53,77 @@ export function calculateCategoryIncomeBreakdown(
   }
 
   const totalsByCat = new Map();
+  let totalExpensesCents = 0;
+
   for (const exp of expenses) {
+    if (!exp || !Number.isInteger(exp.amountCents) || exp.amountCents <= 0) {
+      continue;
+    }
+    totalExpensesCents += exp.amountCents;
     const prev = totalsByCat.get(exp.categoryId) ?? {
       categoryId: exp.categoryId,
       categoryName: exp.categoryName ?? categoryMap.get(exp.categoryId) ?? 'Categoría',
       amountCents: 0,
+      expenseCount: 0,
     };
     prev.amountCents += exp.amountCents;
+    prev.expenseCount += 1;
     totalsByCat.set(exp.categoryId, prev);
   }
 
   const incomeCents =
-    monthlyIncome && Number.isInteger(monthlyIncome.amountCents) && monthlyIncome.amountCents > 0
+    monthlyIncome &&
+    Number.isInteger(monthlyIncome.amountCents) &&
+    monthlyIncome.amountCents > 0
       ? monthlyIncome.amountCents
       : null;
 
-  const items = [...totalsByCat.values()]
-    .sort((a, b) => {
-      if (b.amountCents !== a.amountCents) {
-        return b.amountCents - a.amountCents;
-      }
-      return a.categoryName.localeCompare(b.categoryName, 'es');
-    })
-    .map((entry) => {
-      const incomePercentage =
-        incomeCents !== null
-          ? Math.round((entry.amountCents * 1000) / incomeCents) / 10
-          : null;
-      return Object.freeze({
-        categoryId: entry.categoryId,
-        categoryName: entry.categoryName,
-        amountCents: entry.amountCents,
-        incomePercentage,
-      });
+  const sortedEntries = [...totalsByCat.values()].sort((a, b) => {
+    if (b.amountCents !== a.amountCents) {
+      return b.amountCents - a.amountCents;
+    }
+    return a.categoryName.localeCompare(b.categoryName, 'es', {
+      sensitivity: 'base',
     });
+  });
+
+  if (sortedEntries.length === 0) {
+    return Object.freeze([]);
+  }
+
+  const rawExpensePercentages = sortedEntries.map((entry) =>
+    totalExpensesCents > 0
+      ? Math.round((entry.amountCents * 1000) / totalExpensesCents) / 10
+      : 0,
+  );
+
+  if (totalExpensesCents > 0 && rawExpensePercentages.length > 0) {
+    const sumTenths = rawExpensePercentages.reduce(
+      (acc, pct) => acc + Math.round(pct * 10),
+      0,
+    );
+    const diffTenths = 1000 - sumTenths;
+    if (diffTenths !== 0) {
+      rawExpensePercentages[0] =
+        Math.round(rawExpensePercentages[0] * 10 + diffTenths) / 10;
+    }
+  }
+
+  const items = sortedEntries.map((entry, idx) => {
+    const incomePercentage =
+      incomeCents !== null
+        ? Math.round((entry.amountCents * 1000) / incomeCents) / 10
+        : null;
+    return Object.freeze({
+      categoryId: entry.categoryId,
+      categoryName: entry.categoryName,
+      amountCents: entry.amountCents,
+      expenseCount: entry.expenseCount,
+      expensePercentage: rawExpensePercentages[idx],
+      incomePercentage,
+      colorHex: CHART_PALETTE[idx % CHART_PALETTE.length],
+    });
+  });
 
   return Object.freeze(items);
 }

@@ -29,6 +29,7 @@ import { getViewportLayout } from '../../core/responsive.js';
 import { CORPORATE_THEME } from '../../core/theme.js';
 import { PREDEFINED_CATEGORIES } from '../../data/db/appDatabase.js';
 import { ExpenseFormScreen } from '../expenses/ExpenseFormScreen.jsx';
+import { CategoryDistributionChart } from './CategoryDistributionChart.jsx';
 
 const h = React.createElement;
 
@@ -602,6 +603,24 @@ class MonthlyOverviewController {
     }
     const next = shiftYearMonth(this.activeYearMonth, 1);
     this.activeYearMonth = next > this.currentYearMonth ? this.currentYearMonth : next;
+    await this.reloadMonthData(this.activeYearMonth);
+    return this.getState();
+  }
+
+  async registerExpense(expenseDraft) {
+    const saved = await this.expenseRepository.save(expenseDraft);
+    await this.reloadMonthData(this.activeYearMonth);
+    return { saved, state: this.getState() };
+  }
+
+  async updateExpense(expenseDraft) {
+    const updated = await this.expenseRepository.update(expenseDraft);
+    await this.reloadMonthData(this.activeYearMonth);
+    return { updated, state: this.getState() };
+  }
+
+  async deleteExpense(expenseId) {
+    await this.expenseRepository.deleteById(expenseId);
     await this.reloadMonthData(this.activeYearMonth);
     return this.getState();
   }
@@ -1325,147 +1344,12 @@ export function MonthlyOverviewScreen({
           h(
             'div',
             { style: { display: 'flex', flexDirection: 'column', gap: 18 } },
-            h(
-              'section',
-              {
-                'data-testid': 'category-income-breakdown',
-                style: styles.card,
-              },
-              h(
-                'h3',
-                {
-                  style: {
-                    marginTop: 0,
-                    marginBottom: 14,
-                    color: CORPORATE_THEME.navyPrimary,
-                    fontSize: 18,
-                    fontFamily: CORPORATE_THEME.fontSerif,
-                    fontWeight: 600,
-                  },
-                },
-                'Distribución de gastos por categoría',
-              ),
-              categoryBreakdown.length === 0
-                ? h(
-                    'p',
-                    {
-                      style: {
-                        margin: 0,
-                        color: CORPORATE_THEME.textMuted,
-                        fontSize: 14,
-                      },
-                    },
-                    'No hay gastos registrados en este período.',
-                  )
-                : h(
-                    'ul',
-                    { style: { listStyle: 'none', margin: 0, padding: 0 } },
-                    ...categoryBreakdown.map((item) => {
-                      const barPct =
-                        item.incomePercentage !== null
-                          ? Math.min(100, item.incomePercentage)
-                          : totalExpensesCents > 0
-                            ? Math.min(
-                                100,
-                                Math.round(
-                                  (item.amountCents * 100) / totalExpensesCents,
-                                ),
-                              )
-                            : 0;
-                      return h(
-                        'li',
-                        {
-                          key: item.categoryId,
-                          'data-testid': `breakdown-category-${item.categoryId}`,
-                          style: {
-                            padding: '11px 0',
-                            borderBottom: `1px solid ${CORPORATE_THEME.border}`,
-                          },
-                        },
-                        h(
-                          'div',
-                          {
-                            style: {
-                              display: 'flex',
-                              justifyContent: 'space-between',
-                              alignItems: 'center',
-                              gap: 8,
-                              marginBottom: 6,
-                            },
-                          },
-                          h(
-                            'strong',
-                            {
-                              style: {
-                                color: CORPORATE_THEME.textPrimary,
-                                fontSize: 14,
-                                fontWeight: 600,
-                              },
-                            },
-                            item.categoryName,
-                          ),
-                          h(
-                            'div',
-                            {
-                              style: {
-                                display: 'flex',
-                                gap: 10,
-                                alignItems: 'center',
-                                fontVariantNumeric: CORPORATE_THEME.tabularNums,
-                              },
-                            },
-                            item.incomePercentage !== null
-                              ? h(
-                                  'span',
-                                  {
-                                    'data-testid': `category-income-pct-${item.categoryId}`,
-                                    style: {
-                                      padding: '2px 8px',
-                                      borderRadius: 4,
-                                      backgroundColor: CORPORATE_THEME.brownSoft,
-                                      border: `1px solid ${CORPORATE_THEME.border}`,
-                                      color: CORPORATE_THEME.brownPrimary,
-                                      fontSize: 12,
-                                      fontWeight: 600,
-                                    },
-                                  },
-                                  `${item.incomePercentage} % del ingreso`,
-                                )
-                              : null,
-                            h(
-                              'strong',
-                              {
-                                style: {
-                                  color: CORPORATE_THEME.navyPrimary,
-                                  fontSize: 14,
-                                },
-                              },
-                              formatCentsToArs(item.amountCents),
-                            ),
-                          ),
-                        ),
-                        h(
-                          'div',
-                          {
-                            style: {
-                              height: 5,
-                              borderRadius: 2,
-                              backgroundColor: CORPORATE_THEME.surfaceMuted,
-                              overflow: 'hidden',
-                            },
-                          },
-                          h('div', {
-                            style: {
-                              width: `${barPct}%`,
-                              height: '100%',
-                              backgroundColor: CORPORATE_THEME.navyPrimary,
-                            },
-                          }),
-                        ),
-                      );
-                    }),
-                  ),
-            ),
+            h(CategoryDistributionChart, {
+              categoryBreakdown,
+              totalExpensesCents,
+              viewportWidth,
+              onNavigateToExpenses: () => setActiveTab('expenses'),
+            }),
             h(
               'form',
               {

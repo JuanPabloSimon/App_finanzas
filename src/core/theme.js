@@ -24,3 +24,14 @@ export const CORPORATE_THEME = Object.freeze({
   fontSerif: "'Newsreader', Georgia, 'Times New Roman', serif",
   tabularNums: 'tabular-nums',
 });
+
+export const CHART_PALETTE = Object.freeze([
+  '#0F2942',
+  '#4A3525',
+  '#1E4D7B',
+  '#7A5438',
+  '#2E6F95',
+  '#8C6D53',
+  '#3B5978',
+  '#5C4028',
+]);

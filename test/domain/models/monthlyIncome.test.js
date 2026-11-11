@@ -182,4 +182,79 @@ describe('H5 modelos de dominio MonthlyIncome, Investment, Reminder, UserAccount
     assert.equal(CORPORATE_THEME.navyPrimary, '#0F2942');
     assert.equal(CORPORATE_THEME.brownPrimary, '#4A3525');
   });
+
+  it('[H6-R1][H6-R2][H6-R7] agrupa gastos por categoría, compensa redondeo para que expensePercentage sume 100 % y ordena por monto descendente con desempate alfabético', () => {
+    const categories = [
+      new Category({ id: 1, name: 'Transporte', isPredefined: true }),
+      new Category({ id: 2, name: 'Alimentos', isPredefined: true }),
+      new Category({ id: 3, name: 'Salud', isPredefined: true }),
+    ];
+    const expenses = [
+      new Expense({
+        id: 1,
+        amountCents: 10000,
+        date: '2026-11-01',
+        categoryId: 1,
+        categoryName: 'Transporte',
+      }),
+      new Expense({
+        id: 2,
+        amountCents: 10000,
+        date: '2026-11-02',
+        categoryId: 2,
+        categoryName: 'Alimentos',
+      }),
+      new Expense({
+        id: 3,
+        amountCents: 10000,
+        date: '2026-11-03',
+        categoryId: 3,
+        categoryName: 'Salud',
+      }),
+    ];
+
+    const breakdown = calculateCategoryIncomeBreakdown(expenses, categories, null);
+    assert.equal(breakdown.length, 3);
+    assert.equal(breakdown[0].categoryName, 'Alimentos');
+    assert.equal(breakdown[1].categoryName, 'Salud');
+    assert.equal(breakdown[2].categoryName, 'Transporte');
+
+    const sumAmounts = breakdown.reduce((s, item) => s + item.amountCents, 0);
+    assert.equal(sumAmounts, 30000);
+
+    const sumPct =
+      Math.round(
+        breakdown.reduce((s, item) => s + item.expensePercentage, 0) * 10,
+      ) / 10;
+    assert.equal(sumPct, 100);
+    assert.equal(breakdown[0].colorHex, '#0F2942');
+    assert.equal(breakdown[1].colorHex, '#4A3525');
+  });
+
+  it('[H6-R4][H6-R5] maneja coherentemente un único gasto (100 %) y ningún gasto (arreglo vacío sin NaN)', () => {
+    const categories = [
+      new Category({ id: 1, name: 'Alimentos', isPredefined: true }),
+    ];
+    const emptyBreakdown = calculateCategoryIncomeBreakdown([], categories, null);
+    assert.equal(emptyBreakdown.length, 0);
+
+    const singleExpense = [
+      new Expense({
+        id: 1,
+        amountCents: 450000,
+        date: '2026-11-05',
+        categoryId: 1,
+        categoryName: 'Alimentos',
+      }),
+    ];
+    const singleBreakdown = calculateCategoryIncomeBreakdown(
+      singleExpense,
+      categories,
+      null,
+    );
+    assert.equal(singleBreakdown.length, 1);
+    assert.equal(singleBreakdown[0].amountCents, 450000);
+    assert.equal(singleBreakdown[0].expenseCount, 1);
+    assert.equal(singleBreakdown[0].expensePercentage, 100);
+  });
 });
