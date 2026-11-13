@@ -6,6 +6,10 @@ import {
   InvalidAmount,
   InvalidExpenseDate,
   InvalidCategory,
+  DuplicateCategory,
+  CategoryNotFound,
+  PredefinedCategoryDeletionNotAllowed,
+  CategoryInUse,
   ExpenseNotFound,
 } from '../../core/errors.js';
 import {
@@ -41,18 +45,114 @@ function buildDefaultCategories(createdAt = '2026-10-01T00:00:00') {
 
 function createInMemoryCategoryRepository(seedCategories = buildDefaultCategories()) {
   const categories = [...seedCategories];
+  let nextId =
+    categories.reduce((max, cat) => Math.max(max, Number(cat.id) || 0), 0) + 1;
+  let linkedExpensesRef = null;
+
   return {
+    _linkExpenses(expensesArray) {
+      linkedExpensesRef = expensesArray;
+    },
     async findAll() {
       return [...categories];
     },
     async findById(id) {
-      return categories.find((cat) => cat.id === id) ?? null;
+      const numericId = Number(id);
+      return categories.find((cat) => cat.id === numericId) ?? null;
+    },
+    async findByName(name) {
+      if (typeof name !== 'string' || name.trim().length === 0) {
+        return null;
+      }
+      const normalized = name.trim().toLowerCase();
+      return (
+        categories.find((cat) => cat.name.toLowerCase() === normalized) ?? null
+      );
+    },
+    async save(category) {
+      const draft =
+        category instanceof Category
+          ? category
+          : new Category({
+              id: category?.id ?? null,
+              name: typeof category === 'string' ? category : category?.name,
+              isPredefined: Boolean(category?.isPredefined),
+              createdAt: category?.createdAt,
+            });
+      const existing = await this.findByName(draft.name);
+      if (existing) {
+        throw new DuplicateCategory(draft.name);
+      }
+      const saved = new Category({
+        id: nextId++,
+        name: draft.name,
+        isPredefined: draft.isPredefined,
+        createdAt: draft.createdAt ?? formatIsoDateTime(new Date()),
+      });
+      categories.push(saved);
+      return saved;
+    },
+    async countExpenses(categoryId) {
+      const numericId = Number(categoryId);
+      if (!linkedExpensesRef) {
+        return 0;
+      }
+      return linkedExpensesRef.filter((e) => e.categoryId === numericId).length;
+    },
+    async deleteById(id, options = {}) {
+      const numericId = Number(id);
+      const idx = categories.findIndex((cat) => cat.id === numericId);
+      if (idx === -1) {
+        throw new CategoryNotFound(numericId);
+      }
+      const target = categories[idx];
+      if (target.isPredefined) {
+        throw new PredefinedCategoryDeletionNotAllowed(target.name);
+      }
+      const count = await this.countExpenses(numericId);
+      if (count > 0) {
+        const reassignToCategoryId = options?.reassignToCategoryId;
+        if (reassignToCategoryId === undefined || reassignToCategoryId === null) {
+          throw new CategoryInUse(numericId, count);
+        }
+        const targetReassignId = Number(reassignToCategoryId);
+        if (
+          !Number.isInteger(targetReassignId) ||
+          targetReassignId <= 0 ||
+          targetReassignId === numericId
+        ) {
+          throw new InvalidCategory(
+            'Seleccioná una categoría de destino válida y distinta a la que vas a eliminar',
+          );
+        }
+        const dest = await this.findById(targetReassignId);
+        if (!dest) {
+          throw new CategoryNotFound(targetReassignId);
+        }
+        if (linkedExpensesRef) {
+          const updatedAt = formatIsoDateTime(new Date());
+          for (let i = 0; i < linkedExpensesRef.length; i += 1) {
+            if (linkedExpensesRef[i].categoryId === numericId) {
+              linkedExpensesRef[i] = linkedExpensesRef[i].copyWith({
+                categoryId: dest.id,
+                categoryName: dest.name,
+                updatedAt,
+              });
+            }
+          }
+        }
+      }
+      categories.splice(idx, 1);
+      return true;
     },
   };
 }
 
 function createInMemoryExpenseRepository(categoryRepository) {
   const expenses = [];
+  if (categoryRepository && typeof categoryRepository._linkExpenses === 'function') {
+    categoryRepository._linkExpenses(expenses);
+  }
   let nextId = 1;
   return {
     async save(expense) {
@@ -142,6 +242,36 @@ function createInMemoryExpenseRepository(categoryRepository) {
       expenses.splice(idx, 1);
       return true;
     },
+    async countByCategoryId(categoryId) {
+      const numericId = Number(categoryId);
+      return expenses.filter((item) => item.categoryId === numericId).length;
+    },
+    async reassignCategory(fromCategoryId, toCategoryId) {
+      const fromId = Number(fromCategoryId);
+      const toId = Number(toCategoryId);
+      if (!Number.isInteger(toId) || toId <= 0 || toId === fromId) {
+        throw new InvalidCategory(
+          'Seleccioná una categoría de destino válida y distinta',
+        );
+      }
+      const dest = categoryRepository ? await categoryRepository.findById(toId) : null;
+      if (!dest) {
+        throw new CategoryNotFound(toId);
+      }
+      let moved = 0;
+      const updatedAt = formatIsoDateTime(new Date());
+      for (let i = 0; i < expenses.length; i += 1) {
+        if (expenses[i].categoryId === fromId) {
+          expenses[i] = expenses[i].copyWith({
+            categoryId: dest.id,
+            categoryName: dest.name,
+            updatedAt,
+          });
+          moved += 1;
+        }
+      }
+      return moved;
+    },
   };
 }
 
@@ -194,14 +324,17 @@ function buildExpenseFormStyles(viewportWidth = 390) {
       minHeight: 48,
       padding: '10px 14px',
       fontSize: 21,
-      fontWeight: 600,
+      fontWeight: 700,
       fontFamily: CORPORATE_THEME.fontSerif,
       fontVariantNumeric: CORPORATE_THEME.tabularNums,
       borderRadius: 4,
-      border: `1px solid ${CORPORATE_THEME.borderStrong}`,
+      border: `2px solid ${CORPORATE_THEME.navyPrimary}`,
       boxSizing: 'border-box',
       width: '100%',
-      color: CORPORATE_THEME.navyPrimary,
+      backgroundColor: '#FFFFFF',
+      color: '#0B192C',
+      caretColor: '#0B192C',
+      colorScheme: 'light',
     }),
     input: Object.freeze({
       minHeight: 44,
@@ -365,6 +498,49 @@ function buildExpenseFormStyles(viewportWidth = 390) {
       fontWeight: 600,
       cursor: 'pointer',
     }),
+    categoryCreateRow: Object.freeze({
+      display: 'flex',
+      flexDirection: layout.isMobile ? 'column' : 'row',
+      gap: 10,
+      alignItems: layout.isMobile ? 'stretch' : 'center',
+      marginBottom: 14,
+    }),
+    createCategoryButton: Object.freeze({
+      minHeight: 48,
+      width: layout.isMobile ? '100%' : 'auto',
+      padding: '10px 18px',
+      borderRadius: 4,
+      border: 'none',
+      backgroundColor: CORPORATE_THEME.brownPrimary,
+      color: '#ffffff',
+      fontWeight: 600,
+      fontSize: 14,
+      cursor: 'pointer',
+      whiteSpace: 'nowrap',
+    }),
+    categoryItemRow: Object.freeze({
+      display: 'flex',
+      flexDirection: 'column',
+      gap: 8,
+      padding: '10px 0',
+      borderBottom: `1px solid ${CORPORATE_THEME.border}`,
+    }),
+    categoryItemMain: Object.freeze({
+      display: 'flex',
+      justifyContent: 'space-between',
+      alignItems: 'center',
+      gap: 10,
+      flexWrap: 'wrap',
+    }),
+    reassignBox: Object.freeze({
+      display: 'flex',
+      flexDirection: 'column',
+      gap: 10,
+      padding: 12,
+      borderRadius: 4,
+      backgroundColor: CORPORATE_THEME.surfaceMuted,
+      border: `1px solid ${CORPORATE_THEME.borderStrong}`,
+    }),
   });
 }
 
@@ -387,6 +563,7 @@ class ExpenseFormController {
     const initialDate = formatIsoDate(this.today());
     this.categories = [];
     this.expenses = [];
+    this.categoryExpenseCounts = {};
     this.currentYearMonth = extractYearMonth(initialDate);
     this.activeYearMonth = this.currentYearMonth;
     this.editingExpenseId = null;
@@ -399,7 +576,27 @@ class ExpenseFormController {
     this.noteInput = '';
     this.amountError = null;
     this.formError = null;
+    this.newCategoryNameInput = '';
+    this.categoryError = null;
+    this.deletingCategoryId = null;
+    this.deletingCategoryExpenseCount = 0;
+    this.reassignTargetCategoryId = null;
     this.initialized = false;
+  }
+
+  async refreshCategoryExpenseCounts(cats = this.categories) {
+    const counts = {};
+    for (const cat of cats) {
+      if (typeof this.categoryRepository.countExpenses === 'function') {
+        counts[cat.id] = await this.categoryRepository.countExpenses(cat.id);
+      } else if (typeof this.expenseRepository.countByCategoryId === 'function') {
+        counts[cat.id] = await this.expenseRepository.countByCategoryId(cat.id);
+      } else {
+        counts[cat.id] = this.expenses.filter((e) => e.categoryId === cat.id).length;
+      }
+    }
+    this.categoryExpenseCounts = counts;
+    return counts;
   }
 
   async initialize() {
@@ -413,6 +610,7 @@ class ExpenseFormController {
     this.currentYearMonth = extractYearMonth(defaultDate);
     this.activeYearMonth = this.currentYearMonth;
     this.expenses = await this.expenseRepository.findByYearMonth(this.activeYearMonth);
+    await this.refreshCategoryExpenseCounts(loadedCategories);
     this.initialized = true;
     return this.getState();
   }
@@ -455,6 +653,132 @@ class ExpenseFormController {
   setViewportWidth(width) {
     this.viewportWidth = width;
     return this.getState();
+  }
+
+  setNewCategoryNameInput(value) {
+    this.newCategoryNameInput =
+      value === null || value === undefined ? '' : String(value);
+    if (this.categoryError) {
+      this.categoryError = null;
+    }
+    return this.getState();
+  }
+
+  async createCustomCategory(nameOverride) {
+    const rawName =
+      nameOverride !== undefined ? nameOverride : this.newCategoryNameInput;
+    this.categoryError = null;
+    try {
+      const draft = new Category({
+        name: rawName,
+        isPredefined: false,
+        createdAt: formatIsoDateTime(this.now()),
+      });
+      const saved = await this.categoryRepository.save(draft);
+      this.categories = await this.categoryRepository.findAll();
+      await this.refreshCategoryExpenseCounts(this.categories);
+      this.categoryId = saved.id;
+      this.newCategoryNameInput = '';
+      return this.getState();
+    } catch (err) {
+      if (err instanceof DomainException) {
+        this.categoryError = err.message;
+        return this.getState();
+      }
+      throw err;
+    }
+  }
+
+  requestDeleteCategory(categoryId) {
+    const numericId = Number(categoryId);
+    this.categoryError = null;
+    const target = this.categories.find((cat) => cat.id === numericId);
+    if (!target) {
+      this.categoryError = new CategoryNotFound(numericId).message;
+      return this.getState();
+    }
+    if (target.isPredefined) {
+      this.categoryError = new PredefinedCategoryDeletionNotAllowed(
+        target.name,
+      ).message;
+      return this.getState();
+    }
+
+    const expenseCount = this.categoryExpenseCounts[numericId] ?? 0;
+    this.deletingCategoryId = numericId;
+    this.deletingCategoryExpenseCount = expenseCount;
+    if (expenseCount > 0) {
+      const fallbackTarget = this.categories.find((cat) => cat.id !== numericId);
+      this.reassignTargetCategoryId = fallbackTarget ? fallbackTarget.id : null;
+    } else {
+      this.reassignTargetCategoryId = null;
+    }
+    return this.getState();
+  }
+
+  setReassignTargetCategoryId(categoryId) {
+    this.reassignTargetCategoryId =
+      categoryId !== null && categoryId !== undefined && categoryId !== ''
+        ? Number(categoryId)
+        : null;
+    if (this.categoryError) {
+      this.categoryError = null;
+    }
+    return this.getState();
+  }
+
+  cancelDeleteCategory() {
+    this.deletingCategoryId = null;
+    this.deletingCategoryExpenseCount = 0;
+    this.reassignTargetCategoryId = null;
+    this.categoryError = null;
+    return this.getState();
+  }
+
+  async confirmDeleteCategory(categoryId, reassignToCategoryId) {
+    const targetId =
+      categoryId !== undefined && categoryId !== null
+        ? Number(categoryId)
+        : this.deletingCategoryId;
+    const resolvedReassignId =
+      reassignToCategoryId !== undefined
+        ? reassignToCategoryId
+        : this.reassignTargetCategoryId;
+
+    this.categoryError = null;
+    try {
+      const options =
+        resolvedReassignId !== null && resolvedReassignId !== undefined
+          ? { reassignToCategoryId: Number(resolvedReassignId) }
+          : {};
+      await this.categoryRepository.deleteById(targetId, options);
+      this.deletingCategoryId = null;
+      this.deletingCategoryExpenseCount = 0;
+      this.reassignTargetCategoryId = null;
+
+      this.categories = await this.categoryRepository.findAll();
+      this.expenses = await this.expenseRepository.findByYearMonth(
+        this.activeYearMonth,
+      );
+      await this.refreshCategoryExpenseCounts(this.categories);
+
+      if (this.categoryId === targetId) {
+        const reassignedExists =
+          resolvedReassignId !== null &&
+          resolvedReassignId !== undefined &&
+          this.categories.some((c) => c.id === Number(resolvedReassignId));
+        this.categoryId = reassignedExists
+          ? Number(resolvedReassignId)
+          : (this.categories[0]?.id ?? null);
+      }
+      return this.getState();
+    } catch (err) {
+      if (err instanceof DomainException) {
+        this.categoryError = err.message;
+        return this.getState();
+      }
+      throw err;
+    }
   }
 
   async goToYearMonth(targetYearMonth) {
@@ -556,6 +880,7 @@ class ExpenseFormController {
       }
       this.expenses = await this.expenseRepository.findByYearMonth(this.activeYearMonth);
       this.categories = await this.categoryRepository.findAll();
+      await this.refreshCategoryExpenseCounts(this.categories);
       return this.getState();
     } catch (err) {
       this.confirmingDeleteId = null;
@@ -623,6 +948,7 @@ class ExpenseFormController {
           this.activeYearMonth,
         );
         this.categories = await this.categoryRepository.findAll();
+        await this.refreshCategoryExpenseCounts(this.categories);
         this.editingExpenseId = null;
         this.amountInput = '';
         this.subcategoryInput = '';
@@ -646,6 +972,7 @@ class ExpenseFormController {
       this.activeYearMonth = targetYearMonth;
       this.expenses = await this.expenseRepository.findByYearMonth(targetYearMonth);
       this.categories = await this.categoryRepository.findAll();
+      await this.refreshCategoryExpenseCounts(this.categories);
 
       this.amountInput = '';
       this.subcategoryInput = '';
@@ -671,6 +998,7 @@ class ExpenseFormController {
       initialized: this.initialized,
       categories: [...this.categories],
       expenses: [...this.expenses],
+      categoryExpenseCounts: { ...this.categoryExpenseCounts },
       monthlyTotalCents,
       currentYearMonth: this.currentYearMonth,
       activeYearMonth: this.activeYearMonth,
@@ -685,6 +1013,11 @@ class ExpenseFormController {
       noteInput: this.noteInput,
       amountError: this.amountError,
       formError: this.formError,
+      newCategoryNameInput: this.newCategoryNameInput,
+      categoryError: this.categoryError,
+      deletingCategoryId: this.deletingCategoryId,
+      deletingCategoryExpenseCount: this.deletingCategoryExpenseCount,
+      reassignTargetCategoryId: this.reassignTargetCategoryId,
       viewportWidth: this.viewportWidth,
     });
   }
@@ -696,6 +1029,7 @@ class ExpenseFormController {
       categoryRepository: this.categoryRepository,
       initialCategories: state.categories,
       initialExpenses: state.expenses,
+      initialCategoryExpenseCounts: state.categoryExpenseCounts,
       initialActiveYearMonth: state.activeYearMonth,
       initialEditingExpenseId: state.editingExpenseId,
       initialConfirmingDeleteId: state.confirmingDeleteId,
@@ -707,6 +1041,11 @@ class ExpenseFormController {
       initialNote: state.noteInput,
       initialAmountError: state.amountError,
       initialFormError: state.formError,
+      initialNewCategoryName: state.newCategoryNameInput,
+      initialCategoryError: state.categoryError,
+      initialDeletingCategoryId: state.deletingCategoryId,
+      initialDeletingCategoryExpenseCount: state.deletingCategoryExpenseCount,
+      initialReassignTargetCategoryId: state.reassignTargetCategoryId,
       today: this.today,
       now: this.now,
       viewportWidth: state.viewportWidth,
@@ -719,6 +1058,7 @@ export function ExpenseFormScreen({
   categoryRepository = null,
   initialCategories = undefined,
   initialExpenses = undefined,
+  initialCategoryExpenseCounts = undefined,
   initialActiveYearMonth = undefined,
   initialEditingExpenseId = null,
   initialConfirmingDeleteId = null,
@@ -730,10 +1070,16 @@ export function ExpenseFormScreen({
   initialNote = '',
   initialAmountError = null,
   initialFormError = null,
+  initialNewCategoryName = '',
+  initialCategoryError = null,
+  initialDeletingCategoryId = null,
+  initialDeletingCategoryExpenseCount = 0,
+  initialReassignTargetCategoryId = null,
   today = () => formatIsoDate(new Date()),
   now = () => new Date(),
   viewportWidth = 390,
   onExpenseSaved = undefined,
+  onCategoriesChanged = undefined,
 } = {}) {
   const defaultToday = formatIsoDate(today());
   const currentYearMonth = extractYearMonth(defaultToday);
@@ -753,6 +1099,9 @@ export function ExpenseFormScreen({
 
   const [categories, setCategories] = useState(resolvedCategories);
   const [expenses, setExpenses] = useState(initialExpenses ?? []);
+  const [categoryExpenseCounts, setCategoryExpenseCounts] = useState(
+    () => initialCategoryExpenseCounts ?? {},
+  );
   const [activeYearMonth, setActiveYearMonth] = useState(
     initialActiveYearMonth && isValidYearMonth(initialActiveYearMonth)
       ? initialActiveYearMonth
@@ -772,6 +1121,34 @@ export function ExpenseFormScreen({
   const [noteInput, setNoteInput] = useState(initialNote);
   const [amountError, setAmountError] = useState(initialAmountError);
   const [formError, setFormError] = useState(initialFormError);
+  const [newCategoryNameInput, setNewCategoryNameInput] = useState(
+    initialNewCategoryName,
+  );
+  const [categoryError, setCategoryError] = useState(initialCategoryError);
+  const [deletingCategoryId, setDeletingCategoryId] = useState(
+    initialDeletingCategoryId,
+  );
+  const [deletingCategoryExpenseCount, setDeletingCategoryExpenseCount] = useState(
+    initialDeletingCategoryExpenseCount,
+  );
+  const [reassignTargetCategoryId, setReassignTargetCategoryId] = useState(
+    initialReassignTargetCategoryId,
+  );
+
+  const loadCountsForCategories = async (cats, currentExpenses = expenses) => {
+    const counts = {};
+    for (const cat of cats) {
+      if (typeof catRepo.countExpenses === 'function') {
+        counts[cat.id] = await catRepo.countExpenses(cat.id);
+      } else if (typeof expRepo.countByCategoryId === 'function') {
+        counts[cat.id] = await expRepo.countByCategoryId(cat.id);
+      } else {
+        counts[cat.id] = currentExpenses.filter((e) => e.categoryId === cat.id).length;
+      }
+    }
+    setCategoryExpenseCounts(counts);
+    return counts;
+  };
 
   useEffect(() => {
     let active = true;
@@ -781,7 +1158,7 @@ export function ExpenseFormScreen({
     Promise.all([
       catRepo.findAll(),
       expRepo.findByYearMonth(activeYearMonth),
-    ]).then(([loadedCats, loadedExpenses]) => {
+    ]).then(async ([loadedCats, loadedExpenses]) => {
       if (!active) {
         return;
       }
@@ -790,6 +1167,17 @@ export function ExpenseFormScreen({
         setCategoryId(loadedCats[0].id);
       }
       setExpenses(loadedExpenses);
+      const counts = {};
+      for (const cat of loadedCats) {
+        if (typeof catRepo.countExpenses === 'function') {
+          counts[cat.id] = await catRepo.countExpenses(cat.id);
+        } else {
+          counts[cat.id] = loadedExpenses.filter((e) => e.categoryId === cat.id).length;
+        }
+      }
+      if (active) {
+        setCategoryExpenseCounts(counts);
+      }
     });
     return () => {
       active = false;
@@ -889,10 +1277,108 @@ export function ExpenseFormScreen({
       const updatedCategories = await catRepo.findAll();
       setExpenses(updatedList);
       setCategories(updatedCategories);
+      await loadCountsForCategories(updatedCategories, updatedList);
     } catch (err) {
       setConfirmingDeleteId(null);
       if (err instanceof DomainException) {
         setFormError(err.message);
+        return;
+      }
+      throw err;
+    }
+  };
+
+  const handleCreateCategory = async (event) => {
+    if (event && typeof event.preventDefault === 'function') {
+      event.preventDefault();
+    }
+    setCategoryError(null);
+    try {
+      const draft = new Category({
+        name: newCategoryNameInput,
+        isPredefined: false,
+        createdAt: formatIsoDateTime(now()),
+      });
+      const saved = await catRepo.save(draft);
+      const updatedCategories = await catRepo.findAll();
+      setCategories(updatedCategories);
+      await loadCountsForCategories(updatedCategories, expenses);
+      setCategoryId(saved.id);
+      setNewCategoryNameInput('');
+      if (typeof onCategoriesChanged === 'function') {
+        onCategoriesChanged(updatedCategories);
+      }
+      return saved;
+    } catch (err) {
+      if (err instanceof DomainException) {
+        setCategoryError(err.message);
+        return null;
+      }
+      throw err;
+    }
+  };
+
+  const handleRequestDeleteCategory = async (cat) => {
+    setCategoryError(null);
+    if (cat.isPredefined) {
+      setCategoryError(
+        new PredefinedCategoryDeletionNotAllowed(cat.name).message,
+      );
+      return;
+    }
+    const count =
+      typeof catRepo.countExpenses === 'function'
+        ? await catRepo.countExpenses(cat.id)
+        : (categoryExpenseCounts[cat.id] ?? 0);
+    setDeletingCategoryId(cat.id);
+    setDeletingCategoryExpenseCount(count);
+    if (count > 0) {
+      const fallback = categories.find((c) => c.id !== cat.id);
+      setReassignTargetCategoryId(fallback ? fallback.id : null);
+    } else {
+      setReassignTargetCategoryId(null);
+    }
+  };
+
+  const handleCancelDeleteCategory = () => {
+    setDeletingCategoryId(null);
+    setDeletingCategoryExpenseCount(0);
+    setReassignTargetCategoryId(null);
+    setCategoryError(null);
+  };
+
+  const handleConfirmDeleteCategory = async (catId, targetReassignId = reassignTargetCategoryId) => {
+    setCategoryError(null);
+    try {
+      const options =
+        targetReassignId !== null && targetReassignId !== undefined
+          ? { reassignToCategoryId: Number(targetReassignId) }
+          : {};
+      await catRepo.deleteById(catId, options);
+      setDeletingCategoryId(null);
+      setDeletingCategoryExpenseCount(0);
+      setReassignTargetCategoryId(null);
+
+      const updatedCategories = await catRepo.findAll();
+      const updatedExpenses = await expRepo.findByYearMonth(activeYearMonth);
+      setCategories(updatedCategories);
+      setExpenses(updatedExpenses);
+      await loadCountsForCategories(updatedCategories, updatedExpenses);
+
+      if (Number(categoryId) === Number(catId)) {
+        const nextCat =
+          targetReassignId &&
+          updatedCategories.some((c) => c.id === Number(targetReassignId))
+            ? Number(targetReassignId)
+            : (updatedCategories[0]?.id ?? 1);
+        setCategoryId(nextCat);
+      }
+      if (typeof onCategoriesChanged === 'function') {
+        onCategoriesChanged(updatedCategories);
+      }
+    } catch (err) {
+      if (err instanceof DomainException) {
+        setCategoryError(err.message);
         return;
       }
       throw err;
@@ -937,6 +1423,7 @@ export function ExpenseFormScreen({
         const updatedCategories = await catRepo.findAll();
         setExpenses(updatedList);
         setCategories(updatedCategories);
+        await loadCountsForCategories(updatedCategories, updatedList);
         setEditingExpenseId(null);
         setAmountInput('');
         setSubcategoryInput('');
@@ -964,6 +1451,7 @@ export function ExpenseFormScreen({
       const updatedCategories = await catRepo.findAll();
       setExpenses(updatedList);
       setCategories(updatedCategories);
+      await loadCountsForCategories(updatedCategories, updatedList);
       setAmountInput('');
       setSubcategoryInput('');
       setNoteInput('');
@@ -1010,184 +1498,485 @@ export function ExpenseFormScreen({
         style: styles.grid,
       },
       h(
-        'form',
+        'div',
         {
-          'data-testid': 'expense-form',
-          'data-mode': isEditing ? 'edit' : 'create',
-          style: styles.card,
-          onSubmit: handleConfirm,
-          onKeyDown: handleFormKeyDown,
-          noValidate: true,
+          style: {
+            display: 'flex',
+            flexDirection: 'column',
+            gap: layout.isMobile ? 16 : 20,
+          },
         },
         h(
-          'h2',
+          'form',
           {
-            'data-testid': 'expense-form-title',
-            style: { marginTop: 0, marginBottom: 16, fontSize: layout.isMobile ? 19 : 22 },
+            'data-testid': 'expense-form',
+            'data-mode': isEditing ? 'edit' : 'create',
+            style: styles.card,
+            onSubmit: handleConfirm,
+            onKeyDown: handleFormKeyDown,
+            noValidate: true,
           },
-          isEditing ? 'Editar gasto' : 'Registrar un gasto',
-        ),
-        h(
-          'div',
-          { style: styles.fieldGroup },
           h(
-            'label',
-            { htmlFor: 'expense-amount-input', style: styles.label },
-            'Monto ($)',
-          ),
-          h('input', {
-            id: 'expense-amount-input',
-            'data-testid': 'expense-amount-input',
-            'data-focus-requested': focusRequestedOnAmount ? 'true' : 'false',
-            type: 'text',
-            inputMode: 'decimal',
-            placeholder: 'Ej: 1500,50',
-            value: amountInput,
-            tabIndex: 0,
-            'aria-invalid': amountError ? 'true' : 'false',
-            style: styles.amountInput,
-            onChange: (e) => {
-              setAmountInput(e?.target?.value ?? '');
-              setFocusRequestedOnAmount(false);
-              if (amountError) {
-                setAmountError(null);
-              }
+            'h2',
+            {
+              'data-testid': 'expense-form-title',
+              style: { marginTop: 0, marginBottom: 16, fontSize: layout.isMobile ? 19 : 22 },
             },
-          }),
-          amountError
+            isEditing ? 'Editar gasto' : 'Registrar un gasto',
+          ),
+          h(
+            'div',
+            { style: styles.fieldGroup },
+            h(
+              'label',
+              { htmlFor: 'expense-amount-input', style: styles.label },
+              'Monto ($)',
+            ),
+            h('input', {
+              id: 'expense-amount-input',
+              'data-testid': 'expense-amount-input',
+              'data-focus-requested': focusRequestedOnAmount ? 'true' : 'false',
+              type: 'text',
+              inputMode: 'decimal',
+              placeholder: 'Ej: 1500,50',
+              value: amountInput,
+              tabIndex: 0,
+              'aria-invalid': amountError ? 'true' : 'false',
+              style: styles.amountInput,
+              onChange: (e) => {
+                setAmountInput(e?.target?.value ?? '');
+                setFocusRequestedOnAmount(false);
+                if (amountError) {
+                  setAmountError(null);
+                }
+              },
+            }),
+            amountError
+              ? h(
+                  'p',
+                  {
+                    'data-testid': 'amount-error',
+                    role: 'alert',
+                    style: styles.errorMessage,
+                  },
+                  amountError,
+                )
+              : null,
+          ),
+          h(
+            'div',
+            { style: styles.fieldGroup },
+            h(
+              'label',
+              { htmlFor: 'expense-category-select', style: styles.label },
+              'Categoría (frecuentes primero)',
+            ),
+            h(
+              'select',
+              {
+                id: 'expense-category-select',
+                'data-testid': 'expense-category-select',
+                value: String(categoryId),
+                tabIndex: 0,
+                style: styles.input,
+                onChange: (e) => setCategoryId(Number(e?.target?.value ?? defaultCategoryId)),
+              },
+              ...categories.map((cat) =>
+                h(
+                  'option',
+                  {
+                    key: cat.id,
+                    value: String(cat.id),
+                    'data-testid': `category-option-${cat.id}`,
+                  },
+                  cat.name,
+                ),
+              ),
+            ),
+          ),
+          h(
+            'div',
+            { style: styles.fieldGroup },
+            h(
+              'label',
+              { htmlFor: 'expense-date-input', style: styles.label },
+              'Fecha',
+            ),
+            h('input', {
+              id: 'expense-date-input',
+              'data-testid': 'expense-date-input',
+              type: 'date',
+              value: dateInput,
+              tabIndex: 0,
+              style: styles.input,
+              onChange: (e) => setDateInput(e?.target?.value ?? defaultToday),
+            }),
+          ),
+          h(
+            'div',
+            { style: styles.fieldGroup },
+            h(
+              'label',
+              { htmlFor: 'expense-subcategory-input', style: styles.label },
+              'Subcategoría (opcional)',
+            ),
+            h('input', {
+              id: 'expense-subcategory-input',
+              'data-testid': 'expense-subcategory-input',
+              type: 'text',
+              placeholder: 'Ej: Supermercado, Subte',
+              value: subcategoryInput,
+              tabIndex: 0,
+              style: styles.input,
+              onChange: (e) => setSubcategoryInput(e?.target?.value ?? ''),
+            }),
+          ),
+          h(
+            'div',
+            { style: styles.fieldGroup },
+            h(
+              'label',
+              { htmlFor: 'expense-note-input', style: styles.label },
+              'Nota (opcional)',
+            ),
+            h('input', {
+              id: 'expense-note-input',
+              'data-testid': 'expense-note-input',
+              type: 'text',
+              placeholder: 'Detalle adicional',
+              value: noteInput,
+              tabIndex: 0,
+              style: styles.input,
+              onChange: (e) => setNoteInput(e?.target?.value ?? ''),
+            }),
+          ),
+          formError
             ? h(
                 'p',
                 {
-                  'data-testid': 'amount-error',
+                  'data-testid': 'form-error',
                   role: 'alert',
                   style: styles.errorMessage,
                 },
-                amountError,
+                formError,
+              )
+            : null,
+          h(
+            'button',
+            {
+              type: 'submit',
+              'data-testid': 'expense-submit-button',
+              tabIndex: 0,
+              style: styles.submitButton,
+              onClick: handleConfirm,
+            },
+            isEditing ? 'Guardar cambios' : 'Guardar gasto',
+          ),
+          isEditing
+            ? h(
+                'button',
+                {
+                  type: 'button',
+                  'data-testid': 'cancel-edit-button',
+                  tabIndex: 0,
+                  style: styles.cancelEditButton,
+                  onClick: handleCancelEdit,
+                },
+                'Cancelar edición',
               )
             : null,
         ),
         h(
-          'div',
-          { style: styles.fieldGroup },
+          'section',
+          {
+            'data-testid': 'category-manager-section',
+            'aria-label': 'Gestión de categorías',
+            style: {
+              ...styles.card,
+              borderTop: `2px solid ${CORPORATE_THEME.brownPrimary}`,
+            },
+          },
           h(
-            'label',
-            { htmlFor: 'expense-category-select', style: styles.label },
-            'Categoría (frecuentes primero)',
+            'h3',
+            {
+              style: {
+                marginTop: 0,
+                marginBottom: 8,
+                fontSize: layout.isMobile ? 17 : 19,
+                color: CORPORATE_THEME.navyPrimary,
+              },
+            },
+            'Categorías propias y predefinidas',
           ),
           h(
-            'select',
+            'p',
             {
-              id: 'expense-category-select',
-              'data-testid': 'expense-category-select',
-              value: String(categoryId),
+              style: {
+                marginTop: 0,
+                marginBottom: 12,
+                fontSize: 13,
+                color: CORPORATE_THEME.textSecondary,
+              },
+            },
+            'Creá tus propias categorías para clasificar gastos o eliminá las personalizadas reasignando sus registros.',
+          ),
+          h(
+            'div',
+            { style: styles.categoryCreateRow },
+            h('input', {
+              id: 'new-category-name-input',
+              'data-testid': 'new-category-name-input',
+              type: 'text',
+              placeholder: 'Nombre de nueva categoría (ej: Mascotas)',
+              value: newCategoryNameInput,
               tabIndex: 0,
               style: styles.input,
-              onChange: (e) => setCategoryId(Number(e?.target?.value ?? defaultCategoryId)),
-            },
-            ...categories.map((cat) =>
-              h(
-                'option',
-                {
-                  key: cat.id,
-                  value: String(cat.id),
-                  'data-testid': `category-option-${cat.id}`,
-                },
-                cat.name,
-              ),
-            ),
-          ),
-        ),
-        h(
-          'div',
-          { style: styles.fieldGroup },
-          h(
-            'label',
-            { htmlFor: 'expense-date-input', style: styles.label },
-            'Fecha',
-          ),
-          h('input', {
-            id: 'expense-date-input',
-            'data-testid': 'expense-date-input',
-            type: 'date',
-            value: dateInput,
-            tabIndex: 0,
-            style: styles.input,
-            onChange: (e) => setDateInput(e?.target?.value ?? defaultToday),
-          }),
-        ),
-        h(
-          'div',
-          { style: styles.fieldGroup },
-          h(
-            'label',
-            { htmlFor: 'expense-subcategory-input', style: styles.label },
-            'Subcategoría (opcional)',
-          ),
-          h('input', {
-            id: 'expense-subcategory-input',
-            'data-testid': 'expense-subcategory-input',
-            type: 'text',
-            placeholder: 'Ej: Supermercado, Subte',
-            value: subcategoryInput,
-            tabIndex: 0,
-            style: styles.input,
-            onChange: (e) => setSubcategoryInput(e?.target?.value ?? ''),
-          }),
-        ),
-        h(
-          'div',
-          { style: styles.fieldGroup },
-          h(
-            'label',
-            { htmlFor: 'expense-note-input', style: styles.label },
-            'Nota (opcional)',
-          ),
-          h('input', {
-            id: 'expense-note-input',
-            'data-testid': 'expense-note-input',
-            type: 'text',
-            placeholder: 'Detalle adicional',
-            value: noteInput,
-            tabIndex: 0,
-            style: styles.input,
-            onChange: (e) => setNoteInput(e?.target?.value ?? ''),
-          }),
-        ),
-        formError
-          ? h(
-              'p',
-              {
-                'data-testid': 'form-error',
-                role: 'alert',
-                style: styles.errorMessage,
+              onChange: (e) => {
+                setNewCategoryNameInput(e?.target?.value ?? '');
+                if (categoryError) {
+                  setCategoryError(null);
+                }
               },
-              formError,
-            )
-          : null,
-        h(
-          'button',
-          {
-            type: 'submit',
-            'data-testid': 'expense-submit-button',
-            tabIndex: 0,
-            style: styles.submitButton,
-            onClick: handleConfirm,
-          },
-          isEditing ? 'Guardar cambios' : 'Guardar gasto',
-        ),
-        isEditing
-          ? h(
+            }),
+            h(
               'button',
               {
                 type: 'button',
-                'data-testid': 'cancel-edit-button',
+                'data-testid': 'create-category-button',
                 tabIndex: 0,
-                style: styles.cancelEditButton,
-                onClick: handleCancelEdit,
+                style: styles.createCategoryButton,
+                onClick: handleCreateCategory,
               },
-              'Cancelar edición',
-            )
-          : null,
+              'Crear categoría',
+            ),
+          ),
+          categoryError
+            ? h(
+                'p',
+                {
+                  'data-testid': 'category-error',
+                  role: 'alert',
+                  style: styles.errorMessage,
+                },
+                categoryError,
+              )
+            : null,
+          h(
+            'ul',
+            {
+              'data-testid': 'category-manager-list',
+              style: { listStyle: 'none', margin: 0, padding: 0 },
+            },
+            ...categories.map((cat) => {
+              const catExpenseCount = categoryExpenseCounts[cat.id] ?? 0;
+              const isDeletingThis = deletingCategoryId === cat.id;
+              const availableTargets = categories.filter((c) => c.id !== cat.id);
+              const selectedTarget =
+                reassignTargetCategoryId ?? availableTargets[0]?.id ?? '';
+
+              return h(
+                'li',
+                {
+                  key: cat.id,
+                  'data-testid': `category-manager-item-${cat.id}`,
+                  style: styles.categoryItemRow,
+                },
+                h(
+                  'div',
+                  { style: styles.categoryItemMain },
+                  h(
+                    'div',
+                    { style: { display: 'flex', alignItems: 'center', gap: 8, flexWrap: 'wrap' } },
+                    h(
+                      'strong',
+                      {
+                        'data-testid': `category-manager-name-${cat.id}`,
+                        style: { fontSize: 14, color: CORPORATE_THEME.textPrimary },
+                      },
+                      cat.name,
+                    ),
+                    cat.isPredefined
+                      ? h(
+                          'span',
+                          {
+                            'data-testid': `predefined-badge-${cat.id}`,
+                            style: {
+                              fontSize: 11,
+                              fontWeight: 600,
+                              padding: '2px 8px',
+                              borderRadius: 4,
+                              backgroundColor: CORPORATE_THEME.navySoft,
+                              color: CORPORATE_THEME.navyPrimary,
+                            },
+                          },
+                          'Predefinida',
+                        )
+                      : h(
+                          'span',
+                          {
+                            'data-testid': `custom-badge-${cat.id}`,
+                            style: {
+                              fontSize: 11,
+                              fontWeight: 600,
+                              padding: '2px 8px',
+                              borderRadius: 4,
+                              backgroundColor: CORPORATE_THEME.brownSoft,
+                              color: CORPORATE_THEME.brownPrimary,
+                            },
+                          },
+                          'Propia',
+                        ),
+                    h(
+                      'span',
+                      {
+                        'data-testid': `category-expense-count-${cat.id}`,
+                        style: {
+                          fontSize: 12,
+                          color: CORPORATE_THEME.textMuted,
+                          fontVariantNumeric: CORPORATE_THEME.tabularNums,
+                        },
+                      },
+                      `(${catExpenseCount} ${catExpenseCount === 1 ? 'gasto' : 'gastos'})`,
+                    ),
+                  ),
+                  !cat.isPredefined
+                    ? h(
+                        'button',
+                        {
+                          type: 'button',
+                          'data-testid': `delete-category-button-${cat.id}`,
+                          tabIndex: 0,
+                          style: styles.deleteActionButton,
+                          onClick: () => handleRequestDeleteCategory(cat),
+                        },
+                        'Eliminar categoría',
+                      )
+                    : null,
+                ),
+                isDeletingThis && !cat.isPredefined
+                  ? deletingCategoryExpenseCount > 0
+                    ? h(
+                        'div',
+                        {
+                          'data-testid': `reassign-category-box-${cat.id}`,
+                          role: 'region',
+                          'aria-label': `Reasignar gastos de ${cat.name}`,
+                          style: styles.reassignBox,
+                        },
+                        h(
+                          'span',
+                          {
+                            style: {
+                              fontSize: 13,
+                              fontWeight: 600,
+                              color: CORPORATE_THEME.textPrimary,
+                            },
+                          },
+                          `Esta categoría tiene ${deletingCategoryExpenseCount} gasto(s) asociado(s). Elegí a qué categoría reasignarlos antes de eliminarla:`,
+                        ),
+                        h(
+                          'select',
+                          {
+                            'data-testid': `reassign-target-select-${cat.id}`,
+                            value: String(selectedTarget),
+                            tabIndex: 0,
+                            style: styles.input,
+                            onChange: (e) =>
+                              setReassignTargetCategoryId(
+                                Number(e?.target?.value ?? selectedTarget),
+                              ),
+                          },
+                          ...availableTargets.map((targetCat) =>
+                            h(
+                              'option',
+                              {
+                                key: targetCat.id,
+                                value: String(targetCat.id),
+                                'data-testid': `reassign-option-${cat.id}-${targetCat.id}`,
+                              },
+                              targetCat.name,
+                            ),
+                          ),
+                        ),
+                        h(
+                          'div',
+                          { style: styles.actionRow },
+                          h(
+                            'button',
+                            {
+                              type: 'button',
+                              'data-testid': `confirm-reassign-delete-button-${cat.id}`,
+                              tabIndex: 0,
+                              style: styles.confirmDeleteButton,
+                              onClick: () =>
+                                handleConfirmDeleteCategory(cat.id, selectedTarget),
+                            },
+                            'Reasignar y eliminar',
+                          ),
+                          h(
+                            'button',
+                            {
+                              type: 'button',
+                              'data-testid': `cancel-delete-category-button-${cat.id}`,
+                              tabIndex: 0,
+                              style: styles.actionButton,
+                              onClick: handleCancelDeleteCategory,
+                            },
+                            'Cancelar',
+                          ),
+                        ),
+                      )
+                    : h(
+                        'div',
+                        {
+                          'data-testid': `confirm-delete-category-box-${cat.id}`,
+                          role: 'region',
+                          'aria-label': `Confirmar eliminación de ${cat.name}`,
+                          style: styles.confirmBox,
+                        },
+                        h(
+                          'span',
+                          {
+                            style: {
+                              fontSize: 13,
+                              fontWeight: 600,
+                              color: CORPORATE_THEME.danger,
+                            },
+                          },
+                          `¿Querés eliminar la categoría propia "${cat.name}"?`,
+                        ),
+                        h(
+                          'div',
+                          { style: styles.actionRow },
+                          h(
+                            'button',
+                            {
+                              type: 'button',
+                              'data-testid': `confirm-delete-category-button-${cat.id}`,
+                              tabIndex: 0,
+                              style: styles.confirmDeleteButton,
+                              onClick: () => handleConfirmDeleteCategory(cat.id, null),
+                            },
+                            'Confirmar eliminación',
+                          ),
+                          h(
+                            'button',
+                            {
+                              type: 'button',
+                              'data-testid': `cancel-delete-category-button-${cat.id}`,
+                              tabIndex: 0,
+                              style: styles.actionButton,
+                              onClick: handleCancelDeleteCategory,
+                            },
+                            'Cancelar',
+                          ),
+                        ),
+                      )
+                  : null,
+              );
+            }),
+          ),
+        ),
       ),
       h(
         'section',

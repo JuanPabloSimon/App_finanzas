@@ -653,4 +653,240 @@ describe('H1 pantalla de registro de gasto, validaciones, listado del mes y dise
     assert.match(desktopHtml, /data-columns="2"/);
     assert.match(desktopHtml, /tabindex="0"/);
   });
+
+  it('[H4-R1][H4-R2] permite crear una categoría propia con nombre válido, la persiste en SQLite y la deja inmediatamente disponible y seleccionada en el formulario de carga de gastos sin reiniciar', async () => {
+    const fixedNow = new Date(2026, 10, 11, 10, 15, 0);
+    const controller = ExpenseFormScreen.createController({
+      expenseRepository: expenseRepo,
+      categoryRepository: categoryRepo,
+      today: () => '2026-11-11',
+      now: () => fixedNow,
+      viewportWidth: 390,
+    });
+
+    const initialState = await controller.initialize();
+    assert.equal(initialState.categories.length, 10);
+
+    controller.setNewCategoryNameInput('  Mascotas  ');
+    const afterCreate = await controller.createCustomCategory();
+
+    assert.equal(afterCreate.categoryError, null);
+    assert.equal(afterCreate.newCategoryNameInput, '');
+    assert.equal(afterCreate.categories.length, 11);
+
+    const mascotasCat = afterCreate.categories.find((c) => c.name === 'Mascotas');
+    assert.notEqual(mascotasCat, undefined);
+    assert.equal(mascotasCat.isPredefined, false);
+    assert.equal(mascotasCat.createdAt, '2026-11-11T10:15:00');
+    assert.equal(afterCreate.categoryId, mascotasCat.id);
+
+    const htmlAfterCreate = renderToStaticMarkup(controller.renderElement());
+    assert.match(
+      htmlAfterCreate,
+      new RegExp(`data-testid="category-option-${mascotasCat.id}"[^>]*>Mascotas<`),
+    );
+    assert.match(
+      htmlAfterCreate,
+      new RegExp(`data-testid="custom-badge-${mascotasCat.id}"[^>]*>Propia<`),
+    );
+
+    controller.setAmountInput('4500');
+    controller.setNoteInput('Alimento balanceado');
+    const afterExpense = await controller.submitExpense();
+    assert.equal(afterExpense.expenses.length, 1);
+    assert.equal(afterExpense.expenses[0].categoryId, mascotasCat.id);
+    assert.equal(afterExpense.expenses[0].categoryName, 'Mascotas');
+  });
+
+  it('[H4-R3][H4-R4] rechaza nombres de categoría vacíos o que repitan otra existente sin distinguir mayúsculas (COLLATE NOCASE) mostrando el mensaje de validación sin duplicar en SQLite', async () => {
+    const controller = ExpenseFormScreen.createController({
+      expenseRepository: expenseRepo,
+      categoryRepository: categoryRepo,
+      today: () => '2026-11-11',
+      viewportWidth: 390,
+    });
+
+    await controller.initialize();
+
+    for (const emptyName of ['', '   ']) {
+      controller.setNewCategoryNameInput(emptyName);
+      const stateEmpty = await controller.createCustomCategory();
+      assert.equal(stateEmpty.categories.length, 10);
+      assert.match(stateEmpty.categoryError, /no puede estar vacío/);
+
+      const htmlEmpty = renderToStaticMarkup(controller.renderElement());
+      assert.match(htmlEmpty, /data-testid="category-error"/);
+    }
+
+    await controller.createCustomCategory('Mascotas');
+
+    for (const duplicateName of ['alimentos', 'ALIMENTOS', '  Alimentos ', 'mascotas', 'MASCOTAS']) {
+      controller.setNewCategoryNameInput(duplicateName);
+      const stateDup = await controller.createCustomCategory();
+      assert.equal(stateDup.categories.length, 11);
+      assert.match(stateDup.categoryError, /Ya existe una categoría con el nombre/);
+
+      const htmlDup = renderToStaticMarkup(controller.renderElement());
+      assert.match(htmlDup, /data-testid="category-error"/);
+    }
+  });
+
+  it('[H4-R5][H4-R6] impide eliminar categorías predefinidas (omitiendo el botón de eliminar en la UI y rechazando la acción) y permite eliminar una categoría propia sin gastos asociados quitándola del selector', async () => {
+    const controller = ExpenseFormScreen.createController({
+      expenseRepository: expenseRepo,
+      categoryRepository: categoryRepo,
+      today: () => '2026-11-11',
+      viewportWidth: 390,
+    });
+
+    await controller.initialize();
+    const afterCreate = await controller.createCustomCategory('Gimnasio');
+    const gymCat = afterCreate.categories.find((c) => c.name === 'Gimnasio');
+    assert.notEqual(gymCat, undefined);
+
+    const htmlWithGym = renderToStaticMarkup(controller.renderElement());
+    assert.match(htmlWithGym, /data-testid="predefined-badge-1"[^>]*>Predefinida</);
+    assert.doesNotMatch(htmlWithGym, /data-testid="delete-category-button-1"/);
+    assert.match(
+      htmlWithGym,
+      new RegExp(`data-testid="delete-category-button-${gymCat.id}"`),
+    );
+
+    const stateTryPredefined = controller.requestDeleteCategory(1);
+    assert.match(stateTryPredefined.categoryError, /no se puede eliminar/);
+
+    const stateTryConfirmPredefined = await controller.confirmDeleteCategory(1);
+    assert.match(stateTryConfirmPredefined.categoryError, /no se puede eliminar/);
+    assert.notEqual(await categoryRepo.findById(1), null);
+
+    const stateRequestCustom = controller.requestDeleteCategory(gymCat.id);
+    assert.equal(stateRequestCustom.deletingCategoryId, gymCat.id);
+    assert.equal(stateRequestCustom.deletingCategoryExpenseCount, 0);
+
+    const stateAfterDelete = await controller.confirmDeleteCategory(gymCat.id);
+    assert.equal(stateAfterDelete.categories.length, 10);
+    assert.equal(
+      stateAfterDelete.categories.some((c) => c.id === gymCat.id),
+      false,
+    );
+    assert.equal(await categoryRepo.findById(gymCat.id), null);
+
+    const htmlAfterDelete = renderToStaticMarkup(controller.renderElement());
+    assert.doesNotMatch(
+      htmlAfterDelete,
+      new RegExp(`data-testid="category-option-${gymCat.id}"`),
+    );
+  });
+
+  it('[H4-R7] al eliminar una categoría propia con gastos asociados exige seleccionar una categoría de destino, reasigna los gastos y recién entonces elimina la categoría propia', async () => {
+    const controller = ExpenseFormScreen.createController({
+      expenseRepository: expenseRepo,
+      categoryRepository: categoryRepo,
+      today: () => '2026-11-11',
+      viewportWidth: 390,
+    });
+
+    await controller.initialize();
+    const afterCreate = await controller.createCustomCategory('Viajes');
+    const viajesCat = afterCreate.categories.find((c) => c.name === 'Viajes');
+    const ocioCat = afterCreate.categories.find((c) => c.name === 'Ocio');
+
+    controller.setAmountInput('12500');
+    controller.setCategoryId(viajesCat.id);
+    controller.setNoteInput('Excursión');
+    await controller.submitExpense();
+
+    const stateDirectDelete = await controller.confirmDeleteCategory(viajesCat.id, null);
+    assert.match(stateDirectDelete.categoryError, /Reasignalos a otra categoría/);
+    assert.notEqual(await categoryRepo.findById(viajesCat.id), null);
+
+    const stateRequest = controller.requestDeleteCategory(viajesCat.id);
+    assert.equal(stateRequest.deletingCategoryId, viajesCat.id);
+    assert.equal(stateRequest.deletingCategoryExpenseCount, 1);
+
+    controller.setReassignTargetCategoryId(ocioCat.id);
+    const reassignHtml = renderToStaticMarkup(controller.renderElement());
+    assert.match(
+      reassignHtml,
+      new RegExp(`data-testid="reassign-category-box-${viajesCat.id}"`),
+    );
+    assert.match(
+      reassignHtml,
+      new RegExp(`data-testid="reassign-target-select-${viajesCat.id}"`),
+    );
+    assert.match(
+      reassignHtml,
+      new RegExp(`data-testid="confirm-reassign-delete-button-${viajesCat.id}"`),
+    );
+
+    const cancelled = controller.cancelDeleteCategory();
+    assert.equal(cancelled.deletingCategoryId, null);
+    assert.notEqual(await categoryRepo.findById(viajesCat.id), null);
+
+    controller.requestDeleteCategory(viajesCat.id);
+    controller.setReassignTargetCategoryId(ocioCat.id);
+    const afterReassignDelete = await controller.confirmDeleteCategory(
+      viajesCat.id,
+      ocioCat.id,
+    );
+
+    assert.equal(afterReassignDelete.categoryError, null);
+    assert.equal(
+      afterReassignDelete.categories.some((c) => c.id === viajesCat.id),
+      false,
+    );
+    assert.equal(afterReassignDelete.expenses.length, 1);
+    assert.equal(afterReassignDelete.expenses[0].categoryId, ocioCat.id);
+    assert.equal(afterReassignDelete.expenses[0].categoryName, 'Ocio');
+    assert.equal(afterReassignDelete.expenses[0].note, 'Excursión');
+  });
+
+  it('[H4-R8] presenta la gestión de categorías propias, badges y controles de reasignación con diseño Mobile First (< 768px) y adaptación Desktop (>= 768px)', async () => {
+    const mobileController = ExpenseFormScreen.createController({
+      expenseRepository: expenseRepo,
+      categoryRepository: categoryRepo,
+      today: () => '2026-11-11',
+      viewportWidth: 390,
+    });
+    await mobileController.initialize();
+    const stateMobile = await mobileController.createCustomCategory('Mascotas');
+    const mascotas = stateMobile.categories.find((c) => c.name === 'Mascotas');
+
+    const mobileStyles = ExpenseFormScreen.buildStyles(390);
+    assert.equal(mobileStyles.gridColumns, 1);
+    assert.equal(mobileStyles.categoryCreateRow.flexDirection, 'column');
+    assert.equal(mobileStyles.createCategoryButton.minHeight >= 48, true);
+    assert.equal(mobileStyles.createCategoryButton.width, '100%');
+    assert.equal(mobileStyles.deleteActionButton.minHeight >= 44, true);
+
+    const mobileHtml = renderToStaticMarkup(mobileController.renderElement());
+    assert.match(mobileHtml, /data-layout="mobile"/);
+    assert.match(mobileHtml, /data-columns="1"/);
+    assert.match(mobileHtml, /data-testid="category-manager-section"/);
+    assert.match(mobileHtml, /data-testid="new-category-name-input"/);
+    assert.match(mobileHtml, /data-testid="create-category-button"/);
+    assert.match(
+      mobileHtml,
+      new RegExp(`data-testid="delete-category-button-${mascotas.id}"`),
+    );
+
+    const desktopController = ExpenseFormScreen.createController({
+      expenseRepository: expenseRepo,
+      categoryRepository: categoryRepo,
+      today: () => '2026-11-11',
+      viewportWidth: 1280,
+    });
+    await desktopController.initialize();
+
+    const desktopStyles = ExpenseFormScreen.buildStyles(1280);
+    assert.equal(desktopStyles.gridColumns, 2);
+    assert.equal(desktopStyles.categoryCreateRow.flexDirection, 'row');
+    assert.equal(desktopStyles.createCategoryButton.width, 'auto');
+
+    const desktopHtml = renderToStaticMarkup(desktopController.renderElement());
+    assert.match(desktopHtml, /data-layout="desktop"/);
+    assert.match(desktopHtml, /data-columns="2"/);
+    assert.match(desktopHtml, /data-testid="category-manager-section"/);
+    assert.match(desktopHtml, /tabindex="0"/);
+  });
 });

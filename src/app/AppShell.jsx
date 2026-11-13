@@ -61,7 +61,83 @@ function createInMemoryUserAccountRepository() {
       }
       return found.user;
     },
+    async updateProfile({ id, fullName, username }) {
+      const numericId = Number(id);
+      const draft = new UserAccount({ id: numericId || 1, fullName, username });
+      if (
+        accounts.some(
+          (a) => a.user.username === draft.username && a.user.id !== numericId,
+        )
+      ) {
+        throw new InvalidCredentials('Ya existe una cuenta con ese usuario');
+      }
+      const found = accounts.find((a) => a.user.id === numericId);
+      if (found) {
+        found.user = found.user.copyWith({
+          fullName: draft.fullName,
+          username: draft.username,
+        });
+        return found.user;
+      }
+      return draft;
+    },
   };
+}
+
+function buildAppShellStyles(viewportWidth = 390) {
+  const layout = getViewportLayout(viewportWidth);
+  return Object.freeze({
+    layout,
+    mainScreen: Object.freeze({
+      minHeight: '100dvh',
+      backgroundColor: CORPORATE_THEME.background,
+      color: CORPORATE_THEME.textPrimary,
+      padding: layout.isMobile ? 0 : '0 24px 24px',
+      maxWidth: layout.isMobile ? '100%' : layout.containerMaxWidth,
+      margin: layout.isMobile ? 0 : '0 auto',
+      borderRadius: 0,
+      boxSizing: 'border-box',
+      fontFamily: CORPORATE_THEME.fontSans,
+    }),
+    header: Object.freeze({
+      display: 'flex',
+      flexDirection: 'row',
+      justifyContent: 'space-between',
+      alignItems: 'center',
+      gap: 12,
+      width: '100%',
+      boxSizing: 'border-box',
+      margin: 0,
+      padding: layout.isMobile ? '7px 14px' : '12px 24px',
+      borderRadius: layout.isMobile ? 0 : '0 0 8px 8px',
+      backgroundColor: CORPORATE_THEME.navyPrimary,
+      color: '#FFFFFF',
+      borderBottom: `3px solid ${CORPORATE_THEME.brownPrimary}`,
+    }),
+    brandTitle: Object.freeze({
+      margin: 0,
+      fontSize: layout.isMobile ? 21 : 25,
+      fontWeight: 600,
+      fontFamily: CORPORATE_THEME.fontSerif,
+      letterSpacing: '-0.01em',
+      color: '#FFFFFF',
+    }),
+    profileButton: Object.freeze({
+      minWidth: 44,
+      minHeight: 44,
+      width: 44,
+      height: 44,
+      padding: 0,
+      borderRadius: '9999px',
+      border: '1px solid rgba(255, 255, 255, 0.35)',
+      backgroundColor: CORPORATE_THEME.navySecondary,
+      color: '#FFFFFF',
+      display: 'inline-flex',
+      alignItems: 'center',
+      justifyContent: 'center',
+      cursor: 'pointer',
+    }),
+  });
 }
 
 class AppConsentController {
@@ -96,6 +172,9 @@ class AppConsentController {
     this.consent = null;
     this.currentUser = null;
     this.authError = null;
+    this.isProfileMenuOpen = false;
+    this.profileError = null;
+    this.profileSuccess = null;
     this.view = 'privacy_gate';
     this.initialized = false;
   }
@@ -177,8 +256,58 @@ class AppConsentController {
     }
   }
 
+  openProfileMenu() {
+    this.isProfileMenuOpen = true;
+    this.profileError = null;
+    return this.getState();
+  }
+
+  closeProfileMenu() {
+    this.isProfileMenuOpen = false;
+    this.profileError = null;
+    return this.getState();
+  }
+
+  toggleProfileMenu() {
+    this.isProfileMenuOpen = !this.isProfileMenuOpen;
+    this.profileError = null;
+    return this.getState();
+  }
+
+  async updateProfile({ fullName, username }) {
+    this.profileError = null;
+    this.profileSuccess = null;
+    try {
+      if (
+        this.currentUser &&
+        this.currentUser.id &&
+        typeof this.userAccountRepository.updateProfile === 'function'
+      ) {
+        const updated = await this.userAccountRepository.updateProfile({
+          id: this.currentUser.id,
+          fullName,
+          username,
+        });
+        this.currentUser = updated;
+      } else {
+        this.currentUser = new UserAccount({
+          id: this.currentUser?.id ?? 1,
+          fullName,
+          username,
+          createdAt: this.currentUser?.createdAt ?? formatIsoDateTime(this.now()),
+        });
+      }
+      this.profileSuccess = 'Perfil actualizado correctamente.';
+      return this.getState();
+    } catch (err) {
+      this.profileError = err.message;
+      return this.getState();
+    }
+  }
+
   logoutAccount() {
     this.currentUser = null;
+    this.isProfileMenuOpen = false;
     if (this.requireAuth) {
       this.view = 'auth';
     }
@@ -190,6 +319,7 @@ class AppConsentController {
       this.view = 'privacy_gate';
       return this.getState();
     }
+    this.isProfileMenuOpen = false;
     this.view = 'settings_privacy';
     return this.getState();
   }
@@ -238,6 +368,9 @@ class AppConsentController {
       consent: this.consent,
       currentUser: this.currentUser,
       authError: this.authError,
+      isProfileMenuOpen: this.isProfileMenuOpen,
+      profileError: this.profileError,
+      profileSuccess: this.profileSuccess,
       view: resolvedView,
       viewportWidth: this.viewportWidth,
     });
@@ -259,6 +392,9 @@ class AppConsentController {
         initialConsent: state.consent,
         initialUser: state.currentUser,
         initialAuthError: state.authError,
+        initialProfileMenuOpen: state.isProfileMenuOpen,
+        initialProfileError: state.profileError,
+        initialProfileSuccess: state.profileSuccess,
         initialView: state.view,
         viewportWidth: state.viewportWidth,
         today: this.today,
@@ -281,6 +417,9 @@ export function AppShell({
   initialConsent = undefined,
   initialUser = null,
   initialAuthError = null,
+  initialProfileMenuOpen = false,
+  initialProfileError = null,
+  initialProfileSuccess = null,
   initialView = 'main',
   onDemoSeed = null,
   viewportWidth = 390,
@@ -309,6 +448,18 @@ export function AppShell({
   const [usernameInput, setUsernameInput] = useState('');
   const [passwordInput, setPasswordInput] = useState('');
   const [authError, setAuthError] = useState(initialAuthError);
+
+  const [isProfileMenuOpen, setIsProfileMenuOpen] = useState(
+    Boolean(initialProfileMenuOpen),
+  );
+  const [profileFullNameInput, setProfileFullNameInput] = useState(
+    initialUser?.fullName ?? '',
+  );
+  const [profileUsernameInput, setProfileUsernameInput] = useState(
+    initialUser?.username ?? '',
+  );
+  const [profileError, setProfileError] = useState(initialProfileError);
+  const [profileSuccess, setProfileSuccess] = useState(initialProfileSuccess);
 
   const [loading, setLoading] = useState(initialConsent === undefined);
   const [activeView, setActiveView] = useState(() => {
@@ -356,6 +507,7 @@ export function AppShell({
 
   const handleOpenSettingsPrivacy = () => {
     if (hasValidConsent) {
+      setIsProfileMenuOpen(false);
       setActiveView('settings_privacy');
     }
   };
@@ -364,6 +516,59 @@ export function AppShell({
     if (hasValidConsent) {
       setActiveView('main');
     }
+  };
+
+  const handleToggleProfileMenu = () => {
+    setIsProfileMenuOpen((prev) => {
+      const next = !prev;
+      if (next && currentUser) {
+        setProfileFullNameInput(currentUser.fullName ?? '');
+        setProfileUsernameInput(currentUser.username ?? '');
+      }
+      return next;
+    });
+    setProfileError(null);
+    setProfileSuccess(null);
+  };
+
+  const handleProfileSave = async (e) => {
+    if (e && typeof e.preventDefault === 'function') {
+      e.preventDefault();
+    }
+    setProfileError(null);
+    setProfileSuccess(null);
+    try {
+      let updatedUser;
+      if (
+        currentUser &&
+        currentUser.id &&
+        typeof userRepo.updateProfile === 'function'
+      ) {
+        updatedUser = await userRepo.updateProfile({
+          id: currentUser.id,
+          fullName: profileFullNameInput,
+          username: profileUsernameInput,
+        });
+      } else {
+        updatedUser = new UserAccount({
+          id: currentUser?.id ?? 1,
+          fullName: profileFullNameInput,
+          username: profileUsernameInput,
+          createdAt: currentUser?.createdAt ?? formatIsoDateTime(now()),
+        });
+      }
+      setCurrentUser(updatedUser);
+      setProfileFullNameInput(updatedUser.fullName);
+      setProfileUsernameInput(updatedUser.username);
+      setProfileSuccess('Perfil actualizado correctamente.');
+    } catch (err) {
+      setProfileError(err.message);
+    }
+  };
+
+  const handleLogout = () => {
+    setIsProfileMenuOpen(false);
+    setCurrentUser(null);
   };
 
   const handleAuthSubmit = async (e) => {
@@ -379,12 +584,16 @@ export function AppShell({
           password: passwordInput,
         });
         setCurrentUser(created);
+        setProfileFullNameInput(created.fullName);
+        setProfileUsernameInput(created.username);
       } else {
         const logged = await userRepo.authenticate({
           username: usernameInput,
           password: passwordInput,
         });
         setCurrentUser(logged);
+        setProfileFullNameInput(logged.fullName);
+        setProfileUsernameInput(logged.username);
       }
       setPasswordInput('');
     } catch (err) {
@@ -397,6 +606,8 @@ export function AppShell({
     if (typeof onDemoSeed === 'function') {
       const demoUser = await onDemoSeed();
       setCurrentUser(demoUser);
+      setProfileFullNameInput(demoUser?.fullName ?? '');
+      setProfileUsernameInput(demoUser?.username ?? '');
       return;
     }
     const demoUser = new UserAccount({
@@ -406,6 +617,8 @@ export function AppShell({
       createdAt: formatIsoDateTime(now()),
     });
     setCurrentUser(demoUser);
+    setProfileFullNameInput(demoUser.fullName);
+    setProfileUsernameInput(demoUser.username);
   };
 
   if (loading && !hasValidConsent) {
@@ -720,6 +933,8 @@ export function AppShell({
     );
   }
 
+  const shellStyles = buildAppShellStyles(viewportWidth);
+
   return h(
     'div',
     {
@@ -729,117 +944,289 @@ export function AppShell({
         : layout.isTablet
           ? 'tablet'
           : 'mobile',
-      style: {
-        minHeight: '100vh',
-        backgroundColor: CORPORATE_THEME.background,
-        color: CORPORATE_THEME.textPrimary,
-        padding: layout.isMobile ? 12 : 28,
-        maxWidth: layout.containerMaxWidth,
-        margin: '0 auto',
-        fontFamily: CORPORATE_THEME.fontSans,
-      },
+      style: shellStyles.mainScreen,
     },
     h(
       'header',
       {
         'data-testid': 'app-header',
-        style: {
-          display: 'flex',
-          flexDirection: layout.isMobile ? 'column' : 'row',
-          justifyContent: 'space-between',
-          alignItems: layout.isMobile ? 'stretch' : 'center',
-          gap: 12,
-          padding: layout.isMobile ? '14px 16px' : '18px 24px',
-          borderRadius: 6,
-          backgroundColor: CORPORATE_THEME.navyPrimary,
-          color: '#FFFFFF',
-          borderBottom: `3px solid ${CORPORATE_THEME.brownPrimary}`,
-        },
+        style: shellStyles.header,
       },
       h(
-        'div',
-        null,
+        'h1',
+        {
+          'data-testid': 'app-brand-title',
+          style: shellStyles.brandTitle,
+        },
+        'Ge$tix',
+      ),
+      h(
+        'button',
+        {
+          type: 'button',
+          'data-testid': 'profile-menu-button',
+          'aria-expanded': isProfileMenuOpen,
+          'aria-label': currentUser
+            ? `Perfil — Cuenta activa: ${currentUser.fullName} (@${currentUser.username})`
+            : 'Menú de perfil',
+          style: shellStyles.profileButton,
+          onClick: handleToggleProfileMenu,
+        },
         h(
-          'h1',
+          'svg',
           {
+            'data-testid': 'profile-menu-icon',
+            width: 20,
+            height: 20,
+            viewBox: '0 0 24 24',
+            fill: 'none',
+            stroke: '#FFFFFF',
+            strokeWidth: 2,
+            strokeLinecap: 'round',
+            strokeLinejoin: 'round',
+            'aria-hidden': 'true',
+          },
+          h('circle', { cx: 12, cy: 8, r: 4 }),
+          h('path', { d: 'M4 20c0-4 3.6-7 8-7s8 3 8 7' }),
+        ),
+      ),
+    ),
+    isProfileMenuOpen
+      ? h(
+          'div',
+          {
+            'data-testid': 'profile-menu-popover',
+            role: 'dialog',
+            'aria-label': 'Menú de perfil y cuenta',
             style: {
-              margin: 0,
-              fontSize: layout.isMobile ? 21 : 25,
-              fontWeight: 500,
-              fontFamily: CORPORATE_THEME.fontSerif,
-              letterSpacing: '-0.01em',
+              backgroundColor: CORPORATE_THEME.surface,
+              borderBottom: `2px solid ${CORPORATE_THEME.brownPrimary}`,
+              borderLeft: layout.isMobile
+                ? 'none'
+                : `1px solid ${CORPORATE_THEME.border}`,
+              borderRight: layout.isMobile
+                ? 'none'
+                : `1px solid ${CORPORATE_THEME.border}`,
+              padding: layout.isMobile ? '14px 16px' : '16px 24px',
+              boxShadow: '0 10px 24px rgba(11, 25, 44, 0.12)',
+              display: 'flex',
+              flexDirection: 'column',
+              gap: 12,
             },
           },
-          'Patrimonio y Gastos Personales',
-        ),
-        currentUser
-          ? h(
+          h(
+            'div',
+            {
+              style: {
+                display: 'flex',
+                justifyContent: 'space-between',
+                alignItems: 'center',
+                gap: 8,
+                paddingBottom: 8,
+                borderBottom: `1px solid ${CORPORATE_THEME.border}`,
+              },
+            },
+            h(
               'span',
               {
                 'data-testid': 'logged-user-badge',
                 style: {
-                  display: 'block',
                   fontSize: 13,
-                  color: '#CBD5E1',
-                  marginTop: 3,
+                  fontWeight: 600,
+                  color: CORPORATE_THEME.navyPrimary,
                 },
               },
-              `Cuenta activa: ${currentUser.fullName} (@${currentUser.username})`,
-            )
-          : null,
-      ),
-      h(
-        'div',
-        { style: { display: 'flex', gap: 8, flexWrap: 'wrap' } },
-        h(
-          'button',
-          {
-            type: 'button',
-            'data-testid': 'open-settings-privacy-button',
-            style: {
-              minHeight: 40,
-              padding: '8px 14px',
-              borderRadius: 4,
-              border: '1px solid rgba(255, 255, 255, 0.28)',
-              backgroundColor: CORPORATE_THEME.navySecondary,
-              color: '#FFFFFF',
-              cursor: 'pointer',
-              fontSize: 13,
-              fontWeight: 600,
+              currentUser
+                ? `Cuenta activa: ${currentUser.fullName} (@${currentUser.username})`
+                : 'Cuenta local en este dispositivo',
+            ),
+            h(
+              'button',
+              {
+                type: 'button',
+                'data-testid': 'profile-menu-close-button',
+                style: {
+                  minHeight: 32,
+                  padding: '4px 10px',
+                  borderRadius: 4,
+                  border: `1px solid ${CORPORATE_THEME.border}`,
+                  backgroundColor: CORPORATE_THEME.surfaceMuted,
+                  color: CORPORATE_THEME.textSecondary,
+                  fontSize: 12,
+                  fontWeight: 600,
+                  cursor: 'pointer',
+                },
+                onClick: () => setIsProfileMenuOpen(false),
+              },
+              'Cerrar panel',
+            ),
+          ),
+          h(
+            'form',
+            {
+              'data-testid': 'profile-edit-form',
+              onSubmit: handleProfileSave,
+              noValidate: true,
+              style: {
+                display: 'grid',
+                gridTemplateColumns: layout.isMobile
+                  ? '1fr'
+                  : '1fr 1fr auto',
+                gap: 8,
+                alignItems: 'center',
+              },
             },
-            onClick: handleOpenSettingsPrivacy,
-          },
-          'Privacidad y datos',
-        ),
-        currentUser
-          ? h(
+            h('input', {
+              'data-testid': 'profile-fullname-input',
+              type: 'text',
+              placeholder: 'Nombre completo',
+              value: profileFullNameInput,
+              style: {
+                minHeight: 40,
+                padding: '7px 10px',
+                borderRadius: 4,
+                border: `1px solid ${CORPORATE_THEME.borderStrong}`,
+                backgroundColor: '#FFFFFF',
+                color: CORPORATE_THEME.textPrimary,
+                fontSize: 13,
+              },
+              onChange: (e) => setProfileFullNameInput(e?.target?.value ?? ''),
+            }),
+            h('input', {
+              'data-testid': 'profile-username-input',
+              type: 'text',
+              placeholder: 'Usuario (@alias)',
+              value: profileUsernameInput,
+              style: {
+                minHeight: 40,
+                padding: '7px 10px',
+                borderRadius: 4,
+                border: `1px solid ${CORPORATE_THEME.borderStrong}`,
+                backgroundColor: '#FFFFFF',
+                color: CORPORATE_THEME.textPrimary,
+                fontSize: 13,
+              },
+              onChange: (e) => setProfileUsernameInput(e?.target?.value ?? ''),
+            }),
+            h(
+              'button',
+              {
+                type: 'submit',
+                'data-testid': 'profile-save-button',
+                style: {
+                  minHeight: 40,
+                  padding: '8px 14px',
+                  borderRadius: 4,
+                  border: 'none',
+                  backgroundColor: CORPORATE_THEME.navyPrimary,
+                  color: '#FFFFFF',
+                  fontSize: 13,
+                  fontWeight: 600,
+                  cursor: 'pointer',
+                },
+                onClick: handleProfileSave,
+              },
+              'Guardar perfil',
+            ),
+          ),
+          profileError
+            ? h(
+                'p',
+                {
+                  'data-testid': 'profile-edit-error',
+                  role: 'alert',
+                  style: {
+                    margin: 0,
+                    padding: '6px 10px',
+                    borderRadius: 4,
+                    backgroundColor: CORPORATE_THEME.dangerBg,
+                    color: CORPORATE_THEME.danger,
+                    fontSize: 12,
+                    fontWeight: 600,
+                  },
+                },
+                profileError,
+              )
+            : null,
+          profileSuccess
+            ? h(
+                'p',
+                {
+                  'data-testid': 'profile-edit-success',
+                  style: {
+                    margin: 0,
+                    padding: '6px 10px',
+                    borderRadius: 4,
+                    backgroundColor: CORPORATE_THEME.successBg,
+                    color: CORPORATE_THEME.success,
+                    fontSize: 12,
+                    fontWeight: 600,
+                  },
+                },
+                profileSuccess,
+              )
+            : null,
+          h(
+            'div',
+            {
+              style: {
+                display: 'flex',
+                justifyContent: 'space-between',
+                alignItems: 'center',
+                gap: 8,
+                flexWrap: 'wrap',
+                paddingTop: 8,
+                borderTop: `1px solid ${CORPORATE_THEME.border}`,
+              },
+            },
+            h(
+              'button',
+              {
+                type: 'button',
+                'data-testid': 'open-settings-privacy-button',
+                style: {
+                  minHeight: 36,
+                  padding: '6px 10px',
+                  borderRadius: 4,
+                  border: `1px solid ${CORPORATE_THEME.border}`,
+                  backgroundColor: 'transparent',
+                  color: CORPORATE_THEME.textSecondary,
+                  cursor: 'pointer',
+                  fontSize: 12,
+                  fontWeight: 500,
+                },
+                onClick: handleOpenSettingsPrivacy,
+              },
+              'Privacidad y datos (Ley 25.326)',
+            ),
+            h(
               'button',
               {
                 type: 'button',
                 'data-testid': 'logout-button',
                 style: {
-                  minHeight: 40,
-                  padding: '8px 14px',
+                  minHeight: 36,
+                  padding: '6px 14px',
                   borderRadius: 4,
                   border: `1px solid ${CORPORATE_THEME.brownAccent}`,
                   backgroundColor: CORPORATE_THEME.brownPrimary,
                   color: '#FFFFFF',
                   cursor: 'pointer',
-                  fontSize: 13,
+                  fontSize: 12,
                   fontWeight: 600,
                 },
-                onClick: () => setCurrentUser(null),
+                onClick: handleLogout,
               },
               'Cerrar sesión',
-            )
-          : null,
-      ),
-    ),
+            ),
+          ),
+        )
+      : null,
     h(
       'section',
       {
         'data-testid': 'app-main-content',
-        style: { paddingTop: 14 },
+        style: { paddingTop: 0 },
       },
       children ??
         h(
@@ -850,10 +1237,15 @@ export function AppShell({
             {
               'data-testid': 'app-ready-message',
               style: {
-                marginTop: 0,
-                marginBottom: 12,
-                color: CORPORATE_THEME.textMuted,
-                fontSize: 12,
+                position: 'absolute',
+                width: 1,
+                height: 1,
+                padding: 0,
+                margin: -1,
+                overflow: 'hidden',
+                clip: 'rect(0, 0, 0, 0)',
+                whiteSpace: 'nowrap',
+                border: 0,
               },
             },
             'Panel principal desbloqueado — Almacenamiento exclusivo en este dispositivo (Ley 25.326).',
@@ -874,3 +1266,4 @@ export function AppShell({
 }
 
 AppShell.createController = (options) => new AppConsentController(options);
+AppShell.buildStyles = buildAppShellStyles;

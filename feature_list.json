@@ -84,7 +84,7 @@
         "CA2. Las categorías predefinidas no pueden eliminarse, y una categoría propia con gastos asociados solo se elimina después de reasignarlos."
       ],
       "sdd": true,
-      "status": "pending",
+      "status": "done",
       "orden": 7
     },
     {
@@ -136,7 +136,7 @@
       ],
       "sdd": true,
       "status": "pending",
-      "orden": 9
+      "orden": 10
     },
     {
       "id": 8,
@@ -153,7 +153,7 @@
       ],
       "sdd": true,
       "status": "pending",
-      "orden": 8
+      "orden": 9
     },
     {
       "id": 9,
@@ -171,7 +171,7 @@
       ],
       "sdd": true,
       "status": "pending",
-      "orden": 10
+      "orden": 11
     },
     {
       "id": 10,
@@ -190,7 +190,7 @@
       ],
       "sdd": true,
       "status": "pending",
-      "orden": 11
+      "orden": 12
     },
     {
       "id": 11,
@@ -207,7 +207,7 @@
       ],
       "sdd": true,
       "status": "pending",
-      "orden": 12
+      "orden": 13
     },
     {
       "id": 12,
@@ -226,6 +226,25 @@
       "sdd": true,
       "status": "done",
       "orden": 1
+    },
+    {
+      "id": 13,
+      "historia": "H13",
+      "name": "h13_refactor_ux_gestix",
+      "title": "Refactor UX Ge$tix: dashboard sin scroll, navegación inferior en tarjetas, header limpio con perfil y contraste de monto",
+      "epic": "Visualización",
+      "priority": "alta",
+      "points": 5,
+      "iteration": 2,
+      "acceptance": [
+        "CA1. Luego del login, la pestaña principal de Resumen es exclusivamente informativa y toda su información entra en el viewport sin scroll vertical.",
+        "CA2. Las acciones y sus listados relacionados se separan en pestañas dedicadas (Resumen, Gastos, Ingresos, Inversiones y Alertas), accesibles desde el borde inferior mediante pequeñas tarjetas que al seleccionarse cambian de color y se destacan desplazándose hacia arriba.",
+        "CA3. En modo mobile el header no tiene márgenes exteriores y muestra únicamente el título \"Ge$tix\" y un ícono de perfil sin otros botones; al tocar el ícono permite editar la información del perfil, acceder de forma discreta al aviso de privacidad o cerrar sesión.",
+        "CA4. Al cargar un gasto (o ingreso/inversión), el recuadro de monto presenta alto contraste explícito entre el fondo del input y el texto numérico."
+      ],
+      "sdd": true,
+      "status": "done",
+      "orden": 8
     }
   ]
 }

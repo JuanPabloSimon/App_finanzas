@@ -29,6 +29,40 @@ export class InvalidCategory extends DomainException {
   }
 }
 
+export class DuplicateCategory extends DomainException {
+  constructor(name) {
+    super(`Ya existe una categoría con el nombre "${name}"`);
+    this.categoryName = name;
+  }
+}
+
+export class CategoryNotFound extends DomainException {
+  constructor(id) {
+    super(`No existe la categoría ${id}`);
+    this.categoryId = id;
+  }
+}
+
+export class PredefinedCategoryDeletionNotAllowed extends DomainException {
+  constructor(name = '') {
+    super(
+      name
+        ? `La categoría predefinida "${name}" no se puede eliminar`
+        : 'Las categorías predefinidas no se pueden eliminar',
+    );
+  }
+}
+
+export class CategoryInUse extends DomainException {
+  constructor(id, expenseCount = 1) {
+    super(
+      `La categoría tiene ${expenseCount} gasto(s) asociado(s). Reasignalos a otra categoría antes de eliminarla.`,
+    );
+    this.categoryId = id;
+    this.expenseCount = expenseCount;
+  }
+}
+
 export class ExpenseNotFound extends DomainException {
   constructor(id) {
     super(`No existe el gasto ${id}`);

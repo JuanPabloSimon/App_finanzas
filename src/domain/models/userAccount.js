@@ -17,4 +17,13 @@ export class UserAccount {
     this.createdAt = createdAt ?? null;
     Object.freeze(this);
   }
+
+  copyWith({ fullName, username } = {}) {
+    return new UserAccount({
+      id: this.id,
+      fullName: fullName !== undefined ? fullName : this.fullName,
+      username: username !== undefined ? username : this.username,
+      createdAt: this.createdAt,
+    });
+  }
 }

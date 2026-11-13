@@ -8,7 +8,7 @@ const h = React.createElement;
 const DONUT_RADIUS = 64;
 const DONUT_CIRCUMFERENCE = Number((2 * Math.PI * DONUT_RADIUS).toFixed(4));
 
-function buildCategoryChartStyles(viewportWidth = 390) {
+function buildCategoryChartStyles(viewportWidth = 390, compact = false) {
   const layout = getViewportLayout(viewportWidth);
 
   return Object.freeze({
@@ -18,7 +18,13 @@ function buildCategoryChartStyles(viewportWidth = 390) {
       border: `1px solid ${CORPORATE_THEME.border}`,
       borderTop: `2px solid ${CORPORATE_THEME.navyPrimary}`,
       borderRadius: 6,
-      padding: layout.isMobile ? 16 : 22,
+      padding: compact
+        ? layout.isMobile
+          ? '6px 8px'
+          : '8px 12px'
+        : layout.isMobile
+          ? 16
+          : 22,
       fontFamily: CORPORATE_THEME.fontSans,
     }),
     headerRow: Object.freeze({
@@ -26,23 +32,30 @@ function buildCategoryChartStyles(viewportWidth = 390) {
       justifyContent: 'space-between',
       alignItems: 'baseline',
       flexWrap: 'wrap',
-      gap: 8,
-      marginBottom: 14,
-      paddingBottom: 10,
+      gap: 4,
+      marginBottom: compact ? 3 : 14,
+      paddingBottom: compact ? 2 : 10,
       borderBottom: `1px solid ${CORPORATE_THEME.border}`,
     }),
     chartBodyGrid: Object.freeze({
       display: 'grid',
-      gridTemplateColumns: layout.isMobile ? '1fr' : '188px minmax(0, 1fr)',
-      gap: layout.isMobile ? 16 : 22,
+      gridTemplateColumns: compact
+        ? layout.isMobile
+          ? '1fr'
+          : '132px minmax(0, 1fr)'
+        : layout.isMobile
+          ? '1fr'
+          : '188px minmax(0, 1fr)',
+      gap: compact ? (layout.isMobile ? 4 : 10) : layout.isMobile ? 16 : 22,
       alignItems: 'center',
     }),
     donutContainer: Object.freeze({
       display: 'flex',
-      flexDirection: 'column',
+      flexDirection: compact && layout.isMobile ? 'row' : 'column',
       alignItems: 'center',
-      justifyContent: 'center',
-      padding: 8,
+      justifyContent: compact && layout.isMobile ? 'space-between' : 'center',
+      gap: compact && layout.isMobile ? 8 : 0,
+      padding: compact ? (layout.isMobile ? '3px 6px' : 4) : 8,
       backgroundColor: CORPORATE_THEME.surfaceMuted,
       border: `1px solid ${CORPORATE_THEME.border}`,
       borderRadius: 6,
@@ -51,8 +64,8 @@ function buildCategoryChartStyles(viewportWidth = 390) {
       display: 'flex',
       flexDirection: 'column',
       alignItems: 'flex-start',
-      gap: 12,
-      padding: 16,
+      gap: compact ? 8 : 12,
+      padding: compact ? 10 : 16,
       borderRadius: 4,
       backgroundColor: CORPORATE_THEME.surfaceMuted,
       border: `1px dashed ${CORPORATE_THEME.borderStrong}`,
@@ -74,9 +87,9 @@ function buildCategoryChartStyles(viewportWidth = 390) {
       justifyContent: 'space-between',
       alignItems: 'center',
       flexWrap: 'wrap',
-      gap: 8,
-      marginTop: 12,
-      padding: '10px 12px',
+      gap: 4,
+      marginTop: compact ? 3 : 12,
+      padding: compact ? '3px 6px' : '10px 12px',
       borderRadius: 4,
       backgroundColor: CORPORATE_THEME.surfaceMuted,
       border: `1px solid ${CORPORATE_THEME.border}`,
@@ -90,9 +103,10 @@ export function CategoryDistributionChart({
   categoryBreakdown = [],
   totalExpensesCents = 0,
   viewportWidth = 390,
+  compact = false,
   onNavigateToExpenses = null,
 } = {}) {
-  const styles = buildCategoryChartStyles(viewportWidth);
+  const styles = buildCategoryChartStyles(viewportWidth, compact);
   const { layout } = styles;
   const layoutMode = layout.isDesktop
     ? 'desktop'
@@ -145,7 +159,7 @@ export function CategoryDistributionChart({
           style: {
             margin: 0,
             color: CORPORATE_THEME.navyPrimary,
-            fontSize: 18,
+            fontSize: compact ? 15 : 18,
             fontFamily: CORPORATE_THEME.fontSerif,
             fontWeight: 600,
           },
@@ -214,10 +228,11 @@ export function CategoryDistributionChart({
                 'svg',
                 {
                   'data-testid': 'category-donut-svg',
-                  width: 168,
-                  height: 168,
+                  width: compact ? (layout.isMobile ? 68 : 104) : 168,
+                  height: compact ? (layout.isMobile ? 68 : 104) : 168,
                   viewBox: '0 0 168 168',
                   role: 'img',
+                  style: { flexShrink: 0 },
                   'aria-label': `Distribución porcentual sobre ${formatCentsToArs(totalExpensesCents)}`,
                 },
                 h('circle', {
@@ -269,22 +284,79 @@ export function CategoryDistributionChart({
                   formatCentsToArs(totalExpensesCents),
                 ),
               ),
+              compact && layout.isMobile
+                ? h(
+                    'div',
+                    {
+                      style: {
+                        flex: 1,
+                        minWidth: 0,
+                        display: 'flex',
+                        flexDirection: 'column',
+                        gap: 4,
+                      },
+                    },
+                    h(
+                      'span',
+                      {
+                        style: {
+                          fontSize: 11,
+                          fontWeight: 600,
+                          color: CORPORATE_THEME.textSecondary,
+                        },
+                      },
+                      'Distribución acumulada del período',
+                    ),
+                    h(
+                      'div',
+                      {
+                        style: {
+                          display: 'flex',
+                          justifyContent: 'space-between',
+                          alignItems: 'baseline',
+                          fontVariantNumeric: CORPORATE_THEME.tabularNums,
+                        },
+                      },
+                      h(
+                        'strong',
+                        {
+                          style: {
+                            fontSize: 14,
+                            color: CORPORATE_THEME.navyPrimary,
+                          },
+                        },
+                        formatCentsToArs(sumCategoriesCents),
+                      ),
+                      h(
+                        'span',
+                        {
+                          style: {
+                            fontSize: 11.5,
+                            fontWeight: 700,
+                            color: CORPORATE_THEME.brownPrimary,
+                          },
+                        },
+                        `${sumPercentages} % conciliado`,
+                      ),
+                    ),
+                  )
+                : null,
             ),
             h(
               'div',
-              null,
+              { style: { minWidth: 0 } },
               h(
                 'div',
                 {
                   'data-testid': 'category-stacked-bar',
                   style: {
                     display: 'flex',
-                    height: 8,
+                    height: compact ? 6 : 8,
                     borderRadius: 3,
                     overflow: 'hidden',
                     backgroundColor: CORPORATE_THEME.surfaceMuted,
                     border: `1px solid ${CORPORATE_THEME.border}`,
-                    marginBottom: 12,
+                    marginBottom: compact ? 6 : 12,
                   },
                 },
                 ...categoryBreakdown.map((item) =>
@@ -301,7 +373,11 @@ export function CategoryDistributionChart({
                 'ul',
                 {
                   'data-testid': 'category-breakdown-list',
-                  style: { listStyle: 'none', margin: 0, padding: 0 },
+                  style: {
+                    listStyle: 'none',
+                    margin: 0,
+                    padding: 0,
+                  },
                 },
                 ...categoryBreakdown.map((item) =>
                   h(
@@ -310,7 +386,7 @@ export function CategoryDistributionChart({
                       key: item.categoryId,
                       'data-testid': `breakdown-category-${item.categoryId}`,
                       style: {
-                        padding: '10px 0',
+                        padding: compact ? '4px 0' : '10px 0',
                         borderBottom: `1px solid ${CORPORATE_THEME.border}`,
                       },
                     },
@@ -322,19 +398,25 @@ export function CategoryDistributionChart({
                           justifyContent: 'space-between',
                           alignItems: 'center',
                           flexWrap: 'wrap',
-                          gap: 8,
-                          marginBottom: 6,
+                          gap: compact ? 4 : 8,
+                          marginBottom: compact ? 3 : 6,
                         },
                       },
                       h(
                         'div',
-                        { style: { display: 'flex', alignItems: 'center', gap: 8 } },
+                        {
+                          style: {
+                            display: 'flex',
+                            alignItems: 'center',
+                            gap: compact ? 6 : 8,
+                          },
+                        },
                         h('span', {
                           'data-testid': `category-color-swatch-${item.categoryId}`,
                           style: {
                             display: 'inline-block',
-                            width: 10,
-                            height: 10,
+                            width: compact ? 8 : 10,
+                            height: compact ? 8 : 10,
                             borderRadius: 2,
                             backgroundColor: item.colorHex,
                             flexShrink: 0,
@@ -345,7 +427,7 @@ export function CategoryDistributionChart({
                           {
                             style: {
                               color: CORPORATE_THEME.textPrimary,
-                              fontSize: 14,
+                              fontSize: compact ? 12.5 : 14,
                               fontWeight: 600,
                             },
                           },
@@ -355,7 +437,7 @@ export function CategoryDistributionChart({
                           'span',
                           {
                             style: {
-                              fontSize: 12,
+                              fontSize: compact ? 11 : 12,
                               color: CORPORATE_THEME.textMuted,
                             },
                           },
@@ -367,7 +449,7 @@ export function CategoryDistributionChart({
                         {
                           style: {
                             display: 'flex',
-                            gap: 8,
+                            gap: compact ? 5 : 8,
                             alignItems: 'center',
                             flexWrap: 'wrap',
                             fontVariantNumeric: CORPORATE_THEME.tabularNums,
@@ -378,12 +460,12 @@ export function CategoryDistributionChart({
                           {
                             'data-testid': `category-expense-pct-${item.categoryId}`,
                             style: {
-                              padding: '2px 8px',
+                              padding: compact ? '1px 6px' : '2px 8px',
                               borderRadius: 4,
                               backgroundColor: CORPORATE_THEME.navySoft,
                               border: `1px solid ${CORPORATE_THEME.border}`,
                               color: CORPORATE_THEME.navyPrimary,
-                              fontSize: 12,
+                              fontSize: compact ? 11 : 12,
                               fontWeight: 600,
                             },
                           },
@@ -396,12 +478,12 @@ export function CategoryDistributionChart({
                               {
                                 'data-testid': `category-income-pct-${item.categoryId}`,
                                 style: {
-                                  padding: '2px 8px',
+                                  padding: compact ? '1px 6px' : '2px 8px',
                                   borderRadius: 4,
                                   backgroundColor: CORPORATE_THEME.brownSoft,
                                   border: `1px solid ${CORPORATE_THEME.border}`,
                                   color: CORPORATE_THEME.brownPrimary,
-                                  fontSize: 12,
+                                  fontSize: compact ? 11 : 12,
                                   fontWeight: 600,
                                 },
                               },
@@ -414,7 +496,7 @@ export function CategoryDistributionChart({
                             'data-testid': `category-amount-${item.categoryId}`,
                             style: {
                               color: CORPORATE_THEME.navyPrimary,
-                              fontSize: 14,
+                              fontSize: compact ? 12.5 : 14,
                             },
                           },
                           formatCentsToArs(item.amountCents),
@@ -425,7 +507,7 @@ export function CategoryDistributionChart({
                       'div',
                       {
                         style: {
-                          height: 5,
+                          height: compact ? 3 : 5,
                           borderRadius: 2,
                           backgroundColor: CORPORATE_THEME.surfaceMuted,
                           overflow: 'hidden',
@@ -452,7 +534,7 @@ export function CategoryDistributionChart({
                   'span',
                   {
                     style: {
-                      fontSize: 12.5,
+                      fontSize: compact ? 11.5 : 12.5,
                       fontWeight: 600,
                       color: CORPORATE_THEME.textSecondary,
                     },
@@ -467,7 +549,7 @@ export function CategoryDistributionChart({
                     {
                       'data-testid': 'chart-total-percentage',
                       style: {
-                        fontSize: 12.5,
+                        fontSize: compact ? 11.5 : 12.5,
                         fontWeight: 700,
                         color: CORPORATE_THEME.brownPrimary,
                       },
@@ -479,7 +561,7 @@ export function CategoryDistributionChart({
                     {
                       'data-testid': 'chart-total-amount',
                       style: {
-                        fontSize: 14.5,
+                        fontSize: compact ? 13 : 14.5,
                         fontWeight: 700,
                         color: CORPORATE_THEME.navyPrimary,
                       },

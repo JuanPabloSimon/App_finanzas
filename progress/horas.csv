@@ -6,3 +6,5 @@ fecha,integrante,actividad,feature,herramienta,horas,nota
 2026-11-10,Juan Pablo,spec+impl+review,H3,antigravity,1.5,Ciclo SDD completo de h03_listado_mensual (R1..R8 y T1..T7)
 2026-11-10,Juan Pablo,spec+impl+review,H5,antigravity,2.0,Ciclo SDD completo de h05_ingreso_mensual + Panel de Resumen General + Cuenta Local + Inversiones y Recordatorios (R1..R8 y T1..T8)
 2026-11-10,Juan Pablo,spec+impl+review,H6,antigravity,1.5,Ciclo SDD completo de h06_grafico_categorias (R1..R8 y T1..T6)
+2026-11-11,Juan Pablo,spec+impl+review,H4,antigravity,1.5,Ciclo SDD completo de h04_categorias_propias (R1..R8 y T1..T8)
+2026-11-11,Juan Pablo,spec+impl+review,H13,antigravity,2.0,Ciclo SDD completo de h13_refactor_ux_gestix (R1..R8 y T1..T7)

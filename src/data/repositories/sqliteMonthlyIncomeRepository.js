@@ -248,4 +248,36 @@ export class SqliteUserAccountRepository {
       createdAt: row.created_at,
     });
   }
+
+  async updateProfile({ id, fullName, username }) {
+    const numericId = Number(id);
+    if (!Number.isInteger(numericId) || numericId <= 0) {
+      throw new InvalidCredentials('No existe una sesión activa para actualizar');
+    }
+    const draft = new UserAccount({ id: numericId, fullName, username });
+    const existing = await this.db.get(
+      'SELECT id, created_at FROM user_accounts WHERE id = ?',
+      [numericId],
+    );
+    if (!existing) {
+      throw new InvalidCredentials('La cuenta de usuario no existe');
+    }
+    const conflict = await this.db.get(
+      'SELECT id FROM user_accounts WHERE username = ? AND id != ?',
+      [draft.username, numericId],
+    );
+    if (conflict) {
+      throw new InvalidCredentials('Ya existe una cuenta con ese usuario');
+    }
+    await this.db.run(
+      'UPDATE user_accounts SET full_name = ?, username = ? WHERE id = ?',
+      [draft.fullName, draft.username, numericId],
+    );
+    return new UserAccount({
+      id: numericId,
+      fullName: draft.fullName,
+      username: draft.username,
+      createdAt: existing.created_at,
+    });
+  }
 }

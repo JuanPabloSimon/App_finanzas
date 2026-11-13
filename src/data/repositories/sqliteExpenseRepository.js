@@ -1,6 +1,10 @@
 import { Expense } from '../../domain/models/expense.js';
 import { ExpenseRepository } from '../../domain/repositories/expenseRepository.js';
-import { InvalidCategory, ExpenseNotFound } from '../../core/errors.js';
+import {
+  InvalidCategory,
+  CategoryNotFound,
+  ExpenseNotFound,
+} from '../../core/errors.js';
 import { formatIsoDateTime } from '../../core/dates.js';
 
 function mapRowToExpense(row) {
@@ -196,5 +200,53 @@ export class SqliteExpenseRepository extends ExpenseRepository {
       throw new ExpenseNotFound(id);
     }
     return true;
+  }
+
+  async countByCategoryId(categoryId) {
+    const numericId = Number(categoryId);
+    if (!Number.isInteger(numericId) || numericId <= 0) {
+      return 0;
+    }
+    const row = await this.db.get(
+      'SELECT COUNT(*) AS count FROM expenses WHERE category_id = ?',
+      [numericId],
+    );
+    return Number(row?.count ?? 0);
+  }
+
+  async reassignCategory(fromCategoryId, toCategoryId) {
+    const fromId = Number(fromCategoryId);
+    const toId = Number(toCategoryId);
+    if (!Number.isInteger(fromId) || fromId <= 0) {
+      throw new CategoryNotFound(fromCategoryId);
+    }
+    if (!Number.isInteger(toId) || toId <= 0 || toId === fromId) {
+      throw new InvalidCategory(
+        'Seleccioná una categoría de destino válida y distinta',
+      );
+    }
+
+    const fromRow = await this.db.get(
+      'SELECT id FROM categories WHERE id = ?',
+      [fromId],
+    );
+    if (!fromRow) {
+      throw new CategoryNotFound(fromId);
+    }
+
+    const toRow = await this.db.get(
+      'SELECT id FROM categories WHERE id = ?',
+      [toId],
+    );
+    if (!toRow) {
+      throw new CategoryNotFound(toId);
+    }
+
+    const nowIso = formatIsoDateTime(new Date());
+    const result = await this.db.run(
+      'UPDATE expenses SET category_id = ?, updated_at = ? WHERE category_id = ?',
+      [toId, nowIso, fromId],
+    );
+    return Number(result?.changes ?? 0);
   }
 }
