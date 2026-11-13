@@ -3,10 +3,15 @@ import assert from 'node:assert/strict';
 import { AppDatabase, PREDEFINED_CATEGORIES } from '../../src/data/db/appDatabase.js';
 import { SqliteCategoryRepository } from '../../src/data/repositories/sqliteCategoryRepository.js';
 import { SqliteExpenseRepository } from '../../src/data/repositories/sqliteExpenseRepository.js';
+import { Category } from '../../src/domain/models/category.js';
 import { Expense } from '../../src/domain/models/expense.js';
 import {
   InvalidAmount,
   InvalidCategory,
+  DuplicateCategory,
+  CategoryNotFound,
+  PredefinedCategoryDeletionNotAllowed,
+  CategoryInUse,
   ExpenseNotFound,
 } from '../../src/core/errors.js';
 
@@ -372,5 +377,138 @@ describe('H1 persistencia de gastos y categorías en SQLite (SqliteCategoryRepos
     assert.equal(octList.length, 1);
     assert.equal(octList[0].note, 'Gasto de octubre');
     assert.equal(octList[0].amountCents, 95000);
+  });
+
+  it('[H4-R1][H4-R3][H4-R4] crea categorías propias en SQLite con is_predefined = 0 y created_at ISO 8601 y rechaza nombres vacíos o duplicados sin distinguir mayúsculas (COLLATE NOCASE)', async () => {
+    const savedCustom = await categoryRepo.save(
+      new Category({
+        name: '  Mascotas  ',
+        createdAt: '2026-11-11T10:30:00',
+      }),
+    );
+
+    assert.equal(savedCustom.id > PREDEFINED_CATEGORIES.length, true);
+    assert.equal(savedCustom.name, 'Mascotas');
+    assert.equal(savedCustom.isPredefined, false);
+    assert.equal(savedCustom.createdAt, '2026-11-11T10:30:00');
+
+    const rawRow = await db.get('SELECT * FROM categories WHERE id = ?', [
+      savedCustom.id,
+    ]);
+    assert.equal(rawRow.name, 'Mascotas');
+    assert.equal(rawRow.is_predefined, 0);
+    assert.equal(rawRow.created_at, '2026-11-11T10:30:00');
+
+    const foundByName = await categoryRepo.findByName('  mAsCoTaS ');
+    assert.notEqual(foundByName, null);
+    assert.equal(foundByName.id, savedCustom.id);
+
+    for (const emptyName of ['', '   ', null, undefined]) {
+      await assert.rejects(
+        () => categoryRepo.save({ name: emptyName }),
+        InvalidCategory,
+      );
+    }
+
+    for (const duplicateName of ['mascotas', 'MASCOTAS', '  Mascotas ', 'alimentos', 'ALIMENTOS']) {
+      await assert.rejects(
+        () => categoryRepo.save({ name: duplicateName }),
+        DuplicateCategory,
+      );
+    }
+
+    const allCategories = await categoryRepo.findAll();
+    assert.equal(allCategories.length, PREDEFINED_CATEGORIES.length + 1);
+  });
+
+  it('[H4-R5][H4-R6] impide eliminar categorías predefinidas o inexistentes y permite eliminar una categoría propia que no tiene gastos asociados', async () => {
+    await assert.rejects(
+      () => categoryRepo.deleteById(1),
+      PredefinedCategoryDeletionNotAllowed,
+    );
+    await assert.rejects(() => categoryRepo.deleteById(9999), CategoryNotFound);
+    await assert.rejects(() => categoryRepo.deleteById(0), CategoryNotFound);
+
+    const alimentosAfter = await categoryRepo.findById(1);
+    assert.notEqual(alimentosAfter, null);
+    assert.equal(alimentosAfter.name, 'Alimentos');
+
+    const customCat = await categoryRepo.save({
+      name: 'Jardinería',
+      createdAt: '2026-11-11T11:00:00',
+    });
+    assert.equal(await categoryRepo.countExpenses(customCat.id), 0);
+
+    const deleted = await categoryRepo.deleteById(customCat.id);
+    assert.equal(deleted, true);
+    assert.equal(await categoryRepo.findById(customCat.id), null);
+  });
+
+  it('[H4-R7] bloquea la eliminación directa de una categoría propia con gastos asociados lanzando CategoryInUse y la elimina recién tras reasignar sus gastos a otra categoría existente', async () => {
+    const customCat = await categoryRepo.save({
+      name: 'Viajes',
+      createdAt: '2026-11-11T11:30:00',
+    });
+
+    const exp1 = await expenseRepo.save(
+      new Expense({
+        amountCents: 150000,
+        date: '2026-10-20',
+        categoryId: customCat.id,
+        note: 'Hotel octubre',
+        createdAt: '2026-10-20T10:00:00',
+      }),
+    );
+    const exp2 = await expenseRepo.save(
+      new Expense({
+        amountCents: 280000,
+        date: '2026-11-05',
+        categoryId: customCat.id,
+        note: 'Pasajes noviembre',
+        createdAt: '2026-11-05T12:00:00',
+      }),
+    );
+
+    assert.equal(await categoryRepo.countExpenses(customCat.id), 2);
+    assert.equal(await expenseRepo.countByCategoryId(customCat.id), 2);
+
+    await assert.rejects(
+      () => categoryRepo.deleteById(customCat.id),
+      CategoryInUse,
+    );
+    await assert.rejects(
+      () =>
+        categoryRepo.deleteById(customCat.id, {
+          reassignToCategoryId: customCat.id,
+        }),
+      InvalidCategory,
+    );
+    await assert.rejects(
+      () =>
+        categoryRepo.deleteById(customCat.id, {
+          reassignToCategoryId: 9999,
+        }),
+      CategoryNotFound,
+    );
+
+    assert.notEqual(await categoryRepo.findById(customCat.id), null);
+
+    const ocioCat = await categoryRepo.findByName('Ocio');
+    assert.notEqual(ocioCat, null);
+
+    const deleted = await categoryRepo.deleteById(customCat.id, {
+      reassignToCategoryId: ocioCat.id,
+    });
+    assert.equal(deleted, true);
+    assert.equal(await categoryRepo.findById(customCat.id), null);
+    assert.equal(await expenseRepo.countByCategoryId(customCat.id), 0);
+    assert.equal(await expenseRepo.countByCategoryId(ocioCat.id), 2);
+
+    const updatedExp1 = await expenseRepo.findById(exp1.id);
+    const updatedExp2 = await expenseRepo.findById(exp2.id);
+    assert.equal(updatedExp1.categoryId, ocioCat.id);
+    assert.equal(updatedExp1.categoryName, 'Ocio');
+    assert.equal(updatedExp2.categoryId, ocioCat.id);
+    assert.equal(updatedExp2.categoryName, 'Ocio');
   });
 });

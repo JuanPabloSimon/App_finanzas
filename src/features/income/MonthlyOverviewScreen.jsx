@@ -256,100 +256,151 @@ function buildOverviewStyles(viewportWidth = 390) {
     wrapper: Object.freeze({
       width: '100%',
       boxSizing: 'border-box',
-      padding: layout.isMobile ? 4 : 8,
+      padding: layout.isMobile ? '4px 6px 74px' : '8px 12px 80px',
       maxWidth: layout.isMobile ? '100%' : layout.containerMaxWidth,
       margin: '0 auto',
       color: CORPORATE_THEME.textPrimary,
       fontFamily: CORPORATE_THEME.fontSans,
     }),
+    overviewViewportBox: Object.freeze({
+      display: 'flex',
+      flexDirection: 'column',
+      gap: layout.isMobile ? 4 : 8,
+      overflowY: 'hidden',
+      boxSizing: 'border-box',
+      maxHeight: layout.isMobile ? 'calc(100dvh - 46px - 62px)' : 'none',
+    }),
     topBar: Object.freeze({
       display: 'flex',
-      flexDirection: layout.isMobile ? 'column' : 'row',
+      flexDirection: 'row',
       justifyContent: 'space-between',
-      alignItems: layout.isMobile ? 'stretch' : 'center',
-      gap: 12,
-      padding: layout.isMobile ? '14px 16px' : '16px 22px',
-      borderRadius: '6px 6px 0 0',
+      alignItems: 'center',
+      width: '100%',
+      padding: layout.isMobile ? '3px 6px' : '5px 12px',
+      borderRadius: 6,
       backgroundColor: CORPORATE_THEME.navyPrimary,
       color: '#FFFFFF',
       borderBottom: `2px solid ${CORPORATE_THEME.brownPrimary}`,
+      boxSizing: 'border-box',
+      minHeight: layout.isMobile ? 36 : 40,
+      marginBottom: 0,
+    }),
+    monthNavEmbeddedButton: Object.freeze({
+      minWidth: layout.isMobile ? 32 : 36,
+      minHeight: layout.isMobile ? 32 : 36,
+      width: layout.isMobile ? 32 : 36,
+      height: layout.isMobile ? 32 : 36,
+      padding: 0,
+      borderRadius: 4,
+      border: 'none',
+      backgroundColor: 'rgba(255, 255, 255, 0.12)',
+      color: '#FFFFFF',
+      fontSize: layout.isMobile ? 16 : 18,
+      fontWeight: 700,
+      display: 'inline-flex',
+      alignItems: 'center',
+      justifyContent: 'center',
+      cursor: 'pointer',
+      transition: 'background-color 150ms ease',
     }),
     tabsBar: Object.freeze({
-      display: 'flex',
-      flexWrap: 'wrap',
-      gap: 4,
-      padding: '8px 10px 0 10px',
-      backgroundColor: CORPORATE_THEME.surface,
-      borderLeft: `1px solid ${CORPORATE_THEME.border}`,
-      borderRight: `1px solid ${CORPORATE_THEME.border}`,
-      borderBottom: `2px solid ${CORPORATE_THEME.border}`,
-      marginBottom: 18,
+      position: 'fixed',
+      bottom: 0,
+      left: 0,
+      right: 0,
+      zIndex: 40,
+      display: 'grid',
+      gridTemplateColumns: 'repeat(5, minmax(0, 1fr))',
+      gap: layout.isMobile ? 4 : 8,
+      padding: layout.isMobile ? '6px 6px 6px' : '8px 20px 8px',
+      maxWidth: layout.isMobile ? '100%' : layout.containerMaxWidth,
+      margin: '0 auto',
+      boxSizing: 'border-box',
+      backgroundColor: 'rgba(242, 244, 247, 0.96)',
+      borderTop: `1px solid ${CORPORATE_THEME.borderStrong}`,
+      boxShadow: '0 -6px 20px rgba(11, 25, 44, 0.08)',
     }),
     tabButton: Object.freeze({
-      minHeight: 42,
-      padding: '8px 14px',
-      borderRadius: '4px 4px 0 0',
-      border: '1px solid transparent',
-      borderBottom: 'none',
-      backgroundColor: 'transparent',
+      minHeight: layout.isMobile ? 44 : 50,
+      padding: layout.isMobile ? '4px 2px' : '6px 10px',
+      borderRadius: 8,
+      border: `1px solid ${CORPORATE_THEME.borderStrong}`,
+      backgroundColor: CORPORATE_THEME.surface,
       color: CORPORATE_THEME.textSecondary,
       fontWeight: 600,
-      fontSize: 13,
+      fontSize: layout.isMobile ? 10.5 : 12,
+      display: 'flex',
+      flexDirection: 'column',
+      alignItems: 'center',
+      justifyContent: 'center',
+      gap: 2,
       cursor: 'pointer',
+      transform: 'translateY(0px)',
+      transition:
+        'transform 160ms ease, background-color 160ms ease, box-shadow 160ms ease',
+      boxShadow: '0 2px 5px rgba(11, 25, 44, 0.05)',
     }),
     activeTabButton: Object.freeze({
-      minHeight: 42,
-      padding: '8px 16px',
-      borderRadius: '4px 4px 0 0',
+      minHeight: layout.isMobile ? 44 : 50,
+      padding: layout.isMobile ? '4px 2px' : '6px 10px',
+      borderRadius: 8,
       border: `1px solid ${CORPORATE_THEME.brownPrimary}`,
-      borderBottom: 'none',
       backgroundColor: CORPORATE_THEME.brownPrimary,
       color: '#FFFFFF',
-      fontWeight: 600,
-      fontSize: 13,
+      fontWeight: 700,
+      fontSize: layout.isMobile ? 10.5 : 12,
+      display: 'flex',
+      flexDirection: 'column',
+      alignItems: 'center',
+      justifyContent: 'center',
+      gap: 2,
       cursor: 'pointer',
+      transform: 'translateY(-8px)',
+      transition:
+        'transform 160ms ease, background-color 160ms ease, box-shadow 160ms ease',
+      boxShadow: '0 8px 18px rgba(74, 53, 37, 0.28)',
     }),
     kpiGrid: Object.freeze({
       display: 'grid',
       gridTemplateColumns: layout.isMobile
-        ? '1fr'
+        ? 'repeat(2, minmax(0, 1fr))'
         : layout.isTablet
           ? 'repeat(2, minmax(0, 1fr))'
           : 'repeat(4, minmax(0, 1fr))',
       gap: 1,
       backgroundColor: CORPORATE_THEME.border,
       border: `1px solid ${CORPORATE_THEME.border}`,
-      borderTop: `3px solid ${CORPORATE_THEME.navyPrimary}`,
+      borderTop: `2px solid ${CORPORATE_THEME.navyPrimary}`,
       borderRadius: 6,
       overflow: 'hidden',
-      marginBottom: 20,
-      boxShadow: '0 6px 20px rgba(11, 25, 44, 0.05)',
+      marginBottom: 0,
+      boxShadow: '0 2px 8px rgba(11, 25, 44, 0.04)',
     }),
     kpiCardNavy: Object.freeze({
       backgroundColor: CORPORATE_THEME.surface,
       color: CORPORATE_THEME.textPrimary,
-      padding: layout.isMobile ? '14px 16px' : '18px 20px',
+      padding: layout.isMobile ? '4px 8px' : '8px 12px',
     }),
     kpiCardBrown: Object.freeze({
       backgroundColor: CORPORATE_THEME.surface,
       color: CORPORATE_THEME.textPrimary,
-      padding: layout.isMobile ? '14px 16px' : '18px 20px',
+      padding: layout.isMobile ? '4px 8px' : '8px 12px',
     }),
     kpiCardLight: Object.freeze({
       backgroundColor: CORPORATE_THEME.surface,
       color: CORPORATE_THEME.textPrimary,
-      padding: layout.isMobile ? '14px 16px' : '18px 20px',
+      padding: layout.isMobile ? '4px 8px' : '8px 12px',
     }),
     kpiCardHighlight: Object.freeze({
       backgroundColor: CORPORATE_THEME.navyPrimary,
       color: '#FFFFFF',
-      padding: layout.isMobile ? '14px 16px' : '18px 20px',
+      padding: layout.isMobile ? '4px 8px' : '8px 12px',
     }),
     grid: Object.freeze({
       display: 'grid',
       gridTemplateColumns:
-        gridColumns === 1 ? '1fr' : 'minmax(0, 1.08fr) minmax(0, 0.92fr)',
-      gap: layout.isMobile ? 16 : 22,
+        gridColumns === 1 ? '1fr' : 'minmax(0, 1.05fr) minmax(0, 0.95fr)',
+      gap: layout.isMobile ? 14 : 20,
       alignItems: 'start',
     }),
     card: Object.freeze({
@@ -357,14 +408,30 @@ function buildOverviewStyles(viewportWidth = 390) {
       border: `1px solid ${CORPORATE_THEME.border}`,
       borderTop: `2px solid ${CORPORATE_THEME.navyPrimary}`,
       borderRadius: 6,
-      padding: layout.isMobile ? 16 : 22,
+      padding: layout.isMobile ? 14 : 20,
     }),
     cardBrownRule: Object.freeze({
       backgroundColor: CORPORATE_THEME.surface,
       border: `1px solid ${CORPORATE_THEME.border}`,
       borderTop: `2px solid ${CORPORATE_THEME.brownPrimary}`,
       borderRadius: 6,
-      padding: layout.isMobile ? 16 : 22,
+      padding: layout.isMobile ? 14 : 20,
+    }),
+    amountInput: Object.freeze({
+      minHeight: 48,
+      width: '100%',
+      padding: '10px 14px',
+      borderRadius: 4,
+      border: `2px solid ${CORPORATE_THEME.navyPrimary}`,
+      boxSizing: 'border-box',
+      fontSize: 18,
+      fontWeight: 700,
+      fontFamily: CORPORATE_THEME.fontSerif,
+      fontVariantNumeric: CORPORATE_THEME.tabularNums,
+      backgroundColor: '#FFFFFF',
+      color: '#0B192C',
+      caretColor: '#0B192C',
+      colorScheme: 'light',
     }),
     input: Object.freeze({
       minHeight: 44,
@@ -376,6 +443,8 @@ function buildOverviewStyles(viewportWidth = 390) {
       fontSize: 14,
       backgroundColor: '#FFFFFF',
       color: CORPORATE_THEME.textPrimary,
+      caretColor: '#0B192C',
+      colorScheme: 'light',
     }),
     primaryButton: Object.freeze({
       minHeight: 48,
@@ -512,6 +581,9 @@ class MonthlyOverviewController {
     } catch (err) {
       if (err instanceof DomainException) {
         this.incomeError = err.message;
+        if (this.activeTab === 'overview') {
+          this.activeTab = 'income';
+        }
         return this.getState();
       }
       throw err;
@@ -581,10 +653,16 @@ class MonthlyOverviewController {
       await this.reminderRepository.save(draft);
       this.reminders = await this.reminderRepository.findAll();
       this.reminderTitleInput = '';
+      if (this.activeTab === 'overview') {
+        this.activeTab = 'reminders';
+      }
       return this.getState();
     } catch (err) {
       if (err instanceof DomainException) {
         this.reminderError = err.message;
+        if (this.activeTab === 'overview') {
+          this.activeTab = 'reminders';
+        }
         return this.getState();
       }
       throw err;
@@ -871,6 +949,7 @@ export function MonthlyOverviewScreen({
     .map((inv) => ({
       key: `inv-${inv.id}`,
       title: `Vencimiento de ${inv.assetName} (${inv.platform})`,
+      subtitle: `${inv.assetName} · ${inv.platform} · Vencimiento: ${inv.dueDate}`,
       dueDate: inv.dueDate,
       amountCents: inv.amountCents,
     }));
@@ -879,6 +958,7 @@ export function MonthlyOverviewScreen({
     ...reminders.map((rem) => ({
       key: `rem-${rem.id}`,
       title: rem.title,
+      subtitle: `Vencimiento: ${rem.dueDate}`,
       dueDate: rem.dueDate,
       amountCents: rem.amountCents,
     })),
@@ -981,11 +1061,11 @@ export function MonthlyOverviewScreen({
   };
 
   const tabs = [
-    { id: 'overview', label: 'Resumen General' },
+    { id: 'overview', label: 'Resumen' },
     { id: 'expenses', label: 'Gastos' },
     { id: 'income', label: 'Ingresos' },
-    { id: 'investments', label: 'Inversiones (Registro)' },
-    { id: 'reminders', label: 'Recordatorios y Consejos' },
+    { id: 'investments', label: 'Inversiones' },
+    { id: 'reminders', label: 'Alertas' },
   ];
 
   const expensesSharePct =
@@ -1004,15 +1084,34 @@ export function MonthlyOverviewScreen({
       ? Math.max(0, 100 - expensesSharePct - investmentsSharePct)
       : 0;
 
-  return h(
-    'section',
+  const periodHeaderNode = h(
+    'div',
     {
-      'data-testid': 'monthly-overview-screen',
-      'data-layout': layoutMode,
-      'data-columns': String(gridColumns),
-      'data-palette': 'corporate-navy-brown',
-      style: styles.wrapper,
+      style: {
+        display: 'flex',
+        flexDirection: 'column',
+        alignItems: 'center',
+        gap: layout.isMobile ? 2 : 4,
+        width: '100%',
+        margin: '0 auto',
+      },
     },
+    h(
+      'h2',
+      {
+        style: {
+          margin: 0,
+          fontSize: layout.isMobile ? 12.5 : 15,
+          fontWeight: 700,
+          color: CORPORATE_THEME.navyPrimary,
+          fontFamily: CORPORATE_THEME.fontSerif,
+          letterSpacing: '0.02em',
+          textAlign: 'center',
+          textTransform: 'uppercase',
+        },
+      },
+      'Gestión de Estado Patrimonial',
+    ),
     h(
       'div',
       {
@@ -1020,256 +1119,707 @@ export function MonthlyOverviewScreen({
         style: styles.topBar,
       },
       h(
-        'div',
-        null,
+        'button',
+        {
+          type: 'button',
+          'data-testid': 'overview-prev-month-button',
+          tabIndex: 0,
+          'aria-label': 'Mes anterior',
+          style: styles.monthNavEmbeddedButton,
+          onClick: handlePrevMonth,
+        },
         h(
-          'span',
+          'svg',
           {
-            style: {
-              fontSize: 12,
-              color: '#CBD5E1',
-              fontWeight: 500,
-              display: 'block',
-            },
+            width: layout.isMobile ? 18 : 20,
+            height: layout.isMobile ? 18 : 20,
+            viewBox: '0 0 24 24',
+            fill: 'none',
+            stroke: 'currentColor',
+            strokeWidth: 2.5,
+            strokeLinecap: 'round',
+            strokeLinejoin: 'round',
+            'aria-hidden': 'true',
           },
-          'Estado patrimonial y flujo mensual',
-        ),
-        h(
-          'h2',
-          {
-            style: {
-              margin: '2px 0 0 0',
-              fontSize: layout.isMobile ? 21 : 25,
-              fontWeight: 500,
-              fontFamily: CORPORATE_THEME.fontSerif,
-            },
-          },
-          `Período ${formatYearMonthLabel(activeYearMonth)}`,
+          h('polyline', { points: '15 18 9 12 15 6' }),
         ),
       ),
       h(
-        'div',
-        { style: { display: 'flex', gap: 8, alignItems: 'center', flexWrap: 'wrap' } },
-        h(
-          'button',
-          {
-            type: 'button',
-            'data-testid': 'overview-prev-month-button',
-            tabIndex: 0,
-            style: {
-              minHeight: 40,
-              padding: '7px 13px',
-              borderRadius: 4,
-              border: '1px solid rgba(255, 255, 255, 0.28)',
-              backgroundColor: CORPORATE_THEME.navySecondary,
-              color: '#FFFFFF',
-              fontSize: 13,
-              fontWeight: 600,
-              cursor: 'pointer',
-            },
-            onClick: handlePrevMonth,
+        'span',
+        {
+          style: {
+            fontSize: layout.isMobile ? 14 : 16,
+            fontWeight: 600,
+            fontFamily: CORPORATE_THEME.fontSerif,
+            color: '#FFFFFF',
+            textAlign: 'center',
+            letterSpacing: '0.01em',
+            flex: 1,
           },
-          '← Mes anterior',
-        ),
-        h(
-          'button',
-          {
-            type: 'button',
-            'data-testid': 'overview-next-month-button',
-            tabIndex: 0,
-            disabled: !canGoNextMonth,
-            style: {
-              minHeight: 40,
-              padding: '7px 13px',
-              borderRadius: 4,
-              border: '1px solid rgba(255, 255, 255, 0.28)',
-              backgroundColor: CORPORATE_THEME.navySecondary,
-              color: '#FFFFFF',
-              fontSize: 13,
-              fontWeight: 600,
-              opacity: canGoNextMonth ? 1 : 0.4,
-              cursor: canGoNextMonth ? 'pointer' : 'not-allowed',
-            },
-            onClick: handleNextMonth,
+        },
+        formatYearMonthLabel(activeYearMonth),
+      ),
+      h(
+        'button',
+        {
+          type: 'button',
+          'data-testid': 'overview-next-month-button',
+          tabIndex: 0,
+          disabled: !canGoNextMonth,
+          'aria-label': 'Mes siguiente',
+          style: {
+            ...styles.monthNavEmbeddedButton,
+            opacity: canGoNextMonth ? 1 : 0.35,
+            cursor: canGoNextMonth ? 'pointer' : 'not-allowed',
           },
-          'Mes siguiente →',
+          onClick: handleNextMonth,
+        },
+        h(
+          'svg',
+          {
+            width: layout.isMobile ? 18 : 20,
+            height: layout.isMobile ? 18 : 20,
+            viewBox: '0 0 24 24',
+            fill: 'none',
+            stroke: 'currentColor',
+            strokeWidth: 2.5,
+            strokeLinecap: 'round',
+            strokeLinejoin: 'round',
+            'aria-hidden': 'true',
+          },
+          h('polyline', { points: '9 18 15 12 9 6' }),
         ),
       ),
     ),
-    h(
-      'nav',
-      {
-        'data-testid': 'overview-tabs',
-        'aria-label': 'Secciones del panel financiero',
-        style: styles.tabsBar,
-      },
-      ...tabs.map((tab) =>
-        h(
-          'button',
-          {
-            key: tab.id,
-            type: 'button',
-            'data-testid': `tab-${tab.id}`,
-            tabIndex: 0,
-            style: activeTab === tab.id ? styles.activeTabButton : styles.tabButton,
-            onClick: () => setActiveTab(tab.id),
-          },
-          tab.label,
-        ),
-      ),
-    ),
-    h(
+  );
+
+  let activeTabContent = null;
+
+  if (activeTab === 'overview') {
+    activeTabContent = h(
       'div',
       {
-        'data-testid': 'overview-kpi-grid',
-        style: styles.kpiGrid,
+        'data-testid': 'overview-viewport-box',
+        style: styles.overviewViewportBox,
       },
+      periodHeaderNode,
       h(
         'div',
-        { style: styles.kpiCardNavy },
+        {
+          'data-testid': 'overview-kpi-grid',
+          style: styles.kpiGrid,
+        },
         h(
-          'span',
-          {
-            style: {
-              fontSize: 12,
-              color: CORPORATE_THEME.textMuted,
-              fontWeight: 600,
-              display: 'block',
-            },
-          },
-          'Ingreso mensual registrado',
-        ),
-        h(
-          'strong',
-          {
-            'data-testid': 'overview-income-amount',
-            style: {
-              fontSize: 23,
-              fontWeight: 600,
-              fontFamily: CORPORATE_THEME.fontSerif,
-              fontVariantNumeric: CORPORATE_THEME.tabularNums,
-              color: CORPORATE_THEME.navyPrimary,
-              display: 'block',
-              marginTop: 6,
-            },
-          },
-          incomeCents !== null ? formatCentsToArs(incomeCents) : 'Sin ingreso registrado',
-        ),
-      ),
-      h(
-        'div',
-        { style: styles.kpiCardLight },
-        h(
-          'span',
-          {
-            style: {
-              fontSize: 12,
-              color: CORPORATE_THEME.textMuted,
-              fontWeight: 600,
-              display: 'block',
-            },
-          },
-          'Gastos del mes',
-        ),
-        h(
-          'strong',
-          {
-            'data-testid': 'overview-expenses-amount',
-            style: {
-              fontSize: 23,
-              fontWeight: 600,
-              fontFamily: CORPORATE_THEME.fontSerif,
-              fontVariantNumeric: CORPORATE_THEME.tabularNums,
-              display: 'block',
-              marginTop: 6,
-              color: CORPORATE_THEME.textPrimary,
-            },
-          },
-          formatCentsToArs(totalExpensesCents),
-        ),
-      ),
-      h(
-        'div',
-        { style: styles.kpiCardBrown },
-        h(
-          'span',
-          {
-            style: {
-              fontSize: 12,
-              color: CORPORATE_THEME.brownPrimary,
-              fontWeight: 600,
-              display: 'block',
-            },
-          },
-          'Capital en inversiones (mes)',
-        ),
-        h(
-          'strong',
-          {
-            'data-testid': 'overview-investments-amount',
-            style: {
-              fontSize: 23,
-              fontWeight: 600,
-              fontFamily: CORPORATE_THEME.fontSerif,
-              fontVariantNumeric: CORPORATE_THEME.tabularNums,
-              color: CORPORATE_THEME.brownPrimary,
-              display: 'block',
-              marginTop: 6,
-            },
-          },
-          formatCentsToArs(totalInvestmentsCents),
-        ),
-      ),
-      h(
-        'div',
-        { style: styles.kpiCardHighlight },
-        h(
-          'span',
-          {
-            style: {
-              fontSize: 12,
-              color: '#CBD5E1',
-              fontWeight: 500,
-              display: 'block',
-            },
-          },
-          'Balance disponible',
-        ),
-        h(
-          'strong',
-          {
-            'data-testid': 'overview-balance-amount',
-            style: {
-              fontSize: 24,
-              fontWeight: 600,
-              fontFamily: CORPORATE_THEME.fontSerif,
-              fontVariantNumeric: CORPORATE_THEME.tabularNums,
-              display: 'block',
-              marginTop: 6,
-              color:
-                availableBalanceCents !== null && availableBalanceCents < 0
-                  ? '#FCA5A5'
-                  : '#FFFFFF',
-            },
-          },
-          availableBalanceCents !== null
-            ? formatCentsToArs(Math.max(0, availableBalanceCents))
-            : 'Cargá tu ingreso',
-        ),
-      ),
-    ),
-    incomeCents !== null && incomeCents > 0
-      ? h(
           'div',
-          {
-            'data-testid': 'capital-allocation-strip',
-            style: {
-              backgroundColor: CORPORATE_THEME.surface,
-              border: `1px solid ${CORPORATE_THEME.border}`,
-              borderRadius: 6,
-              padding: '12px 16px',
-              marginBottom: 20,
+          { style: styles.kpiCardNavy },
+          h(
+            'span',
+            {
+              style: {
+                fontSize: layout.isMobile ? 10 : 11,
+                color: CORPORATE_THEME.textMuted,
+                fontWeight: 600,
+                display: 'block',
+              },
             },
+            'Ingreso mensual',
+          ),
+          h(
+            'strong',
+            {
+              'data-testid': 'overview-income-amount',
+              style: {
+                fontSize: layout.isMobile ? 15 : 19,
+                fontWeight: 600,
+                fontFamily: CORPORATE_THEME.fontSerif,
+                fontVariantNumeric: CORPORATE_THEME.tabularNums,
+                color: CORPORATE_THEME.navyPrimary,
+                display: 'block',
+                marginTop: 1,
+              },
+            },
+            incomeCents !== null
+              ? formatCentsToArs(incomeCents)
+              : 'Sin ingreso registrado',
+          ),
+        ),
+        h(
+          'div',
+          { style: styles.kpiCardLight },
+          h(
+            'span',
+            {
+              style: {
+                fontSize: layout.isMobile ? 10 : 11,
+                color: CORPORATE_THEME.textMuted,
+                fontWeight: 600,
+                display: 'block',
+              },
+            },
+            'Gastos del mes',
+          ),
+          h(
+            'strong',
+            {
+              'data-testid': 'overview-expenses-amount',
+              style: {
+                fontSize: layout.isMobile ? 15 : 19,
+                fontWeight: 600,
+                fontFamily: CORPORATE_THEME.fontSerif,
+                fontVariantNumeric: CORPORATE_THEME.tabularNums,
+                display: 'block',
+                marginTop: 1,
+                color: CORPORATE_THEME.textPrimary,
+              },
+            },
+            formatCentsToArs(totalExpensesCents),
+          ),
+        ),
+        h(
+          'div',
+          { style: styles.kpiCardBrown },
+          h(
+            'span',
+            {
+              style: {
+                fontSize: layout.isMobile ? 10 : 11,
+                color: CORPORATE_THEME.brownPrimary,
+                fontWeight: 600,
+                display: 'block',
+              },
+            },
+            'Inversiones (mes)',
+          ),
+          h(
+            'strong',
+            {
+              'data-testid': 'overview-investments-amount',
+              style: {
+                fontSize: layout.isMobile ? 15 : 19,
+                fontWeight: 600,
+                fontFamily: CORPORATE_THEME.fontSerif,
+                fontVariantNumeric: CORPORATE_THEME.tabularNums,
+                color: CORPORATE_THEME.brownPrimary,
+                display: 'block',
+                marginTop: 1,
+              },
+            },
+            formatCentsToArs(totalInvestmentsCents),
+          ),
+        ),
+        h(
+          'div',
+          { style: styles.kpiCardHighlight },
+          h(
+            'span',
+            {
+              style: {
+                fontSize: layout.isMobile ? 10 : 11,
+                color: '#CBD5E1',
+                fontWeight: 500,
+                display: 'block',
+              },
+            },
+            'Balance disponible',
+          ),
+          h(
+            'strong',
+            {
+              'data-testid': 'overview-balance-amount',
+              style: {
+                fontSize: layout.isMobile ? 16 : 20,
+                fontWeight: 600,
+                fontFamily: CORPORATE_THEME.fontSerif,
+                fontVariantNumeric: CORPORATE_THEME.tabularNums,
+                display: 'block',
+                marginTop: 1,
+                color:
+                  availableBalanceCents !== null && availableBalanceCents < 0
+                    ? '#FCA5A5'
+                    : '#FFFFFF',
+              },
+            },
+            availableBalanceCents !== null
+              ? formatCentsToArs(Math.max(0, availableBalanceCents))
+              : 'Cargá tu ingreso',
+          ),
+        ),
+      ),
+      h(CategoryDistributionChart, {
+        categoryBreakdown,
+        totalExpensesCents,
+        viewportWidth,
+        compact: true,
+        onNavigateToExpenses: () => setActiveTab('expenses'),
+      }),
+      incomeCents !== null && incomeCents > 0
+        ? h(
+            'div',
+            {
+              'data-testid': 'capital-allocation-strip',
+              style: {
+                backgroundColor: CORPORATE_THEME.surface,
+                border: `1px solid ${CORPORATE_THEME.border}`,
+                borderRadius: 6,
+                padding: layout.isMobile ? '4px 8px' : '6px 12px',
+              },
+            },
+            h(
+              'div',
+              {
+                style: {
+                  display: 'flex',
+                  justifyContent: 'space-between',
+                  flexWrap: 'wrap',
+                  gap: 4,
+                  fontSize: layout.isMobile ? 10.5 : 11.5,
+                  color: CORPORATE_THEME.textSecondary,
+                  marginBottom: 3,
+                  fontVariantNumeric: CORPORATE_THEME.tabularNums,
+                },
+              },
+              h(
+                'span',
+                null,
+                `Asignación del ingreso: Gastos ${expensesSharePct}% · Inversiones ${investmentsSharePct}% · Liquidez ${liquiditySharePct}%`,
+              ),
+              h('span', { style: { fontWeight: 600 } }, formatCentsToArs(incomeCents)),
+            ),
+            h(
+              'div',
+              {
+                style: {
+                  display: 'flex',
+                  height: layout.isMobile ? 4 : 6,
+                  borderRadius: 2,
+                  overflow: 'hidden',
+                  backgroundColor: CORPORATE_THEME.surfaceMuted,
+                  border: `1px solid ${CORPORATE_THEME.border}`,
+                },
+              },
+              h('div', {
+                style: {
+                  width: `${expensesSharePct}%`,
+                  backgroundColor: CORPORATE_THEME.navyPrimary,
+                },
+              }),
+              h('div', {
+                style: {
+                  width: `${investmentsSharePct}%`,
+                  backgroundColor: CORPORATE_THEME.brownPrimary,
+                },
+              }),
+              h('div', {
+                style: {
+                  width: `${liquiditySharePct}%`,
+                  backgroundColor: '#94A3B8',
+                },
+              }),
+            ),
+          )
+        : null,
+    );
+  } else if (activeTab === 'expenses') {
+    activeTabContent = h(
+      'div',
+      { 'data-testid': 'tab-panel-expenses' },
+      periodHeaderNode,
+      h(ExpenseFormScreen, {
+        expenseRepository: expRepo,
+        categoryRepository: catRepo,
+        initialActiveYearMonth: activeYearMonth,
+        today,
+        now,
+        viewportWidth,
+        onExpenseSaved: () => reloadPeriod(activeYearMonth),
+        onCategoriesChanged: () => reloadPeriod(activeYearMonth),
+      }),
+    );
+  } else if (activeTab === 'income') {
+    activeTabContent = h(
+      'div',
+      {
+        'data-testid': 'tab-panel-income',
+        style: { display: 'flex', flexDirection: 'column', gap: 14 },
+      },
+      periodHeaderNode,
+      h(
+        'div',
+        { style: styles.grid },
+        h(
+          'form',
+          {
+            'data-testid': 'monthly-income-form',
+            style: styles.card,
+            onSubmit: handleSaveIncome,
+            noValidate: true,
+          },
+          h(
+            'h3',
+            {
+              style: {
+                marginTop: 0,
+                marginBottom: 8,
+                color: CORPORATE_THEME.navyPrimary,
+                fontSize: 18,
+                fontFamily: CORPORATE_THEME.fontSerif,
+                fontWeight: 600,
+              },
+            },
+            `Ingreso mensual (${activeYearMonth})`,
+          ),
+          h(
+            'p',
+            {
+              style: {
+                marginTop: 0,
+                marginBottom: 12,
+                fontSize: 13,
+                lineHeight: 1.45,
+                color: CORPORATE_THEME.textSecondary,
+              },
+            },
+            'Registrá el ingreso total del mes para calcular qué proporción absorbe cada categoría de gasto.',
+          ),
+          h('input', {
+            id: 'income-amount-input',
+            'data-testid': 'income-amount-input',
+            type: 'text',
+            inputMode: 'decimal',
+            placeholder: 'Ej: 1200000',
+            value: incomeInput,
+            tabIndex: 0,
+            style: {
+              ...styles.amountInput,
+              marginBottom: 10,
+            },
+            onChange: (e) => {
+              setIncomeInput(e?.target?.value ?? '');
+              if (incomeError) setIncomeError(null);
+            },
+          }),
+          incomeError
+            ? h(
+                'p',
+                {
+                  'data-testid': 'income-error',
+                  role: 'alert',
+                  style: {
+                    margin: '0 0 10px 0',
+                    padding: '8px 10px',
+                    borderRadius: 4,
+                    backgroundColor: CORPORATE_THEME.dangerBg,
+                    color: CORPORATE_THEME.danger,
+                    fontSize: 13,
+                    fontWeight: 600,
+                  },
+                },
+                incomeError,
+              )
+            : null,
+          incomeSuccess
+            ? h(
+                'p',
+                {
+                  style: {
+                    margin: '0 0 10px 0',
+                    padding: '8px 10px',
+                    borderRadius: 4,
+                    backgroundColor: CORPORATE_THEME.successBg,
+                    color: CORPORATE_THEME.success,
+                    fontSize: 13,
+                    fontWeight: 600,
+                  },
+                },
+                incomeSuccess,
+              )
+            : null,
+          h(
+            'button',
+            {
+              type: 'submit',
+              'data-testid': 'income-submit-button',
+              tabIndex: 0,
+              style: styles.primaryButton,
+              onClick: handleSaveIncome,
+            },
+            'Guardar ingreso del mes',
+          ),
+        ),
+        h(
+          'section',
+          {
+            'data-testid': 'income-absorption-list',
+            style: styles.cardBrownRule,
+          },
+          h(
+            'h3',
+            {
+              style: {
+                marginTop: 0,
+                marginBottom: 10,
+                color: CORPORATE_THEME.brownPrimary,
+                fontSize: 18,
+                fontFamily: CORPORATE_THEME.fontSerif,
+                fontWeight: 600,
+              },
+            },
+            'Resumen de ingreso y absorción por categoría',
+          ),
+          h(
+            'div',
+            {
+              style: {
+                display: 'flex',
+                justifyContent: 'space-between',
+                padding: '10px 12px',
+                borderRadius: 4,
+                backgroundColor: CORPORATE_THEME.surfaceMuted,
+                border: `1px solid ${CORPORATE_THEME.border}`,
+                marginBottom: 12,
+                fontVariantNumeric: CORPORATE_THEME.tabularNums,
+              },
+            },
+            h('span', { style: { fontSize: 13 } }, 'Ingreso registrado:'),
+            h(
+              'strong',
+              {
+                'data-testid': 'overview-income-amount',
+                style: { color: CORPORATE_THEME.navyPrimary },
+              },
+              incomeCents !== null
+                ? formatCentsToArs(incomeCents)
+                : 'Sin ingreso registrado',
+            ),
+          ),
+          categoryBreakdown.length === 0
+            ? h(
+                'p',
+                {
+                  style: {
+                    margin: 0,
+                    fontSize: 13,
+                    color: CORPORATE_THEME.textMuted,
+                  },
+                },
+                'No hay gastos registrados en este período para calcular absorción sobre el ingreso.',
+              )
+            : h(
+                'ul',
+                { style: { listStyle: 'none', margin: 0, padding: 0 } },
+                ...categoryBreakdown.map((item) =>
+                  h(
+                    'li',
+                    {
+                      key: item.categoryId,
+                      'data-testid': `overview-category-row-${item.categoryId}`,
+                      style: {
+                        display: 'flex',
+                        justifyContent: 'space-between',
+                        alignItems: 'center',
+                        padding: '8px 0',
+                        borderBottom: `1px solid ${CORPORATE_THEME.border}`,
+                        fontVariantNumeric: CORPORATE_THEME.tabularNums,
+                        fontSize: 13.5,
+                      },
+                    },
+                    h('strong', null, item.categoryName),
+                    h(
+                      'span',
+                      null,
+                      item.incomePercentage !== null
+                        ? `${formatCentsToArs(item.amountCents)} (${item.incomePercentage} % del ingreso)`
+                        : formatCentsToArs(item.amountCents),
+                    ),
+                  ),
+                ),
+              ),
+        ),
+      ),
+    );
+  } else if (activeTab === 'investments') {
+    activeTabContent = h(
+      'div',
+      {
+        'data-testid': 'tab-panel-investments',
+        style: { display: 'flex', flexDirection: 'column', gap: 14 },
+      },
+      periodHeaderNode,
+      h(
+        'div',
+        { style: styles.grid },
+        h(
+          'form',
+          {
+            'data-testid': 'investment-registry-form',
+            style: styles.cardBrownRule,
+            onSubmit: handleSaveInvestment,
+            noValidate: true,
+          },
+          h(
+            'h3',
+            {
+              style: {
+                marginTop: 0,
+                marginBottom: 8,
+                color: CORPORATE_THEME.brownPrimary,
+                fontSize: 18,
+                fontFamily: CORPORATE_THEME.fontSerif,
+                fontWeight: 600,
+              },
+            },
+            'Registrar inversión',
+          ),
+          h(
+            'p',
+            {
+              style: {
+                marginTop: 0,
+                marginBottom: 12,
+                fontSize: 13,
+                lineHeight: 1.45,
+                color: CORPORATE_THEME.textSecondary,
+              },
+            },
+            'Anotá en qué activo y entidad destinaste capital y su fecha de vencimiento.',
+          ),
+          h(
+            'div',
+            { style: { display: 'grid', gap: 10, marginBottom: 12 } },
+            h('input', {
+              'data-testid': 'investment-asset-input',
+              type: 'text',
+              placeholder: 'Activo (ej: Plazo Fijo 30 días, FCI, CEDEAR)',
+              value: assetInput,
+              tabIndex: 0,
+              style: styles.input,
+              onChange: (e) => setAssetInput(e?.target?.value ?? ''),
+            }),
+            h('input', {
+              'data-testid': 'investment-platform-input',
+              type: 'text',
+              placeholder: 'Entidad o plataforma (ej: Banco Nación, Balanz, IOL)',
+              value: platformInput,
+              tabIndex: 0,
+              style: styles.input,
+              onChange: (e) => setPlatformInput(e?.target?.value ?? ''),
+            }),
+            h('input', {
+              'data-testid': 'investment-amount-input',
+              type: 'text',
+              inputMode: 'decimal',
+              placeholder: 'Capital colocado ($)',
+              value: invAmountInput,
+              tabIndex: 0,
+              style: styles.amountInput,
+              onChange: (e) => setInvAmountInput(e?.target?.value ?? ''),
+            }),
+            h(
+              'div',
+              {
+                style: {
+                  display: 'grid',
+                  gridTemplateColumns: '1fr 1fr',
+                  gap: 8,
+                },
+              },
+              h(
+                'div',
+                null,
+                h(
+                  'label',
+                  {
+                    style: {
+                      fontSize: 12,
+                      fontWeight: 600,
+                      color: CORPORATE_THEME.textSecondary,
+                      display: 'block',
+                      marginBottom: 4,
+                    },
+                  },
+                  'Fecha de constitución',
+                ),
+                h('input', {
+                  'data-testid': 'investment-date-input',
+                  type: 'date',
+                  value: invDateInput,
+                  tabIndex: 0,
+                  style: styles.input,
+                  onChange: (e) => setInvDateInput(e?.target?.value ?? defaultToday),
+                }),
+              ),
+              h(
+                'div',
+                null,
+                h(
+                  'label',
+                  {
+                    style: {
+                      fontSize: 12,
+                      fontWeight: 600,
+                      color: CORPORATE_THEME.textSecondary,
+                      display: 'block',
+                      marginBottom: 4,
+                    },
+                  },
+                  'Vencimiento (opcional)',
+                ),
+                h('input', {
+                  'data-testid': 'investment-due-date-input',
+                  type: 'date',
+                  value: invDueDateInput,
+                  tabIndex: 0,
+                  style: styles.input,
+                  onChange: (e) => setInvDueDateInput(e?.target?.value ?? ''),
+                }),
+              ),
+            ),
+            h('input', {
+              'data-testid': 'investment-note-input',
+              type: 'text',
+              placeholder: 'Nota de tasa o condición (ej: TNA 37%, renovación)',
+              value: invNoteInput,
+              tabIndex: 0,
+              style: styles.input,
+              onChange: (e) => setInvNoteInput(e?.target?.value ?? ''),
+            }),
+          ),
+          investmentError
+            ? h(
+                'p',
+                {
+                  'data-testid': 'investment-error',
+                  role: 'alert',
+                  style: {
+                    margin: '0 0 10px 0',
+                    padding: '8px 10px',
+                    borderRadius: 4,
+                    backgroundColor: CORPORATE_THEME.dangerBg,
+                    color: CORPORATE_THEME.danger,
+                    fontSize: 13,
+                    fontWeight: 600,
+                  },
+                },
+                investmentError,
+              )
+            : null,
+          h(
+            'button',
+            {
+              type: 'submit',
+              'data-testid': 'investment-submit-button',
+              tabIndex: 0,
+              style: styles.brownButton,
+              onClick: handleSaveInvestment,
+            },
+            'Registrar posición',
+          ),
+        ),
+        h(
+          'section',
+          {
+            'data-testid': 'investment-portfolio-card',
+            style: styles.card,
           },
           h(
             'div',
@@ -1277,646 +1827,412 @@ export function MonthlyOverviewScreen({
               style: {
                 display: 'flex',
                 justifyContent: 'space-between',
-                flexWrap: 'wrap',
-                gap: 8,
-                fontSize: 12,
-                color: CORPORATE_THEME.textSecondary,
-                marginBottom: 8,
-                fontVariantNumeric: CORPORATE_THEME.tabularNums,
+                alignItems: 'center',
+                marginBottom: 12,
               },
             },
             h(
-              'span',
-              null,
-              `Asignación del ingreso: Gastos ${expensesSharePct}% · Inversiones ${investmentsSharePct}% · Liquidez ${liquiditySharePct}%`,
+              'h3',
+              {
+                style: {
+                  margin: 0,
+                  color: CORPORATE_THEME.navyPrimary,
+                  fontSize: 18,
+                  fontFamily: CORPORATE_THEME.fontSerif,
+                  fontWeight: 600,
+                },
+              },
+              'Cartera registrada del período',
             ),
-            h('span', { style: { fontWeight: 600 } }, formatCentsToArs(incomeCents)),
+            h(
+              'strong',
+              {
+                'data-testid': 'overview-investments-amount',
+                style: {
+                  color: CORPORATE_THEME.brownPrimary,
+                  fontVariantNumeric: CORPORATE_THEME.tabularNums,
+                },
+              },
+              formatCentsToArs(totalInvestmentsCents),
+            ),
           ),
+          investments.length === 0
+            ? h(
+                'p',
+                {
+                  style: {
+                    margin: 0,
+                    fontSize: 13.5,
+                    color: CORPORATE_THEME.textMuted,
+                  },
+                },
+                'No hay inversiones registradas en este período.',
+              )
+            : h(
+                'ul',
+                {
+                  'data-testid': 'investment-list',
+                  style: {
+                    listStyle: 'none',
+                    margin: 0,
+                    padding: 0,
+                  },
+                },
+                ...investments.map((inv) =>
+                  h(
+                    'li',
+                    {
+                      key: inv.id,
+                      style: {
+                        padding: '11px 0',
+                        borderTop: `1px solid ${CORPORATE_THEME.border}`,
+                        display: 'flex',
+                        justifyContent: 'space-between',
+                        alignItems: 'flex-start',
+                        gap: 10,
+                      },
+                    },
+                    h(
+                      'div',
+                      null,
+                      h(
+                        'strong',
+                        {
+                          style: {
+                            display: 'block',
+                            fontSize: 14,
+                            color: CORPORATE_THEME.textPrimary,
+                          },
+                        },
+                        `${inv.assetName} · ${inv.platform}`,
+                      ),
+                      h(
+                        'span',
+                        {
+                          style: {
+                            fontSize: 12,
+                            color: CORPORATE_THEME.textMuted,
+                            fontVariantNumeric: CORPORATE_THEME.tabularNums,
+                          },
+                        },
+                        inv.dueDate
+                          ? `Alta: ${inv.date} · Vence: ${inv.dueDate}`
+                          : `Alta: ${inv.date}`,
+                      ),
+                      inv.note
+                        ? h(
+                            'span',
+                            {
+                              style: {
+                                display: 'block',
+                                fontSize: 12,
+                                color: CORPORATE_THEME.textSecondary,
+                                marginTop: 2,
+                              },
+                            },
+                            inv.note,
+                          )
+                        : null,
+                    ),
+                    h(
+                      'strong',
+                      {
+                        style: {
+                          color: CORPORATE_THEME.brownPrimary,
+                          fontSize: 15,
+                          fontVariantNumeric: CORPORATE_THEME.tabularNums,
+                        },
+                      },
+                      formatCentsToArs(inv.amountCents),
+                    ),
+                  ),
+                ),
+              ),
+        ),
+      ),
+    );
+  } else if (activeTab === 'reminders') {
+    activeTabContent = h(
+      'div',
+      {
+        'data-testid': 'tab-panel-reminders',
+        style: { display: 'flex', flexDirection: 'column', gap: 14 },
+      },
+      periodHeaderNode,
+      h(
+        'div',
+        { style: styles.grid },
+        h(
+          'section',
+          {
+            'data-testid': 'reminders-section',
+            style: styles.card,
+          },
           h(
             'div',
             {
               style: {
                 display: 'flex',
-                height: 8,
-                borderRadius: 3,
-                overflow: 'hidden',
-                backgroundColor: CORPORATE_THEME.surfaceMuted,
-                border: `1px solid ${CORPORATE_THEME.border}`,
+                justifyContent: 'space-between',
+                alignItems: 'baseline',
+                gap: 8,
+                marginBottom: 10,
               },
             },
-            h('div', {
-              style: {
-                width: `${expensesSharePct}%`,
-                backgroundColor: CORPORATE_THEME.navyPrimary,
-              },
-            }),
-            h('div', {
-              style: {
-                width: `${investmentsSharePct}%`,
-                backgroundColor: CORPORATE_THEME.brownPrimary,
-              },
-            }),
-            h('div', {
-              style: {
-                width: `${liquiditySharePct}%`,
-                backgroundColor: '#94A3B8',
-              },
-            }),
-          ),
-        )
-      : null,
-    activeTab === 'expenses'
-      ? h(ExpenseFormScreen, {
-          expenseRepository: expRepo,
-          categoryRepository: catRepo,
-          initialActiveYearMonth: activeYearMonth,
-          today,
-          now,
-          viewportWidth,
-          onExpenseSaved: () => reloadPeriod(activeYearMonth),
-        })
-      : h(
-          'div',
-          {
-            'data-testid': 'overview-main-grid',
-            style: styles.grid,
-          },
-          h(
-            'div',
-            { style: { display: 'flex', flexDirection: 'column', gap: 18 } },
-            h(CategoryDistributionChart, {
-              categoryBreakdown,
-              totalExpensesCents,
-              viewportWidth,
-              onNavigateToExpenses: () => setActiveTab('expenses'),
-            }),
             h(
-              'form',
+              'h3',
               {
-                'data-testid': 'monthly-income-form',
-                style: styles.card,
-                onSubmit: handleSaveIncome,
-                noValidate: true,
-              },
-              h(
-                'h3',
-                {
-                  style: {
-                    marginTop: 0,
-                    marginBottom: 8,
-                    color: CORPORATE_THEME.navyPrimary,
-                    fontSize: 18,
-                    fontFamily: CORPORATE_THEME.fontSerif,
-                    fontWeight: 600,
-                  },
+                style: {
+                  margin: 0,
+                  color: CORPORATE_THEME.navyPrimary,
+                  fontSize: 18,
+                  fontFamily: CORPORATE_THEME.fontSerif,
+                  fontWeight: 600,
                 },
-                `Ingreso mensual (${activeYearMonth})`,
-              ),
-              h(
+              },
+              'Agenda de vencimientos y recordatorios',
+            ),
+            h(
+              'strong',
+              {
+                'data-testid': 'overview-investments-amount',
+                style: {
+                  fontSize: 13,
+                  color: CORPORATE_THEME.brownPrimary,
+                  fontVariantNumeric: CORPORATE_THEME.tabularNums,
+                },
+              },
+              formatCentsToArs(totalInvestmentsCents),
+            ),
+          ),
+          h(
+            'form',
+            {
+              'data-testid': 'reminder-form',
+              onSubmit: handleSaveReminder,
+              style: { display: 'grid', gap: 8, marginBottom: 14 },
+              noValidate: true,
+            },
+            h('input', {
+              'data-testid': 'reminder-title-input',
+              type: 'text',
+              placeholder: 'Concepto (ej: Vencimiento Plazo Fijo / Pago resumen)',
+              value: reminderTitleInput,
+              tabIndex: 0,
+              style: styles.input,
+              onChange: (e) => setReminderTitleInput(e?.target?.value ?? ''),
+            }),
+            h('input', {
+              'data-testid': 'reminder-due-date-input',
+              type: 'date',
+              value: reminderDueDateInput,
+              tabIndex: 0,
+              style: styles.input,
+              onChange: (e) =>
+                setReminderDueDateInput(e?.target?.value ?? defaultToday),
+            }),
+            reminderError
+              ? h(
+                  'p',
+                  {
+                    role: 'alert',
+                    style: {
+                      margin: 0,
+                      color: CORPORATE_THEME.danger,
+                      fontSize: 13,
+                    },
+                  },
+                  reminderError,
+                )
+              : null,
+            h(
+              'button',
+              {
+                type: 'submit',
+                'data-testid': 'reminder-submit-button',
+                tabIndex: 0,
+                style: styles.primaryButton,
+                onClick: handleSaveReminder,
+              },
+              'Agendar vencimiento',
+            ),
+          ),
+          combinedReminders.length === 0
+            ? h(
                 'p',
                 {
                   style: {
-                    marginTop: 0,
-                    marginBottom: 12,
-                    fontSize: 13,
-                    lineHeight: 1.45,
-                    color: CORPORATE_THEME.textSecondary,
+                    margin: 0,
+                    color: CORPORATE_THEME.textMuted,
+                    fontSize: 13.5,
                   },
                 },
-                'Registrá el ingreso total del mes para calcular qué proporción absorbe cada categoría de gasto.',
-              ),
-              h('input', {
-                id: 'income-amount-input',
-                'data-testid': 'income-amount-input',
-                type: 'text',
-                inputMode: 'decimal',
-                placeholder: 'Ej: 1200000',
-                value: incomeInput,
-                tabIndex: 0,
-                style: {
-                  ...styles.input,
-                  marginBottom: 10,
-                  fontVariantNumeric: CORPORATE_THEME.tabularNums,
-                  fontWeight: 600,
-                },
-                onChange: (e) => {
-                  setIncomeInput(e?.target?.value ?? '');
-                  if (incomeError) setIncomeError(null);
-                },
-              }),
-              incomeError
-                ? h(
-                    'p',
-                    {
-                      'data-testid': 'income-error',
-                      role: 'alert',
-                      style: {
-                        margin: '0 0 10px 0',
-                        padding: '8px 10px',
-                        borderRadius: 4,
-                        backgroundColor: CORPORATE_THEME.dangerBg,
-                        color: CORPORATE_THEME.danger,
-                        fontSize: 13,
-                        fontWeight: 600,
-                      },
-                    },
-                    incomeError,
-                  )
-                : null,
-              incomeSuccess
-                ? h(
-                    'p',
-                    {
-                      style: {
-                        margin: '0 0 10px 0',
-                        padding: '8px 10px',
-                        borderRadius: 4,
-                        backgroundColor: CORPORATE_THEME.successBg,
-                        color: CORPORATE_THEME.success,
-                        fontSize: 13,
-                        fontWeight: 600,
-                      },
-                    },
-                    incomeSuccess,
-                  )
-                : null,
-              h(
-                'button',
-                {
-                  type: 'submit',
-                  'data-testid': 'income-submit-button',
-                  tabIndex: 0,
-                  style: styles.primaryButton,
-                  onClick: handleSaveIncome,
-                },
-                'Guardar ingreso del mes',
-              ),
-            ),
-            h(
-              'section',
-              {
-                'data-testid': 'monthly-advice-section',
-                style: {
-                  ...styles.cardBrownRule,
-                  backgroundColor: CORPORATE_THEME.surfaceMuted,
-                },
-              },
-              h(
-                'h3',
-                {
-                  style: {
-                    marginTop: 0,
-                    marginBottom: 10,
-                    color: CORPORATE_THEME.brownPrimary,
-                    fontSize: 18,
-                    fontFamily: CORPORATE_THEME.fontSerif,
-                    fontWeight: 600,
-                  },
-                },
-                'Diagnóstico y notas de gestión',
-              ),
-              h(
+                'No hay vencimientos ni recordatorios agendados.',
+              )
+            : h(
                 'ul',
-                { style: { margin: '0 0 10px 0', paddingLeft: 18 } },
-                ...adviceList.map((advice, idx) =>
+                {
+                  'data-testid': 'reminders-list',
+                  style: { listStyle: 'none', margin: 0, padding: 0 },
+                },
+                ...combinedReminders.map((rem) =>
                   h(
                     'li',
                     {
-                      key: idx,
+                      key: rem.key,
                       style: {
+                        padding: '10px 12px',
                         marginBottom: 8,
-                        fontSize: 13.5,
-                        lineHeight: 1.5,
-                        color: CORPORATE_THEME.textPrimary,
+                        borderRadius: 4,
+                        backgroundColor: CORPORATE_THEME.surfaceMuted,
+                        border: `1px solid ${CORPORATE_THEME.border}`,
+                        borderLeft: `3px solid ${CORPORATE_THEME.brownPrimary}`,
+                        display: 'flex',
+                        justifyContent: 'space-between',
+                        alignItems: 'center',
+                        gap: 8,
                       },
                     },
-                    advice,
+                    h(
+                      'div',
+                      null,
+                      h(
+                        'strong',
+                        {
+                          style: {
+                            display: 'block',
+                            fontSize: 13.5,
+                            color: CORPORATE_THEME.textPrimary,
+                          },
+                        },
+                        rem.title,
+                      ),
+                      h(
+                        'span',
+                        {
+                          style: {
+                            fontSize: 12,
+                            color: CORPORATE_THEME.textSecondary,
+                            fontVariantNumeric: CORPORATE_THEME.tabularNums,
+                          },
+                        },
+                        rem.subtitle,
+                      ),
+                    ),
+                    rem.amountCents
+                      ? h(
+                          'strong',
+                          {
+                            style: {
+                              color: CORPORATE_THEME.navyPrimary,
+                              fontVariantNumeric: CORPORATE_THEME.tabularNums,
+                              fontSize: 14,
+                            },
+                          },
+                          formatCentsToArs(rem.amountCents),
+                        )
+                      : null,
                   ),
                 ),
               ),
+        ),
+        h(
+          'section',
+          {
+            'data-testid': 'monthly-advice-section',
+            style: {
+              ...styles.cardBrownRule,
+              backgroundColor: CORPORATE_THEME.surfaceMuted,
+            },
+          },
+          h(
+            'h3',
+            {
+              style: {
+                marginTop: 0,
+                marginBottom: 10,
+                color: CORPORATE_THEME.brownPrimary,
+                fontSize: 18,
+                fontFamily: CORPORATE_THEME.fontSerif,
+                fontWeight: 600,
+              },
+            },
+            'Diagnóstico y notas de gestión',
+          ),
+          h(
+            'ul',
+            { style: { margin: '0 0 10px 0', paddingLeft: 18 } },
+            ...adviceList.map((advice, idx) =>
               h(
-                'small',
+                'li',
                 {
-                  'data-testid': 'advice-disclaimer',
+                  key: idx,
                   style: {
-                    display: 'block',
-                    paddingTop: 8,
-                    borderTop: `1px solid ${CORPORATE_THEME.border}`,
-                    fontSize: 12,
-                    color: CORPORATE_THEME.textMuted,
+                    marginBottom: 8,
+                    fontSize: 13.5,
+                    lineHeight: 1.5,
+                    color: CORPORATE_THEME.textPrimary,
                   },
                 },
-                'Nota: Las sugerencias tienen carácter exclusivamente orientativo y de control de gestión personal.',
+                advice,
               ),
             ),
           ),
           h(
-            'div',
-            { style: { display: 'flex', flexDirection: 'column', gap: 18 } },
-            h(
-              'form',
-              {
-                'data-testid': 'investment-registry-form',
-                style: styles.cardBrownRule,
-                onSubmit: handleSaveInvestment,
-                noValidate: true,
+            'small',
+            {
+              'data-testid': 'advice-disclaimer',
+              style: {
+                display: 'block',
+                paddingTop: 8,
+                borderTop: `1px solid ${CORPORATE_THEME.border}`,
+                fontSize: 12,
+                color: CORPORATE_THEME.textMuted,
               },
-              h(
-                'h3',
-                {
-                  style: {
-                    marginTop: 0,
-                    marginBottom: 8,
-                    color: CORPORATE_THEME.brownPrimary,
-                    fontSize: 18,
-                    fontFamily: CORPORATE_THEME.fontSerif,
-                    fontWeight: 600,
-                  },
-                },
-                'Cartera e inversiones registradas',
-              ),
-              h(
-                'p',
-                {
-                  style: {
-                    marginTop: 0,
-                    marginBottom: 12,
-                    fontSize: 13,
-                    lineHeight: 1.45,
-                    color: CORPORATE_THEME.textSecondary,
-                  },
-                },
-                'Anotá en qué activo y entidad destinaste capital y su fecha de vencimiento para centralizar tu posición.',
-              ),
-              h(
-                'div',
-                { style: { display: 'grid', gap: 10, marginBottom: 12 } },
-                h('input', {
-                  'data-testid': 'investment-asset-input',
-                  type: 'text',
-                  placeholder: 'Activo (ej: Plazo Fijo 30 días, FCI, CEDEAR)',
-                  value: assetInput,
-                  tabIndex: 0,
-                  style: styles.input,
-                  onChange: (e) => setAssetInput(e?.target?.value ?? ''),
-                }),
-                h('input', {
-                  'data-testid': 'investment-platform-input',
-                  type: 'text',
-                  placeholder: 'Entidad o plataforma (ej: Banco Nación, Balanz, IOL)',
-                  value: platformInput,
-                  tabIndex: 0,
-                  style: styles.input,
-                  onChange: (e) => setPlatformInput(e?.target?.value ?? ''),
-                }),
-                h('input', {
-                  'data-testid': 'investment-amount-input',
-                  type: 'text',
-                  inputMode: 'decimal',
-                  placeholder: 'Capital colocado ($)',
-                  value: invAmountInput,
-                  tabIndex: 0,
-                  style: {
-                    ...styles.input,
-                    fontVariantNumeric: CORPORATE_THEME.tabularNums,
-                  },
-                  onChange: (e) => setInvAmountInput(e?.target?.value ?? ''),
-                }),
-                h(
-                  'div',
-                  {
-                    style: {
-                      display: 'grid',
-                      gridTemplateColumns: '1fr 1fr',
-                      gap: 8,
-                    },
-                  },
-                  h(
-                    'div',
-                    null,
-                    h(
-                      'label',
-                      {
-                        style: {
-                          fontSize: 12,
-                          fontWeight: 600,
-                          color: CORPORATE_THEME.textSecondary,
-                          display: 'block',
-                          marginBottom: 4,
-                        },
-                      },
-                      'Fecha de constitución',
-                    ),
-                    h('input', {
-                      'data-testid': 'investment-date-input',
-                      type: 'date',
-                      value: invDateInput,
-                      tabIndex: 0,
-                      style: styles.input,
-                      onChange: (e) => setInvDateInput(e?.target?.value ?? defaultToday),
-                    }),
-                  ),
-                  h(
-                    'div',
-                    null,
-                    h(
-                      'label',
-                      {
-                        style: {
-                          fontSize: 12,
-                          fontWeight: 600,
-                          color: CORPORATE_THEME.textSecondary,
-                          display: 'block',
-                          marginBottom: 4,
-                        },
-                      },
-                      'Vencimiento (opcional)',
-                    ),
-                    h('input', {
-                      'data-testid': 'investment-due-date-input',
-                      type: 'date',
-                      value: invDueDateInput,
-                      tabIndex: 0,
-                      style: styles.input,
-                      onChange: (e) => setInvDueDateInput(e?.target?.value ?? ''),
-                    }),
-                  ),
-                ),
-                h('input', {
-                  'data-testid': 'investment-note-input',
-                  type: 'text',
-                  placeholder: 'Nota de tasa o condición (ej: TNA 37%, renovación)',
-                  value: invNoteInput,
-                  tabIndex: 0,
-                  style: styles.input,
-                  onChange: (e) => setInvNoteInput(e?.target?.value ?? ''),
-                }),
-              ),
-              investmentError
-                ? h(
-                    'p',
-                    {
-                      'data-testid': 'investment-error',
-                      role: 'alert',
-                      style: {
-                        margin: '0 0 10px 0',
-                        padding: '8px 10px',
-                        borderRadius: 4,
-                        backgroundColor: CORPORATE_THEME.dangerBg,
-                        color: CORPORATE_THEME.danger,
-                        fontSize: 13,
-                        fontWeight: 600,
-                      },
-                    },
-                    investmentError,
-                  )
-                : null,
-              h(
-                'button',
-                {
-                  type: 'submit',
-                  'data-testid': 'investment-submit-button',
-                  tabIndex: 0,
-                  style: styles.brownButton,
-                  onClick: handleSaveInvestment,
-                },
-                'Registrar posición',
-              ),
-              investments.length > 0
-                ? h(
-                    'ul',
-                    {
-                      'data-testid': 'investment-list',
-                      style: {
-                        listStyle: 'none',
-                        margin: '16px 0 0 0',
-                        padding: 0,
-                      },
-                    },
-                    ...investments.map((inv) =>
-                      h(
-                        'li',
-                        {
-                          key: inv.id,
-                          style: {
-                            padding: '11px 0',
-                            borderTop: `1px solid ${CORPORATE_THEME.border}`,
-                            display: 'flex',
-                            justifyContent: 'space-between',
-                            alignItems: 'flex-start',
-                            gap: 10,
-                          },
-                        },
-                        h(
-                          'div',
-                          null,
-                          h(
-                            'strong',
-                            {
-                              style: {
-                                display: 'block',
-                                fontSize: 14,
-                                color: CORPORATE_THEME.textPrimary,
-                              },
-                            },
-                            `${inv.assetName} · ${inv.platform}`,
-                          ),
-                          h(
-                            'span',
-                            {
-                              style: {
-                                fontSize: 12,
-                                color: CORPORATE_THEME.textMuted,
-                                fontVariantNumeric: CORPORATE_THEME.tabularNums,
-                              },
-                            },
-                            inv.dueDate
-                              ? `Alta: ${inv.date} · Vence: ${inv.dueDate}`
-                              : `Alta: ${inv.date}`,
-                          ),
-                          inv.note
-                            ? h(
-                                'span',
-                                {
-                                  style: {
-                                    display: 'block',
-                                    fontSize: 12,
-                                    color: CORPORATE_THEME.textSecondary,
-                                    marginTop: 2,
-                                  },
-                                },
-                                inv.note,
-                              )
-                            : null,
-                        ),
-                        h(
-                          'strong',
-                          {
-                            style: {
-                              color: CORPORATE_THEME.brownPrimary,
-                              fontSize: 15,
-                              fontVariantNumeric: CORPORATE_THEME.tabularNums,
-                            },
-                          },
-                          formatCentsToArs(inv.amountCents),
-                        ),
-                      ),
-                    ),
-                  )
-                : null,
-            ),
-            h(
-              'section',
-              {
-                'data-testid': 'reminders-section',
-                style: styles.card,
-              },
-              h(
-                'h3',
-                {
-                  style: {
-                    marginTop: 0,
-                    marginBottom: 10,
-                    color: CORPORATE_THEME.navyPrimary,
-                    fontSize: 18,
-                    fontFamily: CORPORATE_THEME.fontSerif,
-                    fontWeight: 600,
-                  },
-                },
-                'Agenda de vencimientos y recordatorios',
-              ),
-              h(
-                'form',
-                {
-                  onSubmit: handleSaveReminder,
-                  style: { display: 'grid', gap: 8, marginBottom: 14 },
-                  noValidate: true,
-                },
-                h('input', {
-                  'data-testid': 'reminder-title-input',
-                  type: 'text',
-                  placeholder: 'Concepto (ej: Vencimiento Plazo Fijo / Pago resumen)',
-                  value: reminderTitleInput,
-                  tabIndex: 0,
-                  style: styles.input,
-                  onChange: (e) => setReminderTitleInput(e?.target?.value ?? ''),
-                }),
-                h('input', {
-                  'data-testid': 'reminder-due-date-input',
-                  type: 'date',
-                  value: reminderDueDateInput,
-                  tabIndex: 0,
-                  style: styles.input,
-                  onChange: (e) =>
-                    setReminderDueDateInput(e?.target?.value ?? defaultToday),
-                }),
-                reminderError
-                  ? h(
-                      'p',
-                      {
-                        role: 'alert',
-                        style: {
-                          margin: 0,
-                          color: CORPORATE_THEME.danger,
-                          fontSize: 13,
-                        },
-                      },
-                      reminderError,
-                    )
-                  : null,
-                h(
-                  'button',
-                  {
-                    type: 'submit',
-                    'data-testid': 'reminder-submit-button',
-                    tabIndex: 0,
-                    style: styles.primaryButton,
-                    onClick: handleSaveReminder,
-                  },
-                  'Agendar vencimiento',
-                ),
-              ),
-              combinedReminders.length === 0
-                ? h(
-                    'p',
-                    {
-                      style: {
-                        margin: 0,
-                        color: CORPORATE_THEME.textMuted,
-                        fontSize: 13.5,
-                      },
-                    },
-                    'No hay vencimientos ni recordatorios agendados.',
-                  )
-                : h(
-                    'ul',
-                    {
-                      'data-testid': 'reminders-list',
-                      style: { listStyle: 'none', margin: 0, padding: 0 },
-                    },
-                    ...combinedReminders.map((rem) =>
-                      h(
-                        'li',
-                        {
-                          key: rem.key,
-                          style: {
-                            padding: '10px 12px',
-                            marginBottom: 8,
-                            borderRadius: 4,
-                            backgroundColor: CORPORATE_THEME.surfaceMuted,
-                            border: `1px solid ${CORPORATE_THEME.border}`,
-                            borderLeft: `3px solid ${CORPORATE_THEME.brownPrimary}`,
-                            display: 'flex',
-                            justifyContent: 'space-between',
-                            alignItems: 'center',
-                            gap: 8,
-                          },
-                        },
-                        h(
-                          'div',
-                          null,
-                          h(
-                            'strong',
-                            {
-                              style: {
-                                display: 'block',
-                                fontSize: 13.5,
-                                color: CORPORATE_THEME.textPrimary,
-                              },
-                            },
-                            rem.title,
-                          ),
-                          h(
-                            'span',
-                            {
-                              style: {
-                                fontSize: 12,
-                                color: CORPORATE_THEME.textSecondary,
-                                fontVariantNumeric: CORPORATE_THEME.tabularNums,
-                              },
-                            },
-                            `Vencimiento: ${rem.dueDate}`,
-                          ),
-                        ),
-                        rem.amountCents
-                          ? h(
-                              'strong',
-                              {
-                                style: {
-                                  color: CORPORATE_THEME.navyPrimary,
-                                  fontVariantNumeric: CORPORATE_THEME.tabularNums,
-                                  fontSize: 14,
-                                },
-                              },
-                              formatCentsToArs(rem.amountCents),
-                            )
-                          : null,
-                      ),
-                    ),
-                  ),
-            ),
+            },
+            'Nota: Las sugerencias tienen carácter exclusivamente orientativo y de control de gestión personal.',
           ),
         ),
+      ),
+    );
+  }
+
+  return h(
+    'section',
+    {
+      'data-testid': 'monthly-overview-screen',
+      'data-layout': layoutMode,
+      'data-columns': String(gridColumns),
+      'data-palette': 'corporate-navy-brown',
+      'data-active-tab': activeTab,
+      style: styles.wrapper,
+    },
+    activeTabContent,
+    h(
+      'nav',
+      {
+        'data-testid': 'overview-tabs',
+        'aria-label': 'Secciones del panel financiero',
+        style: styles.tabsBar,
+      },
+      ...tabs.map((tab) => {
+        const isActive = activeTab === tab.id;
+        return h(
+          'button',
+          {
+            key: tab.id,
+            type: 'button',
+            'data-testid': `tab-${tab.id}`,
+            'data-active': isActive ? 'true' : 'false',
+            'aria-selected': isActive,
+            tabIndex: 0,
+            style: isActive ? styles.activeTabButton : styles.tabButton,
+            onClick: () => setActiveTab(tab.id),
+          },
+          h('span', null, tab.label),
+        );
+      }),
+    ),
   );
 }
 

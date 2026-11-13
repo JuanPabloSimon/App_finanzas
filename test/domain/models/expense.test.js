@@ -4,6 +4,10 @@ import {
   InvalidAmount,
   InvalidExpenseDate,
   InvalidCategory,
+  DuplicateCategory,
+  CategoryNotFound,
+  PredefinedCategoryDeletionNotAllowed,
+  CategoryInUse,
   ExpenseNotFound,
 } from '../../../src/core/errors.js';
 import {
@@ -242,5 +246,73 @@ describe('H1 modelos de dominio Expense y Category, conversión a centavos y con
       assert.throws(() => formatYearMonthLabel(badPeriod), InvalidExpenseDate);
     }
     assert.throws(() => shiftYearMonth('2026-11', 1.5), InvalidExpenseDate);
+  });
+
+  it('[H4-R1][H4-R3] crea borradores de categorías propias inmutables (id = null, isPredefined = false) recortando espacios y rechaza nombres vacíos o fechas inválidas con InvalidCategory', () => {
+    const draft = new Category({
+      name: '   Mascotas   ',
+      createdAt: '2026-11-11T10:15:00',
+    });
+    assert.equal(draft.id, null);
+    assert.equal(draft.name, 'Mascotas');
+    assert.equal(draft.isPredefined, false);
+    assert.equal(draft.createdAt, '2026-11-11T10:15:00');
+    assert.equal(Object.isFrozen(draft), true);
+
+    const persisted = draft.copyWith({ id: 15 });
+    assert.equal(persisted.id, 15);
+    assert.equal(persisted.name, 'Mascotas');
+    assert.equal(persisted.isPredefined, false);
+
+    for (const badName of ['', '   ', '\t\n', null, undefined, 123]) {
+      assert.throws(() => new Category({ name: badName }), InvalidCategory);
+    }
+
+    for (const badId of [0, -1, 1.5, '1']) {
+      assert.throws(() => new Category({ id: badId, name: 'Mascotas' }), InvalidCategory);
+    }
+
+    assert.throws(
+      () => new Category({ name: 'Mascotas', createdAt: '2026-11-11' }),
+      InvalidCategory,
+    );
+  });
+
+  it('[H4-R4][H4-R5][H4-R7] define las excepciones DuplicateCategory, CategoryNotFound, PredefinedCategoryDeletionNotAllowed y CategoryInUse y extiende los contratos de CategoryRepository y ExpenseRepository', async () => {
+    const duplicate = new DuplicateCategory('Mascotas');
+    assert.equal(duplicate.name, 'DuplicateCategory');
+    assert.equal(duplicate.categoryName, 'Mascotas');
+    assert.match(duplicate.message, /Mascotas/);
+
+    const notFound = new CategoryNotFound(99);
+    assert.equal(notFound.name, 'CategoryNotFound');
+    assert.equal(notFound.categoryId, 99);
+    assert.match(notFound.message, /99/);
+
+    const predefinedError = new PredefinedCategoryDeletionNotAllowed('Alimentos');
+    assert.equal(predefinedError.name, 'PredefinedCategoryDeletionNotAllowed');
+    assert.match(predefinedError.message, /Alimentos/);
+
+    const inUse = new CategoryInUse(12, 3);
+    assert.equal(inUse.name, 'CategoryInUse');
+    assert.equal(inUse.categoryId, 12);
+    assert.equal(inUse.expenseCount, 3);
+    assert.match(inUse.message, /3 gasto\(s\)/);
+
+    const catRepo = new CategoryRepository();
+    await assert.rejects(() => catRepo.findByName('Mascotas'), /Not implemented/);
+    await assert.rejects(
+      () => catRepo.save(new Category({ name: 'Mascotas' })),
+      /Not implemented/,
+    );
+    await assert.rejects(() => catRepo.countExpenses(1), /Not implemented/);
+    await assert.rejects(
+      () => catRepo.deleteById(11, { reassignToCategoryId: 1 }),
+      /Not implemented/,
+    );
+
+    const expRepo = new ExpenseRepository();
+    await assert.rejects(() => expRepo.countByCategoryId(1), /Not implemented/);
+    await assert.rejects(() => expRepo.reassignCategory(11, 1), /Not implemented/);
   });
 });

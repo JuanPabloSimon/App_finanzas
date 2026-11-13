@@ -23,4 +23,15 @@ export class ExpenseRepository {
     void _id;
     throw new Error('Not implemented');
   }
+
+  async countByCategoryId(_categoryId) {
+    void _categoryId;
+    throw new Error('Not implemented');
+  }
+
+  async reassignCategory(_fromCategoryId, _toCategoryId) {
+    void _fromCategoryId;
+    void _toCategoryId;
+    throw new Error('Not implemented');
+  }
 }

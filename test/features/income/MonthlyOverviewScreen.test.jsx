@@ -14,6 +14,7 @@ import { SqliteConsentRepository } from '../../../src/data/repositories/sqliteCo
 import { Expense } from '../../../src/domain/models/expense.js';
 import { MonthlyOverviewScreen } from '../../../src/features/income/MonthlyOverviewScreen.jsx';
 import { CategoryDistributionChart } from '../../../src/features/income/CategoryDistributionChart.jsx';
+import { ExpenseFormScreen } from '../../../src/features/expenses/ExpenseFormScreen.jsx';
 import { AppShell } from '../../../src/app/AppShell.jsx';
 import { CORPORATE_THEME } from '../../../src/core/theme.js';
 
@@ -430,5 +431,265 @@ describe('H5 panel de resumen general del mes, ingreso mensual, inversiones, rec
     assert.equal(prevMonthState.activeYearMonth, '2026-10');
     assert.equal(prevMonthState.totalExpensesCents, 0);
     assert.equal(prevMonthState.categoryBreakdown.length, 0);
+  });
+
+  it('[H13-R1][H13-R2] la pestaña principal de Resumen (overview) es exclusivamente informativa, entra en el viewport sin scroll vertical (overflowY: hidden) y no renderiza formularios de carga', async () => {
+    await expenseRepo.save(
+      new Expense({
+        amountCents: 25000000,
+        date: '2026-11-03',
+        categoryId: 1,
+        note: 'Supermercado',
+        createdAt: '2026-11-03T10:00:00',
+      }),
+    );
+    await expenseRepo.save(
+      new Expense({
+        amountCents: 5000000,
+        date: '2026-11-05',
+        categoryId: 7,
+        note: 'Streaming',
+        createdAt: '2026-11-05T10:00:00',
+      }),
+    );
+
+    const controller = MonthlyOverviewScreen.createController({
+      expenseRepository: expenseRepo,
+      categoryRepository: categoryRepo,
+      incomeRepository: incomeRepo,
+      investmentRepository: investmentRepo,
+      reminderRepository: reminderRepo,
+      today: () => '2026-11-10',
+      viewportWidth: 390,
+    });
+
+    await controller.initialize();
+    await controller.submitMonthlyIncome('900000');
+    controller.setActiveTab('overview');
+
+    const overviewStyles = MonthlyOverviewScreen.buildStyles(390);
+    assert.equal(overviewStyles.overviewViewportBox.overflowY, 'hidden');
+
+    const html = renderToStaticMarkup(controller.renderElement());
+    assert.match(html, /data-testid="overview-viewport-box"/);
+    assert.match(html, /data-testid="overview-period-header"/);
+    assert.match(html, /data-testid="overview-kpi-grid"/);
+    assert.match(html, /data-testid="overview-income-amount"/);
+    assert.match(html, /data-testid="overview-expenses-amount"/);
+    assert.match(html, /data-testid="overview-investments-amount"/);
+    assert.match(html, /data-testid="overview-balance-amount"/);
+    assert.match(html, /data-testid="capital-allocation-strip"/);
+    assert.match(html, /data-testid="category-distribution-chart"/);
+    assert.match(html, /Suscripciones/);
+    assert.doesNotMatch(
+      html,
+      /data-testid="category-breakdown-list"[^>]*overflow:hidden/,
+    );
+
+    const chartIndex = html.indexOf('data-testid="category-income-breakdown"');
+    const allocationIndex = html.indexOf('data-testid="capital-allocation-strip"');
+    assert.equal(chartIndex > -1 && allocationIndex > -1 && chartIndex < allocationIndex, true);
+
+    assert.doesNotMatch(html, /data-testid="monthly-income-form"/);
+    assert.doesNotMatch(html, /data-testid="investment-registry-form"/);
+    assert.doesNotMatch(html, /data-testid="reminder-form"/);
+    assert.doesNotMatch(html, /data-testid="expense-form"/);
+  });
+
+  it('[H13-R3] separa cada acción y su listado relacionado en las 5 pestañas dedicadas (Resumen, Gastos, Ingresos, Inversiones y Alertas)', async () => {
+    const controller = MonthlyOverviewScreen.createController({
+      expenseRepository: expenseRepo,
+      categoryRepository: categoryRepo,
+      incomeRepository: incomeRepo,
+      investmentRepository: investmentRepo,
+      reminderRepository: reminderRepo,
+      today: () => '2026-11-10',
+      viewportWidth: 390,
+    });
+
+    await controller.initialize();
+    await controller.submitMonthlyIncome('1000000');
+    controller.setInvestmentInputs({
+      assetName: 'CEDEAR SPY',
+      platform: 'Balanz',
+      amountInput: '200000',
+      date: '2026-11-05',
+      dueDate: '',
+      note: 'Largo plazo',
+    });
+    await controller.submitInvestment();
+    await controller.submitReminder({
+      title: 'Pagar tarjeta de crédito',
+      dueDate: '2026-11-20',
+    });
+
+    controller.setActiveTab('expenses');
+    const expensesHtml = renderToStaticMarkup(controller.renderElement());
+    assert.match(expensesHtml, /data-testid="tab-panel-expenses"/);
+    assert.match(expensesHtml, /data-testid="expense-form"/);
+    assert.doesNotMatch(expensesHtml, /data-testid="monthly-income-form"/);
+    assert.doesNotMatch(expensesHtml, /data-testid="investment-registry-form"/);
+    assert.doesNotMatch(expensesHtml, /data-testid="reminder-form"/);
+
+    controller.setActiveTab('income');
+    const incomeHtml = renderToStaticMarkup(controller.renderElement());
+    assert.match(incomeHtml, /data-testid="tab-panel-income"/);
+    assert.match(incomeHtml, /data-testid="monthly-income-form"/);
+    assert.match(incomeHtml, /data-testid="income-absorption-list"/);
+    assert.doesNotMatch(incomeHtml, /data-testid="expense-form"/);
+    assert.doesNotMatch(incomeHtml, /data-testid="investment-registry-form"/);
+    assert.doesNotMatch(incomeHtml, /data-testid="reminder-form"/);
+
+    controller.setActiveTab('investments');
+    const investmentsHtml = renderToStaticMarkup(controller.renderElement());
+    assert.match(investmentsHtml, /data-testid="tab-panel-investments"/);
+    assert.match(investmentsHtml, /data-testid="investment-registry-form"/);
+    assert.match(investmentsHtml, /data-testid="investment-list"/);
+    assert.match(investmentsHtml, /CEDEAR SPY · Balanz/);
+    assert.doesNotMatch(investmentsHtml, /data-testid="expense-form"/);
+    assert.doesNotMatch(investmentsHtml, /data-testid="monthly-income-form"/);
+    assert.doesNotMatch(investmentsHtml, /data-testid="reminder-form"/);
+
+    controller.setActiveTab('reminders');
+    const remindersHtml = renderToStaticMarkup(controller.renderElement());
+    assert.match(remindersHtml, /data-testid="tab-panel-reminders"/);
+    assert.match(remindersHtml, /data-testid="reminders-section"/);
+    assert.match(remindersHtml, /data-testid="reminder-form"/);
+    assert.match(remindersHtml, /data-testid="reminders-list"/);
+    assert.match(remindersHtml, /data-testid="monthly-advice-section"/);
+    assert.doesNotMatch(remindersHtml, /data-testid="expense-form"/);
+    assert.doesNotMatch(remindersHtml, /data-testid="monthly-income-form"/);
+    assert.doesNotMatch(remindersHtml, /data-testid="investment-registry-form"/);
+  });
+
+  it('[H13-R4] presenta las secciones en tarjetas en el borde inferior donde la tarjeta seleccionada cambia de color y se destaca desplazándose hacia arriba (translateY(-8px))', async () => {
+    const styles = MonthlyOverviewScreen.buildStyles(390);
+    assert.equal(styles.tabsBar.position, 'fixed');
+    assert.equal(styles.tabsBar.bottom, 0);
+    assert.equal(styles.tabButton.backgroundColor, CORPORATE_THEME.surface);
+    assert.equal(styles.tabButton.transform, 'translateY(0px)');
+    assert.equal(styles.activeTabButton.backgroundColor, CORPORATE_THEME.brownPrimary);
+    assert.equal(styles.activeTabButton.color, '#FFFFFF');
+    assert.equal(styles.activeTabButton.transform, 'translateY(-8px)');
+
+    const controller = MonthlyOverviewScreen.createController({
+      expenseRepository: expenseRepo,
+      categoryRepository: categoryRepo,
+      incomeRepository: incomeRepo,
+      investmentRepository: investmentRepo,
+      reminderRepository: reminderRepo,
+      today: () => '2026-11-10',
+      viewportWidth: 390,
+    });
+    await controller.initialize();
+    controller.setActiveTab('investments');
+
+    const html = renderToStaticMarkup(controller.renderElement());
+    assert.match(html, /data-testid="tab-investments"[^>]*data-active="true"/);
+    assert.match(html, /data-testid="tab-overview"[^>]*data-active="false"/);
+    assert.match(html, /translateY\(-8px\)/);
+  });
+
+  it('[H13-R5][H13-R6][H13-R7] en modo mobile el header no tiene márgenes exteriores y muestra solo el título Ge$tix y el ícono de perfil, desplegando al tocarlo la edición de cuenta, el acceso discreto a privacidad y cerrar sesión', async () => {
+    const mobileShellStyles = AppShell.buildStyles(390);
+    assert.equal(mobileShellStyles.mainScreen.margin, 0);
+    assert.equal(mobileShellStyles.mainScreen.padding, 0);
+    assert.equal(mobileShellStyles.header.margin, 0);
+    assert.equal(mobileShellStyles.header.borderRadius, 0);
+
+    const appController = AppShell.createController({
+      consentRepository: consentRepo,
+      userAccountRepository: userAccountRepo,
+      expenseRepository: expenseRepo,
+      categoryRepository: categoryRepo,
+      incomeRepository: incomeRepo,
+      investmentRepository: investmentRepo,
+      reminderRepository: reminderRepo,
+      requireAuth: true,
+      today: () => '2026-11-10',
+      viewportWidth: 390,
+    });
+
+    await appController.initialize();
+    await appController.acceptPrivacyNotice();
+    await appController.registerAccount({
+      fullName: 'Juan Pablo',
+      username: 'juanpablo',
+      password: '1234',
+    });
+
+    const closedMenuHtml = renderToStaticMarkup(appController.renderElement());
+    assert.match(closedMenuHtml, /data-testid="app-brand-title"[^>]*>Ge\$tix</);
+    assert.match(closedMenuHtml, /data-testid="profile-menu-button"/);
+    assert.doesNotMatch(closedMenuHtml, /data-testid="profile-menu-popover"/);
+    assert.doesNotMatch(closedMenuHtml, /data-testid="open-settings-privacy-button"/);
+    assert.doesNotMatch(closedMenuHtml, /data-testid="logout-button"/);
+
+    appController.openProfileMenu();
+    const openMenuHtml = renderToStaticMarkup(appController.renderElement());
+    assert.match(openMenuHtml, /data-testid="profile-menu-popover"/);
+    assert.match(openMenuHtml, /data-testid="profile-edit-form"/);
+    assert.match(openMenuHtml, /data-testid="profile-fullname-input"/);
+    assert.match(openMenuHtml, /data-testid="profile-username-input"/);
+    assert.match(openMenuHtml, /data-testid="profile-save-button"/);
+    assert.match(openMenuHtml, /data-testid="open-settings-privacy-button"/);
+    assert.match(openMenuHtml, /data-testid="logout-button"/);
+
+    const updatedState = await appController.updateProfile({
+      fullName: 'Juan Pablo Simón',
+      username: 'jpsimon',
+    });
+    assert.equal(updatedState.profileError, null);
+    assert.equal(updatedState.currentUser.fullName, 'Juan Pablo Simón');
+    assert.equal(updatedState.currentUser.username, 'jpsimon');
+
+    const updatedHtml = renderToStaticMarkup(appController.renderElement());
+    assert.match(updatedHtml, /Cuenta activa: Juan Pablo Simón \(@jpsimon\)/);
+
+    const afterLogout = appController.logoutAccount();
+    assert.equal(afterLogout.currentUser, null);
+    assert.equal(afterLogout.view, 'auth');
+  });
+
+  it('[H13-R8] aplica alto contraste explícito (fondo #FFFFFF, texto #0B192C, caretColor #0B192C, colorScheme light y borde reforzado) en los campos de monto de gastos, ingresos e inversiones', async () => {
+    const expenseStyles = ExpenseFormScreen.buildStyles(390);
+    assert.equal(expenseStyles.amountInput.backgroundColor, '#FFFFFF');
+    assert.equal(expenseStyles.amountInput.color, '#0B192C');
+    assert.equal(expenseStyles.amountInput.caretColor, '#0B192C');
+    assert.equal(expenseStyles.amountInput.colorScheme, 'light');
+    assert.equal(expenseStyles.amountInput.border, `2px solid ${CORPORATE_THEME.navyPrimary}`);
+
+    const overviewStyles = MonthlyOverviewScreen.buildStyles(390);
+    assert.equal(overviewStyles.amountInput.backgroundColor, '#FFFFFF');
+    assert.equal(overviewStyles.amountInput.color, '#0B192C');
+    assert.equal(overviewStyles.amountInput.caretColor, '#0B192C');
+    assert.equal(overviewStyles.amountInput.colorScheme, 'light');
+    assert.equal(overviewStyles.amountInput.border, `2px solid ${CORPORATE_THEME.navyPrimary}`);
+
+    const controller = MonthlyOverviewScreen.createController({
+      expenseRepository: expenseRepo,
+      categoryRepository: categoryRepo,
+      incomeRepository: incomeRepo,
+      investmentRepository: investmentRepo,
+      reminderRepository: reminderRepo,
+      today: () => '2026-11-10',
+      viewportWidth: 390,
+    });
+    await controller.initialize();
+
+    controller.setActiveTab('expenses');
+    const expHtml = renderToStaticMarkup(controller.renderElement());
+    assert.match(expHtml, /data-testid="expense-amount-input"[^>]*background-color:#FFFFFF/);
+    assert.match(expHtml, /data-testid="expense-amount-input"[^>]*color:#0B192C/);
+
+    controller.setActiveTab('income');
+    const incHtml = renderToStaticMarkup(controller.renderElement());
+    assert.match(incHtml, /data-testid="income-amount-input"[^>]*background-color:#FFFFFF/);
+    assert.match(incHtml, /data-testid="income-amount-input"[^>]*color:#0B192C/);
+
+    controller.setActiveTab('investments');
+    const invHtml = renderToStaticMarkup(controller.renderElement());
+    assert.match(invHtml, /data-testid="investment-amount-input"[^>]*background-color:#FFFFFF/);
+    assert.match(invHtml, /data-testid="investment-amount-input"[^>]*color:#0B192C/);
   });
 });
