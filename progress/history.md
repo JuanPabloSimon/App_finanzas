@@ -155,3 +155,16 @@
   - Persistencia: se documenta lo implementado (SQLite vía `AppDatabase` con `node:sqlite` en pruebas y `localStorage` en el navegador).
   - Clave del modelo: `VITE_LLM_API_KEY` (queda en el bundle; solo uso local/demo).
 - **Pendiente:** decidir si la versión web migra de `localStorage` a SQLite en el navegador.
+
+## 2026-11-14 — H8 (`h08_ranking_categorias`) — Ranking de categorías
+
+- **Agente:** Claude Code (`leader` → `spec_author` → `implementer` → `reviewer`) con Francisco.
+- **Spec:** `specs/h08_ranking_categorias/` (R1..R13), aprobado por Francisco el 2026-11-14.
+- **Cambios:**
+  - `src/domain/services/categoryRanking.js` (nuevo, JS puro): `compareCategoryTotals` (monto desc → `localeCompare('es', { sensitivity: 'base' })` → `categoryId` asc) y `buildCategoryRanking`.
+  - `src/domain/models/monthlyIncome.js`: `calculateCategoryIncomeBreakdown` reutiliza `compareCategoryTotals` (mismo orden que el gráfico de H6).
+  - `src/features/dashboard/CategoryRankingList.jsx` (nuevo): panel Mobile First + Desktop con estado vacío, ubicado en la pestaña Gastos (el Resumen de H13 sigue sin scroll).
+  - `MonthlyOverviewScreen.jsx` y `ExpenseFormScreen.jsx` (`onExpenseDeleted`) para recalcular el ranking tras alta, edición, borrado y cambio de mes.
+  - Pruebas `[H8-R1]`..`[H8-R13]` en `test/domain/services/`, `test/features/dashboard/` y `test/features/income/`.
+- **Verificación:** `reviewer` emitió `APPROVED` en `progress/review_h08_ranking_categorias.md` (primer ciclo); `./init.sh` en verde (95/95 pruebas, 77/77 requisitos con prueba).
+- **Cierre:** `h08_ranking_categorias` marcada `done` en `feature_list.json`. Próxima feature: `H7 — h07_comparacion_mensual` (`orden: 10`).

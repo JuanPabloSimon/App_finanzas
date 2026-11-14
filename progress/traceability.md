@@ -28,7 +28,8 @@
 | H13 | CA2 | R2, R3, R4 | `[H13-R2]`, `[H13-R3]`, `[H13-R4]` (`test/features/income/MonthlyOverviewScreen.test.jsx`) | En revisión (`in_progress`) |
 | H13 | CA3 | R5, R6, R7 | `[H13-R5]`, `[H13-R6]`, `[H13-R7]` (`test/features/income/MonthlyOverviewScreen.test.jsx`) | En revisión (`in_progress`) |
 | H13 | CA4 | R8 | `[H13-R8]` (`test/features/income/MonthlyOverviewScreen.test.jsx`) | En revisión (`in_progress`) |
-| H8 | CA1, CA2 | — | — | Pendiente (`pending`) |
+| H8 | CA1 | R1, R2, R5, R6, R7, R8, R9, R11, R12, R13 | `[H8-R1]`, `[H8-R2]`, `[H8-R5]`, `[H8-R6]`, `[H8-R7]`, `[H8-R8]`, `[H8-R9]`, `[H8-R11]`, `[H8-R12]`, `[H8-R13]` (`test/domain/services/categoryRanking.test.js`, `test/features/dashboard/CategoryRankingList.test.jsx`, `test/features/income/MonthlyOverviewScreen.test.jsx`) | En revisión (`in_progress`) |
+| H8 | CA2 | R3, R4, R10 | `[H8-R3]`, `[H8-R4]`, `[H8-R10]` (`test/domain/services/categoryRanking.test.js`) | En revisión (`in_progress`) |
 | H7 | CA1, CA2 | — | — | Pendiente (`pending`) |
 | H9 | CA1 | R1, R2, R3, R8 | — | Borrador de referencia (`pending`) |
 | H9 | CA2 | R4, R5 | — | Borrador de referencia (`pending`) |
