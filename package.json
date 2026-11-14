@@ -3,7 +3,7 @@
   "private": true,
   "version": "0.1.0",
   "type": "module",
-  "description": "Gestor de gastos personales Mobile + Desktop (Mobile First) en React Native / Expo con SQLite local (expo-sqlite)",
+  "description": "Gestor de gastos personales web (React + Vite, Mobile First) con persistencia local en el navegador",
   "scripts": {
     "dev": "vite",
     "build": "vite build",

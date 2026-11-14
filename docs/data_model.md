@@ -1,8 +1,8 @@
-# Modelo de datos (entregable E3) — SQLite (`expo-sqlite`)
+# Modelo de datos (entregable E3) — SQLite
 
 > Este archivo y las migraciones en `src/data/db/` deben coincidir siempre (criterio de
-> aceptación de E3). La persistencia es 100 % local mediante `expo-sqlite` tanto en Mobile
-> como en Desktop.
+> aceptación de E3). La persistencia es 100 % local: el esquema se ejecuta con `node:sqlite` en las
+> pruebas y, en el navegador, el estado se guarda en `localStorage`.
 
 Base: `gastos.db`. Claves foráneas activadas (`PRAGMA foreign_keys = ON`).
 

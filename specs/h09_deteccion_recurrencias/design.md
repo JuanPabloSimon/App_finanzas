@@ -10,7 +10,7 @@
 | domain | `src/domain/models/recurrence.js` | Nuevo modelo inmutable `Recurrence` |
 | domain | `src/domain/services/recurrenceDetector.js` | Nuevo servicio puro `RecurrenceDetector` |
 | domain | `src/domain/repositories/recurrenceRepository.js` | Contrato para claves descartadas |
-| data | `src/data/db/appDatabase.js` | Migración versión 2 (`expo-sqlite`): tabla `dismissed_recurrences` |
+| data | `src/data/db/appDatabase.js` | Migración SQLite: tabla `dismissed_recurrences` |
 | data | `src/data/repositories/sqliteRecurrenceRepository.js` | Implementación SQLite |
 | presentation | `src/features/recurrences/RecurrencesScreen.jsx` | Lista responsiva (Mobile First + Desktop), estado vacío y acción «Descartar» |
 | test | `test/domain/services/recurrenceDetector.test.js` | R1, R2, R3, R10 |
@@ -80,7 +80,7 @@ export class RecurrenceRepository {
 
 La pantalla obtiene las claves descartadas del repositorio y filtra antes de mostrar (R7).
 
-## Datos (`expo-sqlite`)
+## Datos (SQLite)
 
 - Migración **versión 2**: `CREATE TABLE dismissed_recurrences (recurrence_key TEXT PRIMARY
   KEY, dismissed_at TEXT NOT NULL)`. Se actualiza `docs/data_model.md`.

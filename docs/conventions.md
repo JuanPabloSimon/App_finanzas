@@ -2,14 +2,14 @@
 
 > Homogeneidad extrema: la IA predice mejor cuando el repositorio se parece a sí mismo.
 
-## JavaScript y React Native (Mobile First + Desktop)
+## JavaScript y React web (Mobile First + Desktop)
 
 - Lenguaje: **JavaScript (ES Modules)** en todo el proyecto (`import` / `export`).
 - Linter: ESLint (`npm run lint`) sin errores ni advertencias.
 - Componentes funcionales con Hooks; componentes pequeños y componibles.
 - Enfoque **Mobile First**:
   - Los estilos base se definen para pantallas móviles (`< 768px`).
-  - Las adaptaciones para **Desktop** (`≥ 768px` y `≥ 1024px`) se aplican mediante `useWindowDimensions` o el helper central en `src/core/responsive.js` (por ejemplo, contenedores centrados con `maxWidth`, grillas multicolumna en el tablero y soporte de eventos de teclado/foco además de gestos táctiles).
+  - Las adaptaciones para **Desktop** (`≥ 768px` y `≥ 1024px`) se aplican con media queries CSS `@media (min-width: 768px)` / `(min-width: 1024px)` y, si hace falta en JS, el helper central en `src/core/responsive.js` (por ejemplo, contenedores centrados con `maxWidth`, grillas multicolumna en el tablero y soporte de eventos de teclado/foco además de gestos táctiles).
 - Modelos del dominio inmutables (`Object.freeze`) con validación en el constructor o fábrica.
 - Sin `console.log()` de depuración, sin código comentado y sin `TODO` sin contexto.
 
@@ -64,7 +64,7 @@ La UI captura `DomainException`, muestra `error.message` al usuario y nunca un s
 - Un archivo por unidad en `test/` espejando `src/`: por ejemplo `test/domain/services/recurrenceDetector.test.js`.
 - Bloques `describe('H9 detección de recurrencias', ...)` y cada `test` / `it` con su etiqueta `[H9-R<n>]`.
   Una prueba puede cubrir más de un requisito: `'[H9-R1][H9-R3] agrupa montos ±10 %'`.
-- Persistencia: base SQLite en memoria (usando adaptador SQLite en memoria compatible con el contrato de `AppDatabase` / `expo-sqlite`); una base limpia por prueba.
+- Persistencia: base SQLite en memoria (`AppDatabase.openInMemory()` con `node:sqlite`); una base limpia por prueba.
 - UI / Componentes: pruebas de renderizado e interacción verificando textos, estados de error y adaptación Mobile/Desktop.
 - Asistente: `FakeLlmClient` que devuelve respuestas fijas, lentas o mal formadas. Ninguna prueba usa red.
 - Nombres descriptivos del comportamiento, no de la implementación.

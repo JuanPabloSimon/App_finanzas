@@ -21,10 +21,10 @@
 
 ## C3 — El código respeta la arquitectura y el enfoque Mobile First + Desktop
 
-- [ ] `src/domain/` es JavaScript puro: no importa `react`, `react-native`, `expo-sqlite` ni clientes de red (`fetch`, `axios`).
+- [ ] `src/domain/` es JavaScript puro: no importa `react`, `react-dom`, `node:sqlite` ni clientes de red (`fetch`, `axios`).
 - [ ] Solo `src/assistant/` realiza llamadas de red.
 - [ ] Importes en centavos enteros (`Number.isInteger`); ningún decimal en coma flotante para dinero.
-- [ ] Cambios de esquema SQLite (`expo-sqlite`) como migraciones versionadas en `src/data/db/` y documentadas en `docs/data_model.md`.
+- [ ] Cambios de esquema SQLite como migraciones versionadas en `src/data/db/` y documentadas en `docs/data_model.md`.
 - [ ] La UI está construida con enfoque **Mobile First** y contempla adaptación responsiva para **Desktop**.
 - [ ] Sin `console.log()` de depuración ni TODO sin contexto.
 

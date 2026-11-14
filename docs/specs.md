@@ -64,9 +64,9 @@ Reglas duras:
 Antes de tocar código, documentar:
 
 - Archivos que se crean y se modifican en `src/` y `test/` (por capa).
-- Firmas nuevas en JavaScript: clases, funciones, componentes/pantallas React Native.
+- Firmas nuevas en JavaScript: clases, funciones, componentes/pantallas React.
 - Comportamiento **Mobile First** y adaptación responsiva para **Desktop** (cuando la feature tenga UI).
-- Cambios de esquema en `expo-sqlite` y número de migración.
+- Cambios de esquema SQLite y número de migración.
 - Excepciones nuevas o reutilizadas.
 - Impacto en privacidad (si toca datos o la IA).
 - **Al menos una alternativa descartada** y por qué.

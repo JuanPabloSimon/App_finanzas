@@ -1,5 +1,5 @@
 #!/usr/bin/env bash
-# init.sh — Verificación e inicialización del entorno (Node.js / React Native)
+# init.sh — Verificación e inicialización del entorno (Node.js / React + Vite)
 #
 # Lo ejecuta el agente al COMENZAR una sesión y antes de declarar cualquier
 # tarea como terminada. Si falla, la sesión no avanza.
@@ -18,7 +18,7 @@ RAPIDO=0
 EXIT_CODE=0
 cd "$(dirname "$0")" || exit 1
 
-echo "── 1. Entorno (Node.js / React Native) ─────────────────"
+echo "── 1. Entorno (Node.js / React + Vite) ─────────────────"
 if ! command -v node >/dev/null 2>&1; then
   fail "node no está instalado o no está en el PATH"
   exit 1

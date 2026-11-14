@@ -29,7 +29,9 @@ cambia de forma sustancial, se incrementa la versión y se vuelve a pedir la ace
 
 ## Secretos del proyecto
 
-- La clave de la API se inyecta mediante variable de entorno (`EXPO_PUBLIC_LLM_API_KEY` en `.env` local no versionado); no se escribe en el código ni en archivos versionados.
+- La clave de la API se inyecta mediante variable de entorno (`VITE_LLM_API_KEY` en `.env` local no versionado); no se escribe en el código ni en archivos versionados.
+  Al no haber backend, toda variable `VITE_*` queda visible en el bundle del navegador: la clave
+  solo se usa en entornos locales o de demostración y con un límite de gasto configurado en el proveedor.
 - `.env`, `.env.*`, `android/key.properties`, `*.jks` y `*.keystore` están en `.gitignore`. El hook
   `.claude/hooks/protect_secrets.sh` impide que Claude Code los edite.
 - Limitación conocida: una clave embebida en un cliente puede extraerse. Para el prototipo

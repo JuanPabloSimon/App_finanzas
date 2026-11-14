@@ -16,7 +16,7 @@
 ## Firmas nuevas
 
 ```javascript
-// clases, funciones y componentes/pantallas React Native nuevos
+// clases, funciones y componentes/pantallas React nuevos
 ```
 
 ## Diseño Mobile First y adaptación Desktop
@@ -24,7 +24,7 @@
 - **Mobile (`< 768px`):** ...
 - **Desktop (`≥ 768px`):** ...
 
-## Datos (`expo-sqlite`)
+## Datos (SQLite)
 
 - Migración: ninguna / versión <n>: ...
 

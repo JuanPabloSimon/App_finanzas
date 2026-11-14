@@ -11,7 +11,7 @@ function Fail($m) { Write-Host "[FAIL]  $m" -ForegroundColor Red }
 $exitCode = 0
 Set-Location $PSScriptRoot
 
-Write-Host "-- 1. Entorno (Node.js / React Native) -----------------"
+Write-Host "-- 1. Entorno (Node.js / React + Vite) ------------------"
 if (-not (Get-Command node -ErrorAction SilentlyContinue)) {
   Fail "node no esta en el PATH"
   exit 1

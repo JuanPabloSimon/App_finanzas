@@ -142,3 +142,16 @@
 - **Cambios:** `CategoryDistributionChart` se ubica por encima de `capital-allocation-strip` en la pestaña Resumen; se quitó el recorte (`maxHeight` / `overflow: hidden`) de `category-breakdown-list` para que todas las categorías (p. ej. Suscripciones) se vean completas; rediseño del selector de período con flechas embebidas `<` y `>` a cada lado sin texto y mes centrado, título «Gestión de Estado Patrimonial» arriba separado y calibración milimétrica de alturas en el dashboard para garantizar cero scroll vertical en viewport móvil; prueba `[H13-R1][H13-R2]` ampliada para verificar el orden y la ausencia de recorte.
 - **Verificación:** ciclo 1 `CHANGES_REQUESTED` (dato de prueba), ciclo 2 `APPROVED` en `progress/review_h13_refactor_ux_gestix.md`. El reviewer se detuvo por cuota agotada después de escribir el veredicto; el leader confirmó `./init.ps1` en verde (81/81 pruebas, 64/64 requisitos).
 - **Cierre:** `h13_refactor_ux_gestix` nuevamente en `done`. Próxima feature: `H8 — h08_ranking_categorias` (`orden: 9`).
+
+## 2026-11-14 — Cambio de enfoque a aplicación web (React + Vite)
+- **Agente:** Claude Code (leader) a pedido del equipo.
+- **Motivo:** el mismo proyecto se desarrolla para dos materias; en esta se trabaja la
+  versión **web**. La versión Flutter/Android del documento del proyecto queda para la otra.
+- **Cambios:** `AGENTS.md`, `rules.md` (reglas 9, 10 y 17), `README.md`, `CHECKPOINTS.md`,
+  `docs/{architecture,conventions,product,data_model,privacy,specs}.md`, `specs/_template/`,
+  `specs/h09_deteccion_recurrencias/`, `feature_list.json` (descripción), `package.json`,
+  `init.sh`, `init.ps1`, `.claude/agents/*` y `.agents/rules/*`.
+  - Stack: React (JavaScript) + Vite, responsivo Mobile First.
+  - Persistencia: se documenta lo implementado (SQLite vía `AppDatabase` con `node:sqlite` en pruebas y `localStorage` en el navegador).
+  - Clave del modelo: `VITE_LLM_API_KEY` (queda en el bundle; solo uso local/demo).
+- **Pendiente:** decidir si la versión web migra de `localStorage` a SQLite en el navegador.

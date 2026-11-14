@@ -33,11 +33,12 @@ carga**: la competencia real es el desuso.
   de un modelo de lenguaje externo, con respuesta de reserva basada en reglas.
 - Exportación del historial a un archivo CSV.
 - Aviso de privacidad con consentimiento explícito en el primer inicio.
-- **Stack multiplataforma Mobile + Desktop con enfoque Mobile First:**
-  - **React Native (JavaScript)** con **Expo** (React Native + React Native Web / Electron /
-    Tauri para Desktop) y **React Native CLI** (`react-native-windows` / `react-native-macos`).
+- **Stack web con enfoque Mobile First:**
+  - **React (JavaScript) + Vite**, aplicación web que corre en navegador móvil y de escritorio.
   - Diseño **Mobile First** que escala de forma responsiva a pantallas de escritorio.
-  - Almacenamiento local en SQLite mediante `expo-sqlite`.
+  - Almacenamiento local: SQLite (`AppDatabase`, `node:sqlite` en las pruebas) y, en el navegador, `localStorage`.
+  - Nota: el documento del proyecto describe una versión Flutter/Android que corresponde a
+    otra materia; este repositorio implementa la versión web.
 
 ## Límites (fuera del alcance)
 

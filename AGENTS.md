@@ -7,12 +7,10 @@
 
 ## 0. Contexto en tres líneas
 
-App multiplataforma **Mobile + Desktop** con enfoque **Mobile First** desarrollada en
-**React Native (JavaScript)** —usando **Expo** (React Native + React Native Web / Electron /
-Tauri para Desktop) y **React Native CLI** (`react-native-windows` / `react-native-macos`)—
+App web desarrollada en **React (JavaScript) + Vite**, como **aplicación web responsiva** con enfoque **Mobile First** (navegador móvil y de escritorio)
 para registrar gastos, verlos por categoría, detectar gastos recurrentes y recibir
 recomendaciones de un modelo de lenguaje externo.
-Datos **solo en el dispositivo** (SQLite local con `expo-sqlite`). Proyecto académico del
+Datos **solo en el navegador del usuario** (SQLite (`AppDatabase`, `node:sqlite` en las pruebas) y, en el navegador, `localStorage`). Proyecto académico del
 Grupo 3 (ITU, Técnicas laborales), cierre el **13/11/2026**. Detalle en `docs/product.md`.
 
 ## 1. Antes de empezar (obligatorio)
@@ -34,10 +32,10 @@ Grupo 3 (ITU, Técnicas laborales), cierre el **13/11/2026**. Detalle en `docs/p
 | `specs/<feature>/` | `requirements.md` + `design.md` + `tasks.md` | Antes de implementar |
 | `specs/_template/` | Plantillas | Al redactar un spec |
 | `docs/Proyecto_Tec_Laborales_Grupo_3.pdf` | Documento de Proyecto (Etapas 1, 2 y 3, informe académico en proceso del Grupo 3) | Para contexto general, gestión PMBOK, costos/beneficios y replanificación |
-| `docs/product.md` | Visión, alcance (Mobile + Desktop, Mobile First), límites, historias | Para entender el qué |
+| `docs/product.md` | Visión, alcance (web responsiva, Mobile First), límites, historias | Para entender el qué |
 | `docs/architecture.md` | Capas, dependencias, diseño Mobile First y decisiones | Antes de diseñar o programar |
-| `docs/data_model.md` | Esquema SQLite (`expo-sqlite`) y migraciones | Antes de tocar persistencia |
-| `docs/conventions.md` | Estilo JavaScript/React Native, Mobile First, errores, pruebas | Antes de escribir código |
+| `docs/data_model.md` | Esquema SQLite y migraciones | Antes de tocar persistencia |
+| `docs/conventions.md` | Estilo JavaScript/React web, Mobile First, errores, pruebas | Antes de escribir código |
 | `docs/specs.md` | Proceso SDD, EARS, puerta humana | Antes de redactar o leer un spec |
 | `docs/verification.md` | Cómo demostrar que funciona | Antes de declarar algo terminado |
 | `docs/privacy.md` | Ley 25.326 y reglas de datos | Si la feature toca datos o la IA |
@@ -49,7 +47,7 @@ Grupo 3 (ITU, Técnicas laborales), cierre el **13/11/2026**. Detalle en `docs/p
 | `.claude/agents/` | Definición canónica de cada rol | Si orquestás o asumís un rol |
 | `.agents/` | Reglas y workflows de Antigravity | Antigravity los carga solo |
 | `.antigravity/` | Guía y prompts de rol para Antigravity | Si usás Antigravity |
-| `src/`, `test/` | Código fuente (React Native / JS) y pruebas | Para implementar y verificar |
+| `src/`, `test/` | Código fuente (React / JS) y pruebas | Para implementar y verificar |
 
 ## 3. Flujo de trabajo (SDD)
 

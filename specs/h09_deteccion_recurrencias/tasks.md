@@ -20,7 +20,7 @@
   `test/domain/services/recurrenceDetectorMetrics.test.js` que calculen exhaustividad y
   precisión. Cubre: R4, R5.
 
-## Persistencia (`expo-sqlite`)
+## Persistencia (SQLite)
 
 - [ ] T6 — Migración versión 2 en `src/data/db/appDatabase.js` y actualización de
   `docs/data_model.md`. Cubre: R6.

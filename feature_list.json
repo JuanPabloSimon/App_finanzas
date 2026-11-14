@@ -1,6 +1,6 @@
 {
   "project": "gestor-gastos",
-  "description": "Aplicación multiplataforma Mobile + Desktop con enfoque Mobile First (React Native con Expo / React Native CLI, JavaScript y SQLite local mediante expo-sqlite) para registrar y analizar gastos personales, detectar gastos recurrentes y recibir recomendaciones de un modelo de lenguaje. Grupo 3, Técnicas laborales para el desarrollo de software, ITU 2026.",
+  "description": "Aplicación web con enfoque Mobile First (React + Vite, JavaScript, persistencia local en el navegador) para registrar y analizar gastos personales, detectar gastos recurrentes y recibir recomendaciones de un modelo de lenguaje. Grupo 3, Técnicas laborales para el desarrollo de software, ITU 2026.",
   "rules": {
     "one_feature_at_a_time": true,
     "require_tests_to_close": true,

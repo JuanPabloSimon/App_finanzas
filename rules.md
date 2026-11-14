@@ -21,13 +21,12 @@
 ## 2. Arquitectura y Multiplataforma (Mobile First + Desktop)
 
 8. Capas `presentation → domain ← data`. El dominio (`src/domain/`) es **JavaScript puro**:
-   no importa `react`, `react-native`, `expo-sqlite` ni clientes HTTP (`fetch`, `axios`).
+   no importa `react`, `react-dom`, `node:sqlite` ni clientes HTTP (`fetch`, `axios`).
    Ver `docs/architecture.md`.
-9. **Tecnología y enfoque:** Aplicación en **React Native (JavaScript)** usando **Expo**
-   (React Native + React Native Web / Electron / Tauri para Desktop) y **React Native CLI**
-   (`react-native-windows` / `react-native-macos`). El desarrollo de toda interfaz es
-   **Mobile First** y debe adaptarse de forma responsiva a pantallas **Desktop**.
-10. Persistencia **solo** en SQLite local mediante `expo-sqlite`. Sin backend, sin nube, sin
+9. **Tecnología y enfoque:** Aplicación **web** en **React (JavaScript) + Vite**. El desarrollo
+   de toda interfaz es **Mobile First** y debe adaptarse de forma responsiva a pantallas
+   **Desktop**. (La versión Flutter/Android del documento del proyecto corresponde a otra materia.)
+10. Persistencia **solo** local: SQLite (`AppDatabase`, `node:sqlite` en las pruebas) y, en el navegador, `localStorage`. Sin backend, sin nube, sin
     autenticación.
 11. Todo cambio de esquema es una **migración versionada** en `src/data/db/` y se documenta
     en `docs/data_model.md`.
@@ -46,8 +45,9 @@
     identificadores del dispositivo o del usuario.
 16. Sin aceptar el aviso de privacidad (H12) no se accede a la app ni se llama a la API.
 17. La clave de la API nunca se commitea: se inyecta por variable de entorno
-    (`EXPO_PUBLIC_LLM_API_KEY` en `.env` local ignorado) y los archivos `.env`,
-    `key.properties`, `*.jks` y `*.keystore` están en `.gitignore`.
+    (`VITE_LLM_API_KEY` en `.env` local ignorado) y los archivos `.env`,
+    `key.properties`, `*.jks` y `*.keystore` están en `.gitignore`. Toda variable `VITE_*` queda incluida en el bundle del
+    navegador: la clave solo se usa en entornos locales/demo y con límite de gasto en el proveedor.
 18. Las recomendaciones siempre muestran la advertencia de carácter orientativo.
 
 ## 4. Calidad y verificación
@@ -57,7 +57,7 @@
     `[H<id>-R<n>]` (por ejemplo `[H9-R1]`). `tool/harness_check.mjs` lo verifica.
 21. Las pruebas no usan red: el cliente del modelo se reemplaza por un *fake* (`FakeLlmClient`).
 22. Las pruebas de persistencia usan una base SQLite en memoria (o adaptador SQLite en
-    memoria compatible con la interfaz de `AppDatabase` / `expo-sqlite`), no mocks ad-hoc
+    memoria (`AppDatabase.openInMemory()` con `node:sqlite`), no mocks ad-hoc
     que salteen las consultas SQL.
 23. Sin `console.log()` de depuración, sin código comentado y sin TODO sin contexto.
 
