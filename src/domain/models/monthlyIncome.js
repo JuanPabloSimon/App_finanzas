@@ -1,6 +1,7 @@
 import { InvalidAmount, InvalidExpenseDate } from '../../core/errors.js';
 import { isValidYearMonth, isValidIsoDateTime } from '../../core/dates.js';
 import { CHART_PALETTE } from '../../core/theme.js';
+import { compareCategoryTotals } from '../services/categoryRanking.js';
 
 export class MonthlyIncome {
   constructor({ yearMonth, amountCents, updatedAt = null }) {
@@ -78,14 +79,7 @@ export function calculateCategoryIncomeBreakdown(
       ? monthlyIncome.amountCents
       : null;
 
-  const sortedEntries = [...totalsByCat.values()].sort((a, b) => {
-    if (b.amountCents !== a.amountCents) {
-      return b.amountCents - a.amountCents;
-    }
-    return a.categoryName.localeCompare(b.categoryName, 'es', {
-      sensitivity: 'base',
-    });
-  });
+  const sortedEntries = [...totalsByCat.values()].sort(compareCategoryTotals);
 
   if (sortedEntries.length === 0) {
     return Object.freeze([]);

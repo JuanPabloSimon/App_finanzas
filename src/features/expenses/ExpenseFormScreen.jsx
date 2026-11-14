@@ -1079,6 +1079,7 @@ export function ExpenseFormScreen({
   now = () => new Date(),
   viewportWidth = 390,
   onExpenseSaved = undefined,
+  onExpenseDeleted = undefined,
   onCategoriesChanged = undefined,
 } = {}) {
   const defaultToday = formatIsoDate(today());
@@ -1278,6 +1279,9 @@ export function ExpenseFormScreen({
       setExpenses(updatedList);
       setCategories(updatedCategories);
       await loadCountsForCategories(updatedCategories, updatedList);
+      if (typeof onExpenseDeleted === 'function') {
+        onExpenseDeleted(itemId);
+      }
     } catch (err) {
       setConfirmingDeleteId(null);
       if (err instanceof DomainException) {

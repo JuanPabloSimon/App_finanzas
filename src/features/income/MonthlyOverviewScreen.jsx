@@ -7,6 +7,7 @@ import {
 } from '../../domain/models/monthlyIncome.js';
 import { Investment } from '../../domain/models/investment.js';
 import { Reminder } from '../../domain/models/reminder.js';
+import { buildCategoryRanking } from '../../domain/services/categoryRanking.js';
 import {
   DomainException,
   InvalidCategory,
@@ -30,6 +31,7 @@ import { CORPORATE_THEME } from '../../core/theme.js';
 import { PREDEFINED_CATEGORIES } from '../../data/db/appDatabase.js';
 import { ExpenseFormScreen } from '../expenses/ExpenseFormScreen.jsx';
 import { CategoryDistributionChart } from './CategoryDistributionChart.jsx';
+import { CategoryRankingList } from '../dashboard/CategoryRankingList.jsx';
 
 const h = React.createElement;
 
@@ -714,6 +716,7 @@ class MonthlyOverviewController {
       this.categories,
       this.monthlyIncome,
     );
+    const categoryRanking = buildCategoryRanking(categoryBreakdown);
     const adviceList = buildAdviceItems({
       monthlyIncome: this.monthlyIncome,
       expenses: this.expenses,
@@ -737,6 +740,7 @@ class MonthlyOverviewController {
       totalInvestmentsCents,
       availableBalanceCents,
       categoryBreakdown,
+      categoryRanking,
       adviceList,
       incomeInput: this.incomeInput,
       incomeError: this.incomeError,
@@ -936,6 +940,7 @@ export function MonthlyOverviewScreen({
     categories,
     monthlyIncome,
   );
+  const categoryRanking = buildCategoryRanking(categoryBreakdown);
   const adviceList = buildAdviceItems({
     monthlyIncome,
     expenses,
@@ -1432,7 +1437,12 @@ export function MonthlyOverviewScreen({
         now,
         viewportWidth,
         onExpenseSaved: () => reloadPeriod(activeYearMonth),
+        onExpenseDeleted: () => reloadPeriod(activeYearMonth),
         onCategoriesChanged: () => reloadPeriod(activeYearMonth),
+      }),
+      h(CategoryRankingList, {
+        ranking: categoryRanking,
+        viewportWidth,
       }),
     );
   } else if (activeTab === 'income') {
