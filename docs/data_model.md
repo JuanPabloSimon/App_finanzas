@@ -60,9 +60,26 @@ sin duplicados.
 | Columna | Tipo | Restricciones |
 |---|---|---|
 | id | INTEGER | PK autoincremental |
-| year_month | TEXT | NOT NULL |
-| source | TEXT | NOT NULL, `model` o `fallback` |
-| created_at | TEXT | NOT NULL |
+| year_month | TEXT | NOT NULL, `YYYY-MM` (mes **local** de la consulta, no el período navegado) |
+| source | TEXT | NOT NULL, CHECK (source IN ('model', 'fallback')) |
+| created_at | TEXT | NOT NULL, ISO 8601 local (`YYYY-MM-DDTHH:MM:SS`) |
+
+Índice: `idx_advice_requests_year_month (year_month)`.
+
+Semántica de `source`:
+- `model`: se invocó al proveedor del modelo de lenguaje. Consume cupo (4 por mes y por
+  navegador) con cualquier resultado: éxito, timeout, error o respuesta inválida. La fila se
+  registra **antes** de invocar.
+- `fallback`: la solicitud se resolvió con la respuesta de reserva sin invocar al modelo (sin
+  clave, sin datos o con el cupo agotado). No cuenta para el cupo.
+
+Ninguna columna guarda el resumen enviado, la respuesta del modelo ni identificadores del usuario
+o del dispositivo.
+
+En el navegador, `LocalStorageAdviceRequestRepository` guarda la misma información bajo la clave
+`fp_advice_requests` de `localStorage`, como arreglo JSON `[{ id, yearMonth, source, createdAt }]`
+con `id = max(id) + 1`. Un JSON inválido se lee como vacío; un error de escritura (cuota) se
+propaga para que no se invoque al modelo sin registro.
 
 ### `consents` (H12)
 | Columna | Tipo | Restricciones |

@@ -17,14 +17,25 @@
 
 ## Versión del aviso
 
-El texto del aviso tiene una versión (`policy_version`, por ejemplo `2026-10`). Si el texto
-cambia de forma sustancial, se incrementa la versión y se vuelve a pedir la aceptación.
+El texto del aviso tiene una versión (`policy_version`). Si el texto cambia de forma
+sustancial, se incrementa la versión y se vuelve a pedir la aceptación.
+
+- `2026-10`: versión inicial (H12).
+- `2026-11` (vigente, H10): la sección de transferencia nombra al proveedor (Google, modelo
+  Gemini) y declara que viajan el período, los totales del mes y del mes anterior, el
+  **ingreso mensual** y los **nombres de las categorías** (incluidas las propias), además de
+  porcentajes, variaciones y recurrencias con su monto típico redondeado. Quien solo aceptó
+  la `2026-10` debe aceptar la nueva versión para seguir usando la app.
 
 ## Qué nunca sale del dispositivo
 
 - Notas y subcategorías escritas por el usuario.
 - Fechas exactas de gastos individuales.
-- Montos individuales identificables de un gasto concreto.
+- Montos individuales identificables de un gasto concreto. El `monto_tipico` de una
+  recurrencia no lo es: es la mediana de al menos 3 gastos, sin fecha, nota ni id, y se
+  redondea a $100.
+- Nombres de **personas**: el nombre completo y el usuario de la cuenta local
+  (`user_accounts`). Los nombres de categorías sí viajan y el aviso lo declara.
 - Cualquier identificador del dispositivo (móvil o desktop), de la cuenta del sistema operativo o de la instalación.
 
 ## Secretos del proyecto

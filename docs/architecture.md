@@ -36,7 +36,9 @@ src/
 │   └── repositories/         # Implementaciones SQLite (SqliteExpenseRepository, ...)
 ├── assistant/
 │   ├── llmClient.js          # Contrato LlmClient
-│   ├── httpLlmClient.js      # Implementación HTTP con el proveedor elegido
+│   ├── llmConfig.js          # Clave y modelo desde VITE_LLM_API_KEY / VITE_LLM_MODEL
+│   ├── httpLlmClient.js      # Google Gemini por REST (fetch inyectable); único archivo con red
+│   ├── adviceResponse.js     # Validación de la respuesta y advertencia orientativa
 │   ├── fallbackAdvisor.js    # Respuesta de reserva basada en reglas
 │   ├── prompt.js             # Instrucciones versionadas al modelo
 │   └── adviceService.js      # Orquesta: consentimiento, límite mensual, timeout, validación
@@ -74,6 +76,7 @@ src/features/advice ──► AdviceService ──► SpendingSummaryBuilder (so
 | D4 | Recurrencias por reglas determinísticas | Explicables y probables; sin datos de entrenamiento | Aprendizaje automático |
 | D5 | App web React + Vite con diseño Mobile First responsivo | Un único código que corre en navegador móvil y de escritorio, sin instalación; la versión nativa (Flutter) se desarrolla en otra materia | React Native / Expo; empaquetado de escritorio (Electron/Tauri) |
 | D6 | Gestión de estado con React Context + Hooks personalizados | Suficiente para la escala local de la app sin agregar boilerplate innecesario | Redux Toolkit (complejidad extra no requerida) |
+| D7 | Proveedor del modelo: Google Gemini (Flash) por REST con `fetch` nativo inyectable en `HttpLlmClient` (H10) | Una sola llamada REST no justifica una dependencia; `fetchImpl` inyectable permite probar sin red; el contrato `LlmClient` no depende de tipos del proveedor | SDK oficial `@google/genai` (dependencia de runtime y peso extra en el bundle) |
 
 Toda decisión nueva que toque una frontera de este documento se registra acá desde el
 `design.md` de la feature que la origina.

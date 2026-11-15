@@ -34,6 +34,23 @@ Hooks incluidos:
 | `post_edit.sh` | Después de editar un `.js` o `.jsx` | Ejecuta `eslint` sobre el archivo; si hay errores, se los devuelve al agente |
 | `on_stop.sh` | Al terminar cada respuesta | `./init.sh --rapido` y aviso si algo quedó en rojo |
 
+## Variables del asistente (H10)
+
+El asistente de recomendaciones usa Google Gemini. Para probarlo en local, crear un `.env`
+en la raíz (ignorado por git; el hook `protect_secrets.sh` impide que los agentes lo
+editen) con:
+
+| Variable | Uso | Valor por defecto |
+|---|---|---|
+| `VITE_LLM_API_KEY` | Clave de Google AI Studio. Vacía o ausente = sin asistente: se muestran sugerencias por reglas | ninguna |
+| `VITE_LLM_MODEL` | Nombre del modelo de Gemini | `gemini-2.5-flash` |
+
+- La clave queda dentro del bundle del navegador (toda variable `VITE_*`): usarla solo en
+  local o en demos, con **cuota y límite de gasto** configurados en Google AI Studio.
+- Nunca escribir la clave en el código, en `docs/` ni en archivos versionados. Las pruebas
+  no la necesitan: usan `FakeLlmClient` y un `fetch` falso.
+- Si Google retira el modelo por defecto, se cambia `VITE_LLM_MODEL` sin tocar código.
+
 ## Antigravity
 
 Ver `.antigravity/README.md`. En resumen:
