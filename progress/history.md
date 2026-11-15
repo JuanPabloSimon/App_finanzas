@@ -182,3 +182,15 @@
   - Pruebas `[H7-R1]`..`[H7-R17]` (persistencia sobre SQLite en memoria). Sin dependencias nuevas ni migraciones.
 - **Verificación:** `reviewer` emitió `APPROVED` en `progress/review_h07_comparacion_mensual.md` (primer ciclo); `./init.sh` en verde (118/118 pruebas, 94/94 requisitos con prueba).
 - **Cierre:** `h07_comparacion_mensual` marcada `done` en `feature_list.json`. Próxima feature: `H9 — h09_deteccion_recurrencias` (`orden: 11`).
+
+## 2026-11-14 — Cierre de sesión (Claude Code, Francisco)
+
+- **Agentes:** Claude Code (`leader` → `spec_author` → `implementer` → `reviewer`, un ciclo por feature) con Francisco.
+- **Plan:** cerrar `H8 — h08_ranking_categorias` (`orden: 9`) y `H7 — h07_comparacion_mensual` (`orden: 10`) con el flujo SDD completo.
+- **Aprobaciones:** `H8 aprobado por Francisco el 2026-11-14`; `H7 aprobado por Francisco el 2026-11-14`.
+- **Cambios:**
+  - H8: ranking de categorías en la pestaña Gastos (ver entrada H8). Rama `feature/h08-ranking-categorias` (commits `aa2fadc`..`c4c8228`), pusheada; PR pendiente.
+  - H7: comparación mensual en la pestaña Gastos (ver entrada H7). Rama `feature/h07-comparacion-mensual` (commits `e8b779d`..`f7b1e61`), creada desde la rama de H8; push pendiente.
+  - No existe rama `develop`; la de integración es `desarrollo` (`5a54629`), todavía sin H8 ni H7.
+- **Verificación:** `./init.sh` en verde al cierre: 118/118 pruebas, 94/94 requisitos con prueba, ESLint y arnés sin advertencias.
+- **Cierre:** H7 y H8 en `done`. Próxima feature: `H9 — h09_deteccion_recurrencias` (`orden: 11`, `pending`). Pendiente del equipo: push de H7, PRs de H8 y H7 hacia `desarrollo` (H8 primero) y decidir si la versión web migra de `localStorage` a SQLite en el navegador.
