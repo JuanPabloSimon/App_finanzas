@@ -203,3 +203,20 @@
 - **Cambios:** dominio (`recurrence.js`, `recurrenceDetector.js`, contrato `recurrenceRepository.js`), datos (`sqliteRecurrenceRepository.js`, `localStorageRecurrenceRepository.js`, migración v3 en `appDatabase.js`, `docs/data_model.md`), presentación (`src/features/recurrences/`, `MonthlyOverviewScreen.jsx`, cableado en `AppShell.jsx`/`App.jsx`) y conjunto etiquetado `test/fixtures/`.
 - **Verificación:** `reviewer` emitió `APPROVED` en `progress/review_h09_deteccion_recurrencias.md`; `./init.sh` en verde (156/156 pruebas). K4: exhaustividad 1,00 y precisión 1,00 (22/22).
 - **Cierre:** `h09_deteccion_recurrencias` marcada `done`. Rama `feature/h09-deteccion-recurrencias` sin commitear. Próxima feature: `H10 — h10_recomendaciones_ia` (`orden: 12`).
+
+## 2026-11-15 — H10 h10_recomendaciones_ia (Claude Code, Francisco)
+
+- **Agentes:** `leader` → 3 `Explore` (`progress/explore_h10_*.md`) → `spec_author` → `implementer` → `reviewer` (un ciclo).
+- **Decisiones del humano:** proveedor Google Gemini Flash (`gemini-2.5-flash`, configurable con `VITE_LLM_MODEL`) por REST con `fetch` nativo y sin SDK; actualización del aviso de privacidad dentro de H10.
+- **Aprobación:** `H10 aprobado por Francisco el 2026-11-15`. Spec con R1..R34 y T1..T38.
+- **Cambios:**
+  - `src/assistant/` (cliente LLM, prompt, fallback, servicio con timeout de 10 s y validación);
+  - `SpendingSummaryBuilder` en el dominio;
+  - contador `advice_requests` (migración v4 y `fp_advice_requests` en el navegador; 4 consultas al modelo por mes);
+  - panel de recomendaciones en la pestaña Alertas;
+  - aviso de privacidad `policy_version` 2026-11 con nueva aceptación;
+  - aclaración de la regla 15 en `rules.md` (nombres de personas);
+  - actualización de `docs/`.
+- **Desvíos aceptados por el reviewer:** `[H9-R6]` pasa a `user_version >= 3`, porque la v4 queda fijada por `[H10-R25]`, y no se crea `.env.example` (lo descarta el design). Pendiente menor: renombrar el título de esa prueba de H9.
+- **Verificación:** `reviewer` emitió `APPROVED` en `progress/review_h10_recomendaciones_ia.md`; `./init.sh` en verde (232/232 pruebas).
+- **Cierre:** `h10_recomendaciones_ia` marcada `done`. Rama `feature/h10-recomendaciones-ia` sin commitear. Próxima feature: `H11 — h11_exportar_historial` (`orden: 13`).
