@@ -86,6 +86,17 @@ const MIGRATION_V3_SQL = `
   );
 `;
 
+const MIGRATION_V4_SQL = `
+  CREATE TABLE IF NOT EXISTS advice_requests (
+    id INTEGER PRIMARY KEY AUTOINCREMENT,
+    year_month TEXT NOT NULL,
+    source TEXT NOT NULL CHECK (source IN ('model', 'fallback')),
+    created_at TEXT NOT NULL
+  );
+
+  CREATE INDEX IF NOT EXISTS idx_advice_requests_year_month ON advice_requests (year_month);
+`;
+
 export class AppDatabase {
   constructor(driver) {
     this.driver = driver;
@@ -126,6 +137,11 @@ export class AppDatabase {
     if (currentVersion < 3) {
       await this.exec(MIGRATION_V3_SQL);
       await this.exec('PRAGMA user_version = 3;');
+    }
+
+    if (currentVersion < 4) {
+      await this.exec(MIGRATION_V4_SQL);
+      await this.exec('PRAGMA user_version = 4;');
     }
   }
 

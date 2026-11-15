@@ -150,6 +150,8 @@ class AppConsentController {
     investmentRepository = null,
     reminderRepository = null,
     recurrenceRepository = null,
+    llmClient = null,
+    adviceRequestRepository = null,
     requireAuth = false,
     today = () => formatIsoDate(new Date()),
     now = () => new Date(),
@@ -167,6 +169,8 @@ class AppConsentController {
     this.investmentRepository = investmentRepository;
     this.reminderRepository = reminderRepository;
     this.recurrenceRepository = recurrenceRepository;
+    this.llmClient = llmClient;
+    this.adviceRequestRepository = adviceRequestRepository;
     this.requireAuth = Boolean(requireAuth);
     this.today = today;
     this.now = now;
@@ -391,6 +395,8 @@ class AppConsentController {
         investmentRepository: this.investmentRepository,
         reminderRepository: this.reminderRepository,
         recurrenceRepository: this.recurrenceRepository,
+        llmClient: this.llmClient,
+        adviceRequestRepository: this.adviceRequestRepository,
         requireAuth: this.requireAuth,
         initialConsent: state.consent,
         initialUser: state.currentUser,
@@ -417,6 +423,8 @@ export function AppShell({
   investmentRepository = null,
   reminderRepository = null,
   recurrenceRepository = null,
+  llmClient = null,
+  adviceRequestRepository = null,
   requireAuth = false,
   initialConsent = undefined,
   initialUser = null,
@@ -1261,6 +1269,9 @@ export function AppShell({
             investmentRepository,
             reminderRepository,
             recurrenceRepository,
+            llmClient,
+            adviceRequestRepository,
+            isConsentAccepted: () => hasValidConsent,
             today,
             now,
             viewportWidth,

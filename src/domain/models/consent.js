@@ -1,7 +1,7 @@
 import { InvalidConsent } from '../../core/errors.js';
 import { isValidIsoDateTime } from '../../core/dates.js';
 
-export const CURRENT_POLICY_VERSION = '2026-10';
+export const CURRENT_POLICY_VERSION = '2026-11';
 
 export const PRIVACY_NOTICE_CONTENT = Object.freeze({
   version: CURRENT_POLICY_VERSION,
@@ -11,7 +11,7 @@ export const PRIVACY_NOTICE_CONTENT = Object.freeze({
   localStorage:
     'Almacenamiento local: toda tu información financiera se guarda únicamente en una base de datos SQLite local (gastos.db) dentro de tu propio dispositivo móvil o de escritorio, sin servidores propios ni sincronización en la nube. Evitá incluir nombres de personas al crear categorías propias.',
   thirdPartyTransfer:
-    'Transferencia al proveedor del modelo de lenguaje: cuando solicitás recomendaciones al asistente, solo se envía un resumen agregado con totales por categoría, variaciones porcentuales y recurrencias. Nunca se transfieren notas, subcategorías, fechas exactas de gastos individuales ni identificadores personales o del dispositivo.',
+    'Transferencia al proveedor del modelo de lenguaje (Google, modelo Gemini): solo cuando tocás «Pedir recomendaciones» se envía un resumen agregado del mes con el período, el total del mes y del mes anterior, tu ingreso mensual registrado, los nombres de tus categorías (incluidas las propias) con sus totales, porcentajes y variaciones porcentuales, y las recurrencias detectadas con su monto típico redondeado. Nunca se transfieren notas, subcategorías, fechas exactas de gastos individuales, tu nombre o usuario de la cuenta local ni identificadores personales o del dispositivo.',
 });
 
 export const PRIVACY_NOTICE_SECTIONS = Object.freeze([
