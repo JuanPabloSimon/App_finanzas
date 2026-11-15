@@ -79,6 +79,13 @@ const MIGRATION_V2_SQL = `
   );
 `;
 
+const MIGRATION_V3_SQL = `
+  CREATE TABLE IF NOT EXISTS dismissed_recurrences (
+    recurrence_key TEXT PRIMARY KEY,
+    dismissed_at TEXT NOT NULL
+  );
+`;
+
 export class AppDatabase {
   constructor(driver) {
     this.driver = driver;
@@ -114,6 +121,11 @@ export class AppDatabase {
     if (currentVersion < 2) {
       await this.exec(MIGRATION_V2_SQL);
       await this.exec('PRAGMA user_version = 2;');
+    }
+
+    if (currentVersion < 3) {
+      await this.exec(MIGRATION_V3_SQL);
+      await this.exec('PRAGMA user_version = 3;');
     }
   }
 
