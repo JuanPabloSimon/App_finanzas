@@ -37,6 +37,12 @@ import { MonthlyComparisonPanel } from '../dashboard/MonthlyComparisonPanel.jsx'
 import { loadPreviousMonthlyTotals } from '../dashboard/monthlyTotalsLoader.js';
 import { RecurrencesPanel } from '../recurrences/RecurrencesPanel.jsx';
 import { loadVisibleRecurrences } from '../recurrences/recurrencesLoader.js';
+import { RecommendationsPanel } from '../advice/RecommendationsPanel.jsx';
+import { loadSpendingSummary } from '../advice/adviceSummaryLoader.js';
+import { AdviceService } from '../../assistant/adviceService.js';
+import { buildFallbackAdvice } from '../../assistant/fallbackAdvisor.js';
+import { buildSpendingSummary } from '../../domain/services/spendingSummaryBuilder.js';
+import { MONTHLY_MODEL_REQUEST_LIMIT } from '../../domain/models/adviceRequest.js';
 
 const RECURRENCE_DISMISS_ERROR_MESSAGE = 'No se pudo descartar la recurrencia. Probá de nuevo.';
 
@@ -219,6 +225,79 @@ function createInMemoryRecurrenceRepository() {
       }
     },
   };
+}
+
+function createInMemoryAdviceRequestRepository() {
+  const rows = [];
+  return {
+    async countByYearMonth(yearMonth, source = 'model') {
+      return rows.filter((row) => row.yearMonth === yearMonth && row.source === source).length;
+    },
+    async save(adviceRequest) {
+      const saved = adviceRequest.copyWith({ id: rows.length + 1 });
+      rows.push(saved);
+      return saved;
+    },
+  };
+}
+
+function buildIdleAdviceState(remainingModelRequests = MONTHLY_MODEL_REQUEST_LIMIT) {
+  return Object.freeze({
+    status: 'idle',
+    suggestions: Object.freeze([]),
+    source: null,
+    reason: null,
+    remainingModelRequests,
+  });
+}
+
+function buildReadyAdviceState(result) {
+  return Object.freeze({
+    status: 'ready',
+    suggestions: result.suggestions,
+    source: result.source,
+    reason: result.reason,
+    remainingModelRequests: result.remainingModelRequests,
+  });
+}
+
+async function resolveAdvice({
+  adviceService,
+  expenseRepository,
+  incomeRepository,
+  categories,
+  yearMonth,
+  recurrences,
+  remainingModelRequests,
+}) {
+  let summary;
+  try {
+    summary = await loadSpendingSummary({
+      expenseRepository,
+      incomeRepository,
+      categories,
+      yearMonth,
+      recurrences,
+    });
+  } catch {
+    const emptySummary = buildSpendingSummary({ yearMonth });
+    return buildReadyAdviceState({
+      suggestions: buildFallbackAdvice(emptySummary).sugerencias,
+      source: 'fallback',
+      reason: 'no_data',
+      remainingModelRequests,
+    });
+  }
+  try {
+    return buildReadyAdviceState(await adviceService.requestAdvice(summary));
+  } catch {
+    return buildReadyAdviceState({
+      suggestions: buildFallbackAdvice(summary).sugerencias,
+      source: 'fallback',
+      reason: 'request_failed',
+      remainingModelRequests,
+    });
+  }
 }
 
 function buildAdviceItems({
@@ -504,11 +583,25 @@ class MonthlyOverviewController {
     investmentRepository,
     reminderRepository,
     recurrenceRepository,
+    llmClient = null,
+    adviceRequestRepository = null,
+    isConsentAccepted = () => true,
     today = () => formatIsoDate(new Date()),
     now = () => new Date(),
     viewportWidth = 390,
   } = {}) {
     const fallbackCats = categoryRepository ?? createInMemoryCategoryRepository();
+    this.llmClient = llmClient;
+    this.adviceRequestRepository =
+      adviceRequestRepository ?? createInMemoryAdviceRequestRepository();
+    this.isConsentAccepted = isConsentAccepted;
+    this.adviceService = new AdviceService({
+      llmClient,
+      adviceRequestRepository: this.adviceRequestRepository,
+      isConsentAccepted,
+      today,
+      now,
+    });
     this.recurrenceRepository =
       recurrenceRepository ?? createInMemoryRecurrenceRepository();
     this.categoryRepository = fallbackCats;
@@ -536,6 +629,7 @@ class MonthlyOverviewController {
     this.reminders = [];
     this.recurrences = [];
     this.recurrenceError = null;
+    this.advice = buildIdleAdviceState();
 
     this.incomeInput = '';
     this.incomeError = null;
@@ -583,6 +677,34 @@ class MonthlyOverviewController {
     this.reminders = rems;
     this.incomeInput = inc ? formatCentsToInput(inc.amountCents) : '';
     await this.reloadRecurrences();
+    await this.reloadRemainingModelRequests();
+  }
+
+  async reloadRemainingModelRequests() {
+    try {
+      const remaining = await this.adviceService.getRemainingModelRequests();
+      this.advice = Object.freeze({ ...this.advice, remainingModelRequests: remaining });
+    } catch {
+      // Si no se puede leer el cupo se conserva el último valor mostrado.
+    }
+  }
+
+  async requestAdvice() {
+    if (this.advice.status === 'loading') {
+      return this.getState();
+    }
+    const remainingBefore = this.advice.remainingModelRequests;
+    this.advice = Object.freeze({ ...this.advice, status: 'loading' });
+    this.advice = await resolveAdvice({
+      adviceService: this.adviceService,
+      expenseRepository: this.expenseRepository,
+      incomeRepository: this.incomeRepository,
+      categories: this.categories,
+      yearMonth: this.activeYearMonth,
+      recurrences: this.recurrences,
+      remainingModelRequests: remainingBefore,
+    });
+    return this.getState();
   }
 
   async reloadRecurrences() {
@@ -723,6 +845,7 @@ class MonthlyOverviewController {
   }
 
   async goToPreviousMonth() {
+    this.advice = buildIdleAdviceState(this.advice.remainingModelRequests);
     this.activeYearMonth = shiftYearMonth(this.activeYearMonth, -1);
     await this.reloadMonthData(this.activeYearMonth);
     return this.getState();
@@ -733,6 +856,7 @@ class MonthlyOverviewController {
       return this.getState();
     }
     const next = shiftYearMonth(this.activeYearMonth, 1);
+    this.advice = buildIdleAdviceState(this.advice.remainingModelRequests);
     this.activeYearMonth = next > this.currentYearMonth ? this.currentYearMonth : next;
     await this.reloadMonthData(this.activeYearMonth);
     return this.getState();
@@ -794,6 +918,7 @@ class MonthlyOverviewController {
       reminders: [...this.reminders],
       recurrences: [...this.recurrences],
       recurrenceError: this.recurrenceError,
+      advice: this.advice,
       totalExpensesCents,
       totalInvestmentsCents,
       availableBalanceCents,
@@ -827,6 +952,10 @@ class MonthlyOverviewController {
       investmentRepository: this.investmentRepository,
       reminderRepository: this.reminderRepository,
       recurrenceRepository: this.recurrenceRepository,
+      llmClient: this.llmClient,
+      adviceRequestRepository: this.adviceRequestRepository,
+      isConsentAccepted: this.isConsentAccepted,
+      initialAdvice: state.advice,
       initialCategories: state.categories,
       initialExpenses: state.expenses,
       initialPreviousMonthlyTotals: state.previousMonthlyTotals,
@@ -854,6 +983,10 @@ export function MonthlyOverviewScreen({
   investmentRepository = null,
   reminderRepository = null,
   recurrenceRepository = null,
+  llmClient = null,
+  adviceRequestRepository = null,
+  isConsentAccepted = () => true,
+  initialAdvice = undefined,
   initialCategories = undefined,
   initialExpenses = undefined,
   initialPreviousMonthlyTotals = undefined,
@@ -894,6 +1027,17 @@ export function MonthlyOverviewScreen({
   const [recRepo] = useState(
     () => recurrenceRepository ?? createInMemoryRecurrenceRepository(),
   );
+  const [adviceService] = useState(
+    () =>
+      new AdviceService({
+        llmClient,
+        adviceRequestRepository:
+          adviceRequestRepository ?? createInMemoryAdviceRequestRepository(),
+        isConsentAccepted,
+        today,
+        now,
+      }),
+  );
 
   const [activeTab, setActiveTab] = useState(initialActiveTab);
   const [activeYearMonth, setActiveYearMonth] = useState(
@@ -911,6 +1055,7 @@ export function MonthlyOverviewScreen({
   const [reminders, setReminders] = useState(initialReminders ?? []);
   const [recurrences, setRecurrences] = useState(initialRecurrences ?? []);
   const [recurrenceError, setRecurrenceError] = useState(initialRecurrenceError);
+  const [advice, setAdvice] = useState(() => initialAdvice ?? buildIdleAdviceState());
 
   const [incomeInput, setIncomeInput] = useState(
     initialIncomeInput !== undefined
@@ -979,6 +1124,46 @@ export function MonthlyOverviewScreen({
       active = false;
     };
   }, [expRepo, recRepo, categories, defaultToday, initialRecurrences]);
+
+  useEffect(() => {
+    let active = true;
+    if (initialAdvice !== undefined) {
+      return undefined;
+    }
+    adviceService
+      .getRemainingModelRequests()
+      .then((remaining) => {
+        if (active) {
+          setAdvice((prev) => Object.freeze({ ...prev, remainingModelRequests: remaining }));
+        }
+      })
+      .catch(() => {});
+    return () => {
+      active = false;
+    };
+  }, [adviceService, initialAdvice]);
+
+  const handleRequestAdvice = async () => {
+    if (advice.status === 'loading') {
+      return;
+    }
+    const remainingBefore = advice.remainingModelRequests;
+    setAdvice((prev) => Object.freeze({ ...prev, status: 'loading' }));
+    const next = await resolveAdvice({
+      adviceService,
+      expenseRepository: expRepo,
+      incomeRepository: incRepo,
+      categories,
+      yearMonth: activeYearMonth,
+      recurrences,
+      remainingModelRequests: remainingBefore,
+    });
+    setAdvice(next);
+  };
+
+  const resetAdviceForPeriodChange = () => {
+    setAdvice((prev) => buildIdleAdviceState(prev.remainingModelRequests));
+  };
 
   const handleDismissRecurrence = async (recurrence) => {
     setRecurrenceError(null);
@@ -1105,6 +1290,7 @@ export function MonthlyOverviewScreen({
 
   const handlePrevMonth = async () => {
     const prev = shiftYearMonth(activeYearMonth, -1);
+    resetAdviceForPeriodChange();
     setActiveYearMonth(prev);
     await reloadPeriod(prev);
   };
@@ -1113,6 +1299,7 @@ export function MonthlyOverviewScreen({
     if (!canGoNextMonth) return;
     const next = shiftYearMonth(activeYearMonth, 1);
     const bounded = next > currentYearMonth ? currentYearMonth : next;
+    resetAdviceForPeriodChange();
     setActiveYearMonth(bounded);
     await reloadPeriod(bounded);
   };
@@ -2344,6 +2531,16 @@ export function MonthlyOverviewScreen({
         recurrences,
         onDismiss: handleDismissRecurrence,
         errorMessage: recurrenceError,
+        viewportWidth,
+      }),
+      h(RecommendationsPanel, {
+        status: advice.status,
+        suggestions: advice.suggestions,
+        source: advice.source,
+        reason: advice.reason,
+        remainingModelRequests: advice.remainingModelRequests,
+        monthlyLimit: MONTHLY_MODEL_REQUEST_LIMIT,
+        onRequest: handleRequestAdvice,
         viewportWidth,
       }),
     );

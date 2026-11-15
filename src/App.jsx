@@ -11,6 +11,9 @@ import { InvalidCategory, ExpenseNotFound, InvalidCredentials } from './core/err
 import { formatIsoDate, formatIsoDateTime, extractYearMonth } from './core/dates.js';
 import { PREDEFINED_CATEGORIES } from './data/db/appDatabase.js';
 import { LocalStorageRecurrenceRepository } from './data/repositories/localStorageRecurrenceRepository.js';
+import { LocalStorageAdviceRequestRepository } from './data/repositories/localStorageAdviceRequestRepository.js';
+import { readLlmConfig } from './assistant/llmConfig.js';
+import { HttpLlmClient } from './assistant/httpLlmClient.js';
 
 const h = React.createElement;
 
@@ -346,6 +349,14 @@ function createBrowserRepositories() {
       ? new LocalStorageRecurrenceRepository(window.localStorage)
       : null;
 
+  const adviceRequestRepo =
+    typeof window !== 'undefined' && window.localStorage
+      ? new LocalStorageAdviceRequestRepository(window.localStorage)
+      : null;
+
+  const llmConfig = readLlmConfig(import.meta.env ?? {});
+  const llmClient = llmConfig.apiKey ? new HttpLlmClient(llmConfig) : null;
+
   return {
     consentRepo,
     categoryRepo,
@@ -354,6 +365,8 @@ function createBrowserRepositories() {
     investmentRepo,
     reminderRepo,
     recurrenceRepo,
+    adviceRequestRepo,
+    llmClient,
     userAccountRepo,
     seedDemoDataIfEmpty,
   };
@@ -388,6 +401,8 @@ export function App(props) {
     investmentRepository: repos.investmentRepo,
     reminderRepository: repos.reminderRepo,
     recurrenceRepository: repos.recurrenceRepo,
+    adviceRequestRepository: repos.adviceRequestRepo,
+    llmClient: repos.llmClient,
     requireAuth: true,
     onDemoSeed: repos.seedDemoDataIfEmpty,
     viewportWidth,

@@ -41,7 +41,7 @@ describe('H12 modelo de dominio Consent y contenido del aviso de privacidad', ()
       acceptedAt: formatted,
     });
 
-    assert.equal(consent.policyVersion, '2026-10');
+    assert.equal(consent.policyVersion, CURRENT_POLICY_VERSION);
     assert.equal(consent.acceptedAt, '2026-10-15T14:30:05');
     assert.equal(Object.isFrozen(consent), true);
 
@@ -50,13 +50,13 @@ describe('H12 modelo de dominio Consent y contenido del aviso de privacidad', ()
     }, TypeError);
 
     const copy = consent.copyWith({ acceptedAt: '2026-10-16T09:00:00' });
-    assert.equal(copy.policyVersion, '2026-10');
+    assert.equal(copy.policyVersion, CURRENT_POLICY_VERSION);
     assert.equal(copy.acceptedAt, '2026-10-16T09:00:00');
     assert.equal(consent.isEqual(copy), false);
     assert.equal(
       consent.isEqual(
         new Consent({
-          policyVersion: '2026-10',
+          policyVersion: CURRENT_POLICY_VERSION,
           acceptedAt: '2026-10-15T14:30:05',
         }),
       ),
@@ -98,5 +98,19 @@ describe('H12 modelo de dominio Consent y contenido del aviso de privacidad', ()
         ),
       /Not implemented/,
     );
+  });
+});
+
+describe('H10 actualización del aviso de privacidad (versión 2026-11)', () => {
+  it('[H10-R30] la versión vigente es 2026-11 y la transferencia informa el ingreso mensual y los nombres de categorías', () => {
+    assert.equal(CURRENT_POLICY_VERSION, '2026-11');
+    assert.equal(PRIVACY_NOTICE_CONTENT.version, '2026-11');
+    const transfer = PRIVACY_NOTICE_CONTENT.thirdPartyTransfer;
+    assert.match(transfer, /ingreso mensual/i);
+    assert.match(transfer, /nombres de tus categorías/i);
+    assert.match(transfer, /resumen agregado/i);
+    assert.match(transfer, /Gemini/);
+    const section = PRIVACY_NOTICE_SECTIONS.find((item) => item.id === 'thirdPartyTransfer');
+    assert.equal(section.body, transfer);
   });
 });

@@ -40,9 +40,11 @@
 ## 3. Privacidad (Ley 25.326)
 
 15. A la API del modelo solo viaja el **resumen agregado** definido en
-    `docs/llm_assistant.md`: totales por categoría, variaciones y recurrencias. **Nunca**
-    notas, subcategorías libres, nombres, fechas exactas de gastos individuales ni
-    identificadores del dispositivo o del usuario.
+    `docs/llm_assistant.md`: período, totales del mes y del mes anterior, ingreso mensual,
+    nombres de categorías con sus totales, porcentajes y variaciones, y recurrencias.
+    **Nunca** notas, subcategorías libres, nombres **de personas** (nombre o usuario de la
+    cuenta local), fechas exactas de gastos individuales ni identificadores del dispositivo o
+    del usuario.
 16. Sin aceptar el aviso de privacidad (H12) no se accede a la app ni se llama a la API.
 17. La clave de la API nunca se commitea: se inyecta por variable de entorno
     (`VITE_LLM_API_KEY` en `.env` local ignorado) y los archivos `.env`,

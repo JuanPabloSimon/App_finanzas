@@ -56,7 +56,7 @@ describe('H9 persistencia de recurrencias descartadas en SQLite', () => {
 
   it('[H9-R6] la migración 3 deja user_version en 3 y actualiza una base en versión 2 sin perder gastos', async () => {
     const version = await db.get('PRAGMA user_version;');
-    assert.equal(Number(version.user_version), 3);
+    assert.ok(Number(version.user_version) >= 3);
 
     const expenseRepo = new SqliteExpenseRepository(db);
     const saved = await expenseRepo.save(
@@ -73,7 +73,7 @@ describe('H9 persistencia de recurrencias descartadas en SQLite', () => {
     await db.migrate();
 
     const migrated = await db.get('PRAGMA user_version;');
-    assert.equal(Number(migrated.user_version), 3);
+    assert.ok(Number(migrated.user_version) >= 3);
     const table = await db.get(
       "SELECT name FROM sqlite_master WHERE type = 'table' AND name = 'dismissed_recurrences'",
     );

@@ -93,3 +93,27 @@ export class InvalidRecurrence extends DomainException {
     super(detail);
   }
 }
+
+export class InvalidAdviceRequest extends DomainException {
+  constructor(detail = 'Registro de consulta al asistente inválido') {
+    super(detail);
+  }
+}
+
+export class InvalidLlmResponse extends DomainException {
+  constructor(detail = 'La respuesta del asistente no respeta el formato') {
+    super(detail);
+  }
+}
+
+export class LlmTimeout extends DomainException {
+  constructor(detail = 'El asistente no respondió a tiempo') {
+    super(detail);
+  }
+}
+
+export class LlmRequestFailed extends DomainException {
+  constructor(detail = 'No se pudo consultar al asistente') {
+    super(detail);
+  }
+}
