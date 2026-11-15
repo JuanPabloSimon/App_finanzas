@@ -31,7 +31,7 @@ describe('H12 persistencia de consentimiento en SQLite (SqliteConsentRepository)
 
     const found = await repo.findByVersion(CURRENT_POLICY_VERSION);
     assert.notEqual(found, null);
-    assert.equal(found.policyVersion, '2026-10');
+    assert.equal(found.policyVersion, CURRENT_POLICY_VERSION);
     assert.equal(found.acceptedAt, '2026-10-20T18:15:30');
     assert.equal(found.isEqual(consent), true);
   });

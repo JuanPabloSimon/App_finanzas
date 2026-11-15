@@ -18,6 +18,9 @@ import { CategoryDistributionChart } from '../../../src/features/income/Category
 import { ExpenseFormScreen } from '../../../src/features/expenses/ExpenseFormScreen.jsx';
 import { AppShell } from '../../../src/app/AppShell.jsx';
 import { CORPORATE_THEME } from '../../../src/core/theme.js';
+import { SqliteAdviceRequestRepository } from '../../../src/data/repositories/sqliteAdviceRequestRepository.js';
+import { ADVICE_DISCLAIMER } from '../../../src/assistant/adviceResponse.js';
+import { FakeLlmClient } from '../../assistant/fakeLlmClient.js';
 
 describe('H5 panel de resumen general del mes, ingreso mensual, inversiones, recordatorios, cuenta local y paleta corporativa', () => {
   let db;
@@ -1151,5 +1154,145 @@ describe('H9 recurrencias en la pestaña Alertas', () => {
     assert.match(html, /data-testid="recurrences-empty"/);
     assert.match(html, /Todavía no detectamos gastos repetidos en los últimos 60 días\./);
     assert.doesNotMatch(html, /data-testid="recurrences-list"/);
+  });
+});
+
+describe('H10 recomendaciones del asistente en la pestaña Alertas', () => {
+  let db;
+  let categoryRepo;
+  let expenseRepo;
+  let incomeRepo;
+  let recurrenceRepo;
+  let adviceRequestRepo;
+
+  beforeEach(async () => {
+    db = await AppDatabase.openInMemory();
+    categoryRepo = new SqliteCategoryRepository(db);
+    expenseRepo = new SqliteExpenseRepository(db);
+    incomeRepo = new SqliteMonthlyIncomeRepository(db);
+    recurrenceRepo = new SqliteRecurrenceRepository(db);
+    adviceRequestRepo = new SqliteAdviceRequestRepository(db);
+  });
+
+  afterEach(async () => {
+    if (db) {
+      await db.close();
+    }
+  });
+
+  function createController(llmClient, viewportWidth = 390) {
+    return MonthlyOverviewScreen.createController({
+      expenseRepository: expenseRepo,
+      categoryRepository: categoryRepo,
+      incomeRepository: incomeRepo,
+      recurrenceRepository: recurrenceRepo,
+      adviceRequestRepository: adviceRequestRepo,
+      llmClient,
+      today: () => '2026-11-15',
+      now: () => new Date(2026, 10, 15, 10, 0, 0),
+      viewportWidth,
+    });
+  }
+
+  async function saveNovemberExpenses() {
+    const categories = await categoryRepo.findAll();
+    const deliveryId = categories.find((c) => c.name === 'Delivery').id;
+    const foodId = categories.find((c) => c.name === 'Alimentos').id;
+    await expenseRepo.save(
+      new Expense({ amountCents: 450000, date: '2026-11-05', categoryId: deliveryId, createdAt: '2026-11-05T10:00:00' }),
+    );
+    await expenseRepo.save(
+      new Expense({ amountCents: 980000, date: '2026-11-08', categoryId: foodId, createdAt: '2026-11-08T10:00:00' }),
+    );
+  }
+
+  const TWO_SUGGESTIONS = JSON.stringify({
+    sugerencias: [
+      { titulo: 'Bajá el delivery', detalle: 'Probá cocinar dos veces por semana.', categoria: 'Delivery' },
+      { titulo: 'Poné un tope', detalle: 'Definí un monto para el súper.', categoria: 'Alimentos' },
+    ],
+  });
+
+  it('[H10-R33] el panel de recomendaciones va después de recurrencias en Alertas y no aparece en Resumen', async () => {
+    const controller = createController(FakeLlmClient.succeeding(TWO_SUGGESTIONS));
+    await controller.initialize();
+
+    const overviewHtml = renderToStaticMarkup(controller.renderElement());
+    assert.doesNotMatch(overviewHtml, /data-testid="recommendations-panel"/);
+    assert.equal((overviewHtml.match(/data-testid="tab-[a-z]+"/g) ?? []).length, 5);
+
+    controller.setActiveTab('reminders');
+    const html = renderToStaticMarkup(controller.renderElement());
+    const recurrencesIndex = html.indexOf('data-testid="recurrences-panel"');
+    const recommendationsIndex = html.indexOf('data-testid="recommendations-panel"');
+    assert.equal(recurrencesIndex > -1, true);
+    assert.equal(recommendationsIndex > recurrencesIndex, true);
+    assert.match(html, /data-testid="monthly-advice-section"/);
+    assert.equal((html.match(/data-testid="tab-[a-z]+"/g) ?? []).length, 5);
+  });
+
+  it('[H10-R9] abrir la pantalla y la pestaña Alertas no invoca al asistente', async () => {
+    await saveNovemberExpenses();
+    const fake = FakeLlmClient.succeeding(TWO_SUGGESTIONS);
+    const controller = createController(fake);
+    await controller.initialize();
+    controller.setActiveTab('reminders');
+    const html = renderToStaticMarkup(controller.renderElement());
+    assert.equal(fake.calls.length, 0);
+    assert.equal(controller.getState().advice.status, 'idle');
+    assert.match(html, /Te quedan 4 de 4 consultas al asistente este mes/);
+    assert.match(html, /data-testid="recommendations-request-button"/);
+    assert.equal(await adviceRequestRepo.countByYearMonth('2026-11', 'model'), 0);
+  });
+
+  it('[H10-R10] al pedir recomendaciones con gastos muestra las 2 sugerencias del modelo con la advertencia', async () => {
+    await saveNovemberExpenses();
+    const fake = FakeLlmClient.succeeding(TWO_SUGGESTIONS);
+    const controller = createController(fake, 1280);
+    await controller.initialize();
+
+    const state = await controller.requestAdvice();
+    assert.equal(fake.calls.length, 1);
+    assert.equal(state.advice.status, 'ready');
+    assert.equal(state.advice.source, 'model');
+    assert.equal(state.advice.suggestions.length, 2);
+    assert.equal(state.advice.remainingModelRequests, 3);
+    const sent = JSON.parse(fake.calls[0].userContent);
+    assert.equal(sent.periodo, '2026-11');
+    assert.equal(sent.total_mes, 14300);
+
+    controller.setActiveTab('reminders');
+    const html = renderToStaticMarkup(controller.renderElement());
+    assert.equal((html.match(/data-testid="recommendation-item"/g) ?? []).length, 2);
+    assert.match(html, /data-testid="recommendations-source" data-source="model"/);
+    assert.match(html, /data-testid="recommendations-disclaimer"/);
+    assert.equal(html.includes(ADVICE_DISCLAIMER), true);
+    assert.match(html, /data-testid="recommendations-list" data-columns="2"/);
+    assert.match(html, /Te quedan 3 de 4 consultas al asistente este mes/);
+  });
+
+  it('[H10-R19] con una respuesta mal formada la pestaña muestra la reserva marcada como generada por reglas', async () => {
+    await saveNovemberExpenses();
+    const controller = createController(FakeLlmClient.malformed());
+    await controller.initialize();
+    const state = await controller.requestAdvice();
+    assert.equal(state.advice.source, 'fallback');
+    assert.equal(state.advice.reason, 'invalid_response');
+
+    controller.setActiveTab('reminders');
+    const html = renderToStaticMarkup(controller.renderElement());
+    assert.match(html, /data-testid="recommendations-source" data-source="fallback"/);
+    assert.match(html, /Sugerencias generadas por reglas/);
+    assert.equal(html.includes(ADVICE_DISCLAIMER), true);
+  });
+
+  it('[H10-R26] el contador de consultas se actualiza al cambiar de mes y la solicitud vuelve a idle', async () => {
+    await saveNovemberExpenses();
+    const controller = createController(FakeLlmClient.succeeding(TWO_SUGGESTIONS));
+    await controller.initialize();
+    await controller.requestAdvice();
+    const state = await controller.goToPreviousMonth();
+    assert.equal(state.advice.status, 'idle');
+    assert.equal(state.advice.remainingModelRequests, 3);
   });
 });

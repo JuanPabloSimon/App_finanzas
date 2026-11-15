@@ -192,7 +192,7 @@ describe('H12 pantalla de aviso de privacidad, bloqueo inicial, ajustes y diseñ
     const settingsHtml = renderToStaticMarkup(controller.renderElement());
     assert.match(settingsHtml, /data-testid="privacy-notice-screen"/);
     assert.match(settingsHtml, /data-readonly="true"/);
-    assert.match(settingsHtml, /Versión aceptada: 2026-10/);
+    assert.match(settingsHtml, /Versión aceptada: 2026-11/);
     assert.match(settingsHtml, /Fecha de aceptación: 2026-10-18T19:05:44/);
     assert.match(settingsHtml, /Finalidad del tratamiento/);
     assert.match(settingsHtml, /Almacenamiento 100 % local/);
@@ -269,5 +269,43 @@ describe('H12 pantalla de aviso de privacidad, bloqueo inicial, ajustes y diseñ
     assert.equal(closeBtn.props.style.minHeight, 48);
     closeBtn.props.onKeyDown({ key: ' ', preventDefault() {} });
     assert.equal(closedCount, 1);
+  });
+});
+
+describe('H10 nueva aceptación del aviso de privacidad 2026-11', () => {
+  let db;
+  let repo;
+
+  beforeEach(async () => {
+    db = await AppDatabase.openInMemory();
+    repo = new SqliteConsentRepository(db);
+  });
+
+  afterEach(async () => {
+    if (db) {
+      await db.close();
+    }
+  });
+
+  it('[H10-R31] con solo el consentimiento 2026-10 no da acceso hasta aceptar la versión 2026-11', async () => {
+    await repo.save(new Consent({ policyVersion: '2026-10', acceptedAt: '2026-10-12T08:20:00' }));
+    const controller = AppShell.createController({
+      consentRepository: repo,
+      now: () => new Date(2026, 10, 15, 9, 0, 0),
+      viewportWidth: 390,
+    });
+
+    const lockedState = await controller.initialize();
+    assert.equal(lockedState.view, 'privacy_gate');
+    assert.equal(lockedState.canAccessMainApp, false);
+    const lockedHtml = renderToStaticMarkup(controller.renderElement());
+    assert.doesNotMatch(lockedHtml, /data-testid="app-main-screen"/);
+
+    const unlockedState = await controller.acceptPrivacyNotice();
+    assert.equal(unlockedState.canAccessMainApp, true);
+    assert.equal(unlockedState.consent.policyVersion, '2026-11');
+    const saved = await repo.findByVersion('2026-11');
+    assert.notEqual(saved, null);
+    assert.equal(saved.acceptedAt, '2026-11-15T09:00:00');
   });
 });
