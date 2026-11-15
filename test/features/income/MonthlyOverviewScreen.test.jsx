@@ -860,3 +860,167 @@ describe('H8 ranking de categorías integrado en la pestaña Gastos', () => {
     assert.equal(MonthlyOverviewScreen.buildStyles(390).overviewViewportBox.overflowY, 'hidden');
   });
 });
+
+describe('H7 comparación mensual integrada en la pestaña Gastos', () => {
+  let db;
+  let categoryRepo;
+  let expenseRepo;
+  let incomeRepo;
+  let investmentRepo;
+  let reminderRepo;
+
+  beforeEach(async () => {
+    db = await AppDatabase.openInMemory();
+    categoryRepo = new SqliteCategoryRepository(db);
+    expenseRepo = new SqliteExpenseRepository(db);
+    incomeRepo = new SqliteMonthlyIncomeRepository(db);
+    investmentRepo = new SqliteInvestmentRepository(db);
+    reminderRepo = new SqliteReminderRepository(db);
+  });
+
+  afterEach(async () => {
+    if (db) {
+      await db.close();
+    }
+  });
+
+  function createController(viewportWidth = 390) {
+    return MonthlyOverviewScreen.createController({
+      expenseRepository: expenseRepo,
+      categoryRepository: categoryRepo,
+      incomeRepository: incomeRepo,
+      investmentRepository: investmentRepo,
+      reminderRepository: reminderRepo,
+      today: () => '2026-11-10',
+      viewportWidth,
+    });
+  }
+
+  async function saveExpense(amountCents, date, categoryId = 1) {
+    return expenseRepo.save(
+      new Expense({
+        amountCents,
+        date,
+        categoryId,
+        createdAt: `${date}T10:00:00`,
+      }),
+    );
+  }
+
+  function comparisonRowOrder(html) {
+    return [...html.matchAll(/data-testid="monthly-comparison-row-(\d{4}-\d{2})"/g)].map(
+      (match) => match[1],
+    );
+  }
+
+  it('[H7-R1] usa el mes seleccionado como mes actual y su total coincide con el total de gastos del período', async () => {
+    await saveExpense(300000, '2026-11-02');
+    await saveExpense(200000, '2026-10-05');
+    await saveExpense(50000, '2026-10-20');
+    await saveExpense(400000, '2026-09-15');
+
+    const controller = createController(390);
+    const initial = await controller.initialize();
+    assert.equal(initial.monthlyComparison.activeYearMonth, '2026-11');
+    assert.equal(initial.monthlyComparison.currentTotalCents, initial.totalExpensesCents);
+    assert.equal(initial.monthlyComparison.currentTotalCents, 300000);
+
+    const october = await controller.goToPreviousMonth();
+    assert.equal(october.activeYearMonth, '2026-10');
+    assert.equal(october.monthlyComparison.activeYearMonth, '2026-10');
+    assert.equal(october.monthlyComparison.currentTotalCents, october.totalExpensesCents);
+    assert.equal(october.monthlyComparison.currentTotalCents, 250000);
+    assert.equal(october.monthlyComparison.previousTotalCents, 400000);
+    assert.equal(october.monthlyComparison.variationTenths, -375);
+  });
+
+  it('[H7-R8] en la pestaña Gastos muestra el panel de comparación debajo del ranking con el total de noviembre, las filas de octubre y septiembre y la variación', async () => {
+    await saveExpense(412500, '2026-11-03');
+    await saveExpense(389000, '2026-10-12');
+    await saveExpense(150050, '2026-09-08', 3);
+
+    const controller = createController(390);
+    await controller.initialize();
+    const state = controller.setActiveTab('expenses');
+    assert.equal(state.monthlyComparison.hasPreviousData, true);
+    assert.equal(state.monthlyComparison.variationTenths, 60);
+
+    const html = renderToStaticMarkup(controller.renderElement());
+    assert.match(html, /data-testid="tab-panel-expenses"/);
+    assert.match(html, /data-testid="monthly-comparison"/);
+    assert.match(html, /data-testid="monthly-comparison-current"[^>]*>\$ 4\.125</);
+    assert.deepEqual(comparisonRowOrder(html), ['2026-10', '2026-09']);
+    assert.match(html, /Octubre 2026 \(2026-10\)<\/span><strong[^>]*>\$ 3\.890</);
+    assert.match(html, /Septiembre 2026 \(2026-09\)<\/span><strong[^>]*>\$ 1\.500,50</);
+    assert.match(html, /data-testid="monthly-comparison-variation"[^>]*>\+6,0 %</);
+
+    const rankingIndex = html.indexOf('data-testid="category-ranking"');
+    const comparisonIndex = html.indexOf('data-testid="monthly-comparison"');
+    assert.equal(rankingIndex > -1 && comparisonIndex > rankingIndex, true);
+  });
+
+  it('[H7-R12] recalcula la comparación al registrar, editar, eliminar gastos y al cambiar de período, sin reiniciar la app', async () => {
+    await saveExpense(100000, '2026-10-05');
+
+    const controller = createController(1280);
+    await controller.initialize();
+    controller.setActiveTab('expenses');
+
+    const { saved: november } = await controller.registerExpense(
+      new Expense({
+        amountCents: 150000,
+        date: '2026-11-04',
+        categoryId: 2,
+        createdAt: '2026-11-04T10:00:00',
+      }),
+    );
+    const afterRegister = controller.getState().monthlyComparison;
+    assert.equal(afterRegister.currentTotalCents, 150000);
+    assert.equal(afterRegister.variationTenths, 500);
+    assert.match(
+      renderToStaticMarkup(controller.renderElement()),
+      /data-testid="monthly-comparison-variation"[^>]*>\+50,0 %</,
+    );
+
+    const { state: afterUpdate } = await controller.updateExpense(
+      november.copyWith({ date: '2026-10-20' }),
+    );
+    assert.equal(afterUpdate.monthlyComparison.currentTotalCents, 0);
+    assert.equal(afterUpdate.monthlyComparison.previousTotalCents, 250000);
+    assert.equal(afterUpdate.monthlyComparison.variationTenths, -1000);
+    const updatedHtml = renderToStaticMarkup(controller.renderElement());
+    assert.match(updatedHtml, /data-testid="monthly-comparison-current"[^>]*>\$ 0</);
+    assert.match(updatedHtml, /Octubre 2026 \(2026-10\)<\/span><strong[^>]*>\$ 2\.500</);
+    assert.match(updatedHtml, /data-testid="monthly-comparison-variation"[^>]*>-100,0 %</);
+
+    const afterDelete = await controller.deleteExpense(november.id);
+    assert.equal(afterDelete.monthlyComparison.previousTotalCents, 100000);
+    assert.match(
+      renderToStaticMarkup(controller.renderElement()),
+      /Octubre 2026 \(2026-10\)<\/span><strong[^>]*>\$ 1\.000</,
+    );
+
+    const october = await controller.goToPreviousMonth();
+    assert.equal(october.monthlyComparison.activeYearMonth, '2026-10');
+    assert.equal(october.monthlyComparison.currentTotalCents, 100000);
+    assert.equal(october.monthlyComparison.hasPreviousData, false);
+    const emptyHtml = renderToStaticMarkup(controller.renderElement());
+    assert.match(emptyHtml, /data-testid="monthly-comparison-empty"/);
+    assert.doesNotMatch(emptyHtml, /monthly-comparison-row-/);
+  });
+
+  it('[H7-R13] en la pestaña Resumen no renderiza el panel de comparación y conserva la vista sin scroll vertical', async () => {
+    await saveExpense(250000, '2026-11-03');
+    await saveExpense(200000, '2026-10-03');
+
+    const controller = createController(390);
+    const state = await controller.initialize();
+    assert.equal(state.activeTab, 'overview');
+    assert.equal(state.monthlyComparison.hasPreviousData, true);
+
+    const html = renderToStaticMarkup(controller.renderElement());
+    assert.match(html, /data-testid="overview-viewport-box"/);
+    assert.doesNotMatch(html, /data-testid="monthly-comparison"/);
+    assert.equal(MonthlyOverviewScreen.buildStyles(390).overviewViewportBox.overflowY, 'hidden');
+  });
+});
