@@ -3,7 +3,7 @@
 > Se vacía al cerrar cada sesión y su resumen pasa a `history.md`.
 > Mientras trabajás, **mantenelo actualizado en tiempo real**, no al final.
 
-- **Feature en curso:** `H8 — h08_ranking_categorias` (`orden: 9`, estado `done`)
+- **Feature en curso:** `H7 — h07_comparacion_mensual` (`orden: 10`, estado `done`)
 - **Herramienta:** `claude-code`
 - **Rol / agente:** `leader`
 - **Integrante responsable:** Francisco
@@ -20,6 +20,7 @@
 - `H4 aprobado por Juan Pablo el 2026-11-11` (`done`)
 - `H13 aprobado por Juan Pablo el 2026-11-11` (`done`)
 - `H8 aprobado por Francisco el 2026-11-14` (`done`)
+- `H7 aprobado por Francisco el 2026-11-14` (`done`)
 
 ## Plan
 
@@ -47,6 +48,22 @@
 - [x] T10 — `progress/impl_h08_ranking_categorias.md` y `progress/traceability.md`.
 - [x] T11 — `./init.sh` en verde.
 
+## Plan H7 (implementer, `claude-code`)
+
+- [x] T1 — `calculateVariationTenths` + `COMPARISON_WINDOW_MONTHS` en `src/domain/services/monthlyComparison.js`.
+- [x] T2 — `buildMonthlyComparison` en el mismo módulo.
+- [x] T3 — Pruebas de dominio `[H7-R1..R7, R15..R17]`.
+- [x] T4 — `formatVariationTenths` en `src/core/formatters.js`.
+- [x] T5 — Pruebas `[H7-R9]` en `test/core/formatters.test.js`.
+- [x] T6 — `src/features/dashboard/monthlyTotalsLoader.js`.
+- [x] T7 — `src/features/dashboard/MonthlyComparisonPanel.jsx`.
+- [x] T8 — Pruebas de componente `[H7-R8..R11, R14]`.
+- [x] T9 — Integración en `MonthlyOverviewScreen.jsx` (pestaña Gastos, debajo del ranking).
+- [x] T10 — Pruebas de integración `[H7-R1, R8, R12, R13]`.
+- [x] T11 — Verificar H3/H5/H6/H8/H13 en verde.
+- [x] T12 — `progress/impl_h07_comparacion_mensual.md` y `progress/traceability.md`.
+- [x] T13 — `./init.sh` en verde.
+
 ## Bitácora
 
 - `2026-11-10`: `H2`, `H3`, `H5` y `H6` completadas, verificadas y cerradas en `done` con 66/66 pruebas en verde.
@@ -70,7 +87,19 @@
 - `2026-11-14`: `implementer` (H8) completó T7..T9: ranking integrado en `tab-panel-expenses` (debajo de `ExpenseFormScreen`), `categoryRanking` en `getState()`, callback `onExpenseDeleted` (desvío menor, ver impl) y pruebas `[H8-R6, R9, R11]`. 95/95 en verde, H6/H13 sin cambios.
 - `2026-11-14`: `implementer` (H8) completó T10..T11: `progress/impl_h08_ranking_categorias.md` y filas H8 en `progress/traceability.md`. `./init.sh` en verde (95/95 pruebas, 77/77 requisitos con prueba, ESLint sin problemas). Pendiente: `reviewer`.
 - `2026-11-14`: `reviewer` emitió `APPROVED` en `progress/review_h08_ranking_categorias.md`. `./init.sh` en verde (95/95 pruebas, 77/77 requisitos). `H8 — h08_ranking_categorias` cerrada en `done` y registrada en `progress/history.md`.
+- `2026-11-14`: H8 commiteada y pusheada en `feature/h08-ranking-categorias` (PR pendiente; `desarrollo` aún sin H8). Se crea `feature/h07-comparacion-mensual` a partir de esa rama. `./init.sh` en verde (95/95). Seleccionada `H7 — h07_comparacion_mensual` (`orden: 10`, `pending`). Lanzando `spec_author`.
+- `2026-11-14`: `spec_author` completó `specs/h07_comparacion_mensual/{requirements,design,tasks}.md` (R1..R17; mes actual = mes seleccionado, ventana de 5 meses recortada en el primer mes con datos, variación entera en décimas de % con `BigInt`, `null` si el mes anterior es 0, panel en la pestaña Gastos, sin SQL nuevo ni migración) y pasó `H7` a `spec_ready`. En pausa esperando aprobación humana.
+- `2026-11-14`: Spec de `H7` aprobado por Francisco (`H7 aprobado por Francisco el 2026-11-14`). Estado cambiado a `in_progress`. Lanzando `implementer`.
+
+- `2026-11-14`: `implementer` (H7) completó T1..T5: `src/domain/services/monthlyComparison.js` (`calculateVariationTenths` con `BigInt`, `buildMonthlyComparison`), `formatVariationTenths` en `src/core/formatters.js` y pruebas `[H7-R1..R7, R9, R15..R17]` en verde.
+
+- `2026-11-14`: `implementer` (H7) completó T6..T8: `monthlyTotalsLoader.js` (con pruebas `[H7-R2][H7-R12]` sobre SQLite en memoria), `MonthlyComparisonPanel.jsx` y pruebas `[H7-R8..R11, R14]` en verde.
+
+- `2026-11-14`: `implementer` (H7) completó T9..T11: comparación integrada en `tab-panel-expenses` debajo de `CategoryRankingList` (controlador y componente; prop `initialPreviousMonthlyTotals`, ver desvío en impl) y pruebas de integración `[H7-R1, R8, R12, R13]`. 118/118 en verde; H3/H5/H6/H8/H13 sin cambios.
+
+- `2026-11-14`: `implementer` (H7) completó T12..T13: `progress/impl_h07_comparacion_mensual.md` y filas H7 en `progress/traceability.md`. `./init.sh` en verde (118/118 pruebas, H7 17/17 requisitos con prueba, ESLint sin problemas). Pendiente: `reviewer`.
+- `2026-11-14`: `reviewer` emitió `APPROVED` en `progress/review_h07_comparacion_mensual.md`. `./init.sh` en verde (118/118 pruebas, 94/94 requisitos). `H7 — h07_comparacion_mensual` cerrada en `done` y registrada en `progress/history.md`.
 
 ## Próximo paso
 
-- Commit y push de `feature/h08-ranking-categorias` por un integrante. Siguiente en cola: `H7 — h07_comparacion_mensual` (`orden: 10`).
+- Commit y push de `feature/h07-comparacion-mensual` por un integrante. Siguiente en cola: `H9 — h09_deteccion_recurrencias` (`orden: 11`).

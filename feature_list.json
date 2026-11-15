@@ -135,7 +135,7 @@
         "CA2. Si no existen meses previos, se informa que no hay datos para comparar."
       ],
       "sdd": true,
-      "status": "pending",
+      "status": "done",
       "orden": 10
     },
     {

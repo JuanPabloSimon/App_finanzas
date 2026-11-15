@@ -168,3 +168,17 @@
   - Pruebas `[H8-R1]`..`[H8-R13]` en `test/domain/services/`, `test/features/dashboard/` y `test/features/income/`.
 - **Verificación:** `reviewer` emitió `APPROVED` en `progress/review_h08_ranking_categorias.md` (primer ciclo); `./init.sh` en verde (95/95 pruebas, 77/77 requisitos con prueba).
 - **Cierre:** `h08_ranking_categorias` marcada `done` en `feature_list.json`. Próxima feature: `H7 — h07_comparacion_mensual` (`orden: 10`).
+
+## 2026-11-14 — H7 (`h07_comparacion_mensual`) — Comparación mensual
+
+- **Agente:** Claude Code (`leader` → `spec_author` → `implementer` → `reviewer`) con Francisco.
+- **Spec:** `specs/h07_comparacion_mensual/` (R1..R17), aprobado por Francisco el 2026-11-14.
+- **Rama:** `feature/h07-comparacion-mensual`, creada desde `feature/h08-ranking-categorias` (H8 aún sin fusionar en `desarrollo`).
+- **Cambios:**
+  - `src/domain/services/monthlyComparison.js` (nuevo, JS puro): `calculateVariationTenths` (variación entera en décimas de %, `null` si el mes anterior es 0, redondeo con `BigInt`) y `buildMonthlyComparison` (mes seleccionado + hasta 5 meses previos, recortado al primer mes con datos).
+  - `src/core/formatters.js`: `formatVariationTenths` (`125 → "+12,5 %"`).
+  - `src/features/dashboard/monthlyTotalsLoader.js` y `MonthlyComparisonPanel.jsx` (nuevos): carga de totales por mes con el repositorio existente y panel Mobile First + Desktop en la pestaña Gastos.
+  - `MonthlyOverviewScreen.jsx`: recarga de la comparación al cambiar de período y tras alta/edición/baja; el Resumen de H13 sin cambios.
+  - Pruebas `[H7-R1]`..`[H7-R17]` (persistencia sobre SQLite en memoria). Sin dependencias nuevas ni migraciones.
+- **Verificación:** `reviewer` emitió `APPROVED` en `progress/review_h07_comparacion_mensual.md` (primer ciclo); `./init.sh` en verde (118/118 pruebas, 94/94 requisitos con prueba).
+- **Cierre:** `h07_comparacion_mensual` marcada `done` en `feature_list.json`. Próxima feature: `H9 — h09_deteccion_recurrencias` (`orden: 11`).
