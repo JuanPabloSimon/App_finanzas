@@ -11,6 +11,7 @@ import {
   SqliteUserAccountRepository,
 } from '../../../src/data/repositories/sqliteMonthlyIncomeRepository.js';
 import { SqliteConsentRepository } from '../../../src/data/repositories/sqliteConsentRepository.js';
+import { SqliteRecurrenceRepository } from '../../../src/data/repositories/sqliteRecurrenceRepository.js';
 import { Expense } from '../../../src/domain/models/expense.js';
 import { MonthlyOverviewScreen } from '../../../src/features/income/MonthlyOverviewScreen.jsx';
 import { CategoryDistributionChart } from '../../../src/features/income/CategoryDistributionChart.jsx';
@@ -1022,5 +1023,133 @@ describe('H7 comparación mensual integrada en la pestaña Gastos', () => {
     assert.match(html, /data-testid="overview-viewport-box"/);
     assert.doesNotMatch(html, /data-testid="monthly-comparison"/);
     assert.equal(MonthlyOverviewScreen.buildStyles(390).overviewViewportBox.overflowY, 'hidden');
+  });
+});
+
+describe('H9 recurrencias en la pestaña Alertas', () => {
+  let db;
+  let categoryRepo;
+  let expenseRepo;
+  let recurrenceRepo;
+
+  beforeEach(async () => {
+    db = await AppDatabase.openInMemory();
+    categoryRepo = new SqliteCategoryRepository(db);
+    expenseRepo = new SqliteExpenseRepository(db);
+    recurrenceRepo = new SqliteRecurrenceRepository(db);
+  });
+
+  afterEach(async () => {
+    if (db) {
+      await db.close();
+    }
+  });
+
+  function createController(viewportWidth = 390) {
+    return MonthlyOverviewScreen.createController({
+      expenseRepository: expenseRepo,
+      categoryRepository: categoryRepo,
+      incomeRepository: new SqliteMonthlyIncomeRepository(db),
+      investmentRepository: new SqliteInvestmentRepository(db),
+      reminderRepository: new SqliteReminderRepository(db),
+      recurrenceRepository: recurrenceRepo,
+      today: () => '2026-10-31',
+      viewportWidth,
+    });
+  }
+
+  async function saveRecurringSubscriptions() {
+    const categories = await categoryRepo.findAll();
+    const subscriptionsId = categories.find((c) => c.name === 'Suscripciones').id;
+    for (const date of ['2026-09-05', '2026-10-05', '2026-10-28']) {
+      await expenseRepo.save(
+        new Expense({
+          amountCents: 650000,
+          date,
+          categoryId: subscriptionsId,
+          createdAt: `${date}T10:00:00`,
+        }),
+      );
+    }
+    return subscriptionsId;
+  }
+
+  it('[H9-R8] la pestaña Alertas muestra la recurrencia y la pestaña Resumen no renderiza el panel', async () => {
+    const subscriptionsId = await saveRecurringSubscriptions();
+    const controller = createController(1280);
+    const state = await controller.initialize();
+    assert.equal(state.recurrences.length, 1);
+    assert.equal(state.recurrences[0].key, `${subscriptionsId}|650000`);
+
+    const overviewHtml = renderToStaticMarkup(controller.renderElement());
+    assert.match(overviewHtml, /data-testid="overview-viewport-box"/);
+    assert.doesNotMatch(overviewHtml, /data-testid="recurrences-panel"/);
+
+    controller.setActiveTab('reminders');
+    const html = renderToStaticMarkup(controller.renderElement());
+    assert.match(html, /data-testid="tab-panel-reminders"/);
+    assert.match(html, /data-testid="recurrences-panel" data-layout="desktop"/);
+    assert.match(html, /data-testid="recurrence-category"[^>]*>Suscripciones</);
+    assert.match(html, /data-testid="recurrence-amount"[^>]*>\$ 6\.500</);
+    assert.match(html, /3 veces en 60 días/);
+    const remindersIndex = html.indexOf('data-testid="reminders-section"');
+    const panelIndex = html.indexOf('data-testid="recurrences-panel"');
+    assert.equal(remindersIndex > -1 && panelIndex > remindersIndex, true);
+  });
+
+  it('[H9-R7] al descartar guarda la clave en el repositorio y la recurrencia deja de mostrarse', async () => {
+    const subscriptionsId = await saveRecurringSubscriptions();
+    const controller = createController(390);
+    await controller.initialize();
+    const key = `${subscriptionsId}|650000`;
+
+    const state = await controller.dismissRecurrence(key);
+    assert.equal((await recurrenceRepo.dismissedKeys()).has(key), true);
+    assert.deepEqual(state.recurrences, []);
+    assert.equal(state.recurrenceError, null);
+
+    await controller.goToPreviousMonth();
+    assert.deepEqual(controller.getState().recurrences, []);
+
+    controller.setActiveTab('reminders');
+    const html = renderToStaticMarkup(controller.renderElement());
+    assert.doesNotMatch(html, /data-testid="recurrence-item"/);
+    assert.match(html, /data-testid="recurrences-empty"/);
+  });
+
+  it('[H9-R7] si falla el descarte muestra el error y la recurrencia sigue visible', async () => {
+    await saveRecurringSubscriptions();
+    const failingRepo = {
+      dismissedKeys: async () => new Set(),
+      dismiss: async () => {
+        throw new Error('disco lleno');
+      },
+    };
+    const controller = MonthlyOverviewScreen.createController({
+      expenseRepository: expenseRepo,
+      categoryRepository: categoryRepo,
+      recurrenceRepository: failingRepo,
+      today: () => '2026-10-31',
+    });
+    await controller.initialize();
+    const state = await controller.dismissRecurrence(controller.getState().recurrences[0].key);
+    assert.equal(state.recurrences.length, 1);
+    assert.equal(state.recurrenceError, 'No se pudo descartar la recurrencia. Probá de nuevo.');
+
+    controller.setActiveTab('reminders');
+    const html = renderToStaticMarkup(controller.renderElement());
+    assert.match(html, /data-testid="recurrences-error" role="alert"/);
+    assert.match(html, /data-testid="recurrence-item"/);
+  });
+
+  it('[H9-R9] sin gastos la pestaña Alertas muestra el estado vacío de recurrencias', async () => {
+    const controller = createController(390);
+    await controller.initialize();
+    controller.setActiveTab('reminders');
+    const html = renderToStaticMarkup(controller.renderElement());
+    assert.match(html, /data-testid="recurrences-panel" data-layout="mobile"/);
+    assert.match(html, /data-testid="recurrences-empty"/);
+    assert.match(html, /Todavía no detectamos gastos repetidos en los últimos 60 días\./);
+    assert.doesNotMatch(html, /data-testid="recurrences-list"/);
   });
 });

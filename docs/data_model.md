@@ -46,6 +46,16 @@ Delivery, Suscripciones, Ropa, Educación, Otros.
 | recurrence_key | TEXT | PK (ver `specs/h09_deteccion_recurrencias/design.md`) |
 | dismissed_at | TEXT | NOT NULL |
 
+Formato de `recurrence_key`: `<categoryId>|<typicalAmountCents>` (por ejemplo `7|650000`), con
+`categoryId` y `typicalAmountCents` enteros positivos (monto típico = mediana en centavos). Una
+recurrencia detectada se oculta si existe una clave con la misma categoría y un monto típico
+guardado a no más de 10 % del detectado (con el guardado como base). `dismissed_at` es ISO 8601
+(`YYYY-MM-DDTHH:MM:SS`). La clave no contiene notas, fechas ni identificadores del usuario.
+
+En el navegador, `LocalStorageRecurrenceRepository` guarda la misma información bajo la clave
+`fp_dismissed_recurrences` de `localStorage`, como arreglo JSON `[{ recurrenceKey, dismissedAt }]`
+sin duplicados.
+
 ### `advice_requests` (H10, límite mensual)
 | Columna | Tipo | Restricciones |
 |---|---|---|

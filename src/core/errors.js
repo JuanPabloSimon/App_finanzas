@@ -87,3 +87,9 @@ export class InvalidCredentials extends DomainException {
     super(detail);
   }
 }
+
+export class InvalidRecurrence extends DomainException {
+  constructor(detail = 'Datos de recurrencia inválidos') {
+    super(detail);
+  }
+}

@@ -35,6 +35,10 @@ import { CategoryDistributionChart } from './CategoryDistributionChart.jsx';
 import { CategoryRankingList } from '../dashboard/CategoryRankingList.jsx';
 import { MonthlyComparisonPanel } from '../dashboard/MonthlyComparisonPanel.jsx';
 import { loadPreviousMonthlyTotals } from '../dashboard/monthlyTotalsLoader.js';
+import { RecurrencesPanel } from '../recurrences/RecurrencesPanel.jsx';
+import { loadVisibleRecurrences } from '../recurrences/recurrencesLoader.js';
+
+const RECURRENCE_DISMISS_ERROR_MESSAGE = 'No se pudo descartar la recurrencia. Probá de nuevo.';
 
 const h = React.createElement;
 
@@ -199,6 +203,20 @@ function createInMemoryReminderRepository() {
     },
     async findAll() {
       return [...list].sort((a, b) => a.dueDate.localeCompare(b.dueDate));
+    },
+  };
+}
+
+function createInMemoryRecurrenceRepository() {
+  const dismissed = new Map();
+  return {
+    async dismissedKeys() {
+      return new Set(dismissed.keys());
+    },
+    async dismiss(recurrenceKey, dismissedAt = formatIsoDateTime(new Date())) {
+      if (!dismissed.has(recurrenceKey)) {
+        dismissed.set(recurrenceKey, dismissedAt);
+      }
     },
   };
 }
@@ -485,11 +503,14 @@ class MonthlyOverviewController {
     incomeRepository,
     investmentRepository,
     reminderRepository,
+    recurrenceRepository,
     today = () => formatIsoDate(new Date()),
     now = () => new Date(),
     viewportWidth = 390,
   } = {}) {
     const fallbackCats = categoryRepository ?? createInMemoryCategoryRepository();
+    this.recurrenceRepository =
+      recurrenceRepository ?? createInMemoryRecurrenceRepository();
     this.categoryRepository = fallbackCats;
     this.expenseRepository =
       expenseRepository ?? createInMemoryExpenseRepository(fallbackCats);
@@ -513,6 +534,8 @@ class MonthlyOverviewController {
     this.monthlyIncome = null;
     this.investments = [];
     this.reminders = [];
+    this.recurrences = [];
+    this.recurrenceError = null;
 
     this.incomeInput = '';
     this.incomeError = null;
@@ -559,6 +582,28 @@ class MonthlyOverviewController {
     this.investments = invs;
     this.reminders = rems;
     this.incomeInput = inc ? formatCentsToInput(inc.amountCents) : '';
+    await this.reloadRecurrences();
+  }
+
+  async reloadRecurrences() {
+    this.recurrences = await loadVisibleRecurrences({
+      expenseRepository: this.expenseRepository,
+      recurrenceRepository: this.recurrenceRepository,
+      categories: this.categories,
+      referenceDate: formatIsoDate(this.today()),
+    });
+  }
+
+  async dismissRecurrence(recurrenceKey) {
+    this.recurrenceError = null;
+    try {
+      await this.recurrenceRepository.dismiss(recurrenceKey);
+    } catch {
+      this.recurrenceError = RECURRENCE_DISMISS_ERROR_MESSAGE;
+      return this.getState();
+    }
+    await this.reloadRecurrences();
+    return this.getState();
   }
 
   setActiveTab(tab) {
@@ -747,6 +792,8 @@ class MonthlyOverviewController {
       monthlyIncome: this.monthlyIncome,
       investments: [...this.investments],
       reminders: [...this.reminders],
+      recurrences: [...this.recurrences],
+      recurrenceError: this.recurrenceError,
       totalExpensesCents,
       totalInvestmentsCents,
       availableBalanceCents,
@@ -779,12 +826,15 @@ class MonthlyOverviewController {
       incomeRepository: this.incomeRepository,
       investmentRepository: this.investmentRepository,
       reminderRepository: this.reminderRepository,
+      recurrenceRepository: this.recurrenceRepository,
       initialCategories: state.categories,
       initialExpenses: state.expenses,
       initialPreviousMonthlyTotals: state.previousMonthlyTotals,
       initialMonthlyIncome: state.monthlyIncome,
       initialInvestments: state.investments,
       initialReminders: state.reminders,
+      initialRecurrences: state.recurrences,
+      initialRecurrenceError: state.recurrenceError,
       initialActiveYearMonth: state.activeYearMonth,
       initialActiveTab: state.activeTab,
       initialIncomeInput: state.incomeInput,
@@ -803,12 +853,15 @@ export function MonthlyOverviewScreen({
   incomeRepository = null,
   investmentRepository = null,
   reminderRepository = null,
+  recurrenceRepository = null,
   initialCategories = undefined,
   initialExpenses = undefined,
   initialPreviousMonthlyTotals = undefined,
   initialMonthlyIncome = undefined,
   initialInvestments = undefined,
   initialReminders = undefined,
+  initialRecurrences = undefined,
+  initialRecurrenceError = null,
   initialActiveYearMonth = undefined,
   initialActiveTab = 'overview',
   initialIncomeInput = undefined,
@@ -838,6 +891,9 @@ export function MonthlyOverviewScreen({
   const [remRepo] = useState(
     () => reminderRepository ?? createInMemoryReminderRepository(),
   );
+  const [recRepo] = useState(
+    () => recurrenceRepository ?? createInMemoryRecurrenceRepository(),
+  );
 
   const [activeTab, setActiveTab] = useState(initialActiveTab);
   const [activeYearMonth, setActiveYearMonth] = useState(
@@ -853,6 +909,8 @@ export function MonthlyOverviewScreen({
   const [monthlyIncome, setMonthlyIncome] = useState(initialMonthlyIncome ?? null);
   const [investments, setInvestments] = useState(initialInvestments ?? []);
   const [reminders, setReminders] = useState(initialReminders ?? []);
+  const [recurrences, setRecurrences] = useState(initialRecurrences ?? []);
+  const [recurrenceError, setRecurrenceError] = useState(initialRecurrenceError);
 
   const [incomeInput, setIncomeInput] = useState(
     initialIncomeInput !== undefined
@@ -892,6 +950,51 @@ export function MonthlyOverviewScreen({
     setInvestments(invs);
     setReminders(rems);
     setIncomeInput(inc ? formatCentsToInput(inc.amountCents) : '');
+    setRecurrences(
+      await loadVisibleRecurrences({
+        expenseRepository: expRepo,
+        recurrenceRepository: recRepo,
+        categories: cats,
+        referenceDate: defaultToday,
+      }),
+    );
+  };
+
+  useEffect(() => {
+    let active = true;
+    if (initialRecurrences !== undefined) {
+      return undefined;
+    }
+    loadVisibleRecurrences({
+      expenseRepository: expRepo,
+      recurrenceRepository: recRepo,
+      categories,
+      referenceDate: defaultToday,
+    }).then((visible) => {
+      if (active) {
+        setRecurrences(visible);
+      }
+    });
+    return () => {
+      active = false;
+    };
+  }, [expRepo, recRepo, categories, defaultToday, initialRecurrences]);
+
+  const handleDismissRecurrence = async (recurrence) => {
+    setRecurrenceError(null);
+    try {
+      await recRepo.dismiss(recurrence.key);
+      setRecurrences(
+        await loadVisibleRecurrences({
+          expenseRepository: expRepo,
+          recurrenceRepository: recRepo,
+          categories,
+          referenceDate: defaultToday,
+        }),
+      );
+    } catch {
+      setRecurrenceError(RECURRENCE_DISMISS_ERROR_MESSAGE);
+    }
   };
 
   useEffect(() => {
@@ -2237,6 +2340,12 @@ export function MonthlyOverviewScreen({
           ),
         ),
       ),
+      h(RecurrencesPanel, {
+        recurrences,
+        onDismiss: handleDismissRecurrence,
+        errorMessage: recurrenceError,
+        viewportWidth,
+      }),
     );
   }
 

@@ -10,6 +10,7 @@ import { UserAccount } from './domain/models/userAccount.js';
 import { InvalidCategory, ExpenseNotFound, InvalidCredentials } from './core/errors.js';
 import { formatIsoDate, formatIsoDateTime, extractYearMonth } from './core/dates.js';
 import { PREDEFINED_CATEGORIES } from './data/db/appDatabase.js';
+import { LocalStorageRecurrenceRepository } from './data/repositories/localStorageRecurrenceRepository.js';
 
 const h = React.createElement;
 
@@ -340,6 +341,11 @@ function createBrowserRepositories() {
     });
   };
 
+  const recurrenceRepo =
+    typeof window !== 'undefined' && window.localStorage
+      ? new LocalStorageRecurrenceRepository(window.localStorage)
+      : null;
+
   return {
     consentRepo,
     categoryRepo,
@@ -347,6 +353,7 @@ function createBrowserRepositories() {
     incomeRepo,
     investmentRepo,
     reminderRepo,
+    recurrenceRepo,
     userAccountRepo,
     seedDemoDataIfEmpty,
   };
@@ -380,6 +387,7 @@ export function App(props) {
     incomeRepository: repos.incomeRepo,
     investmentRepository: repos.investmentRepo,
     reminderRepository: repos.reminderRepo,
+    recurrenceRepository: repos.recurrenceRepo,
     requireAuth: true,
     onDemoSeed: repos.seedDemoDataIfEmpty,
     viewportWidth,
