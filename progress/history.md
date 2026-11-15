@@ -194,3 +194,12 @@
   - No existe rama `develop`; la de integración es `desarrollo` (`5a54629`), todavía sin H8 ni H7.
 - **Verificación:** `./init.sh` en verde al cierre: 118/118 pruebas, 94/94 requisitos con prueba, ESLint y arnés sin advertencias.
 - **Cierre:** H7 y H8 en `done`. Próxima feature: `H9 — h09_deteccion_recurrencias` (`orden: 11`, `pending`). Pendiente del equipo: push de H7, PRs de H8 y H7 hacia `desarrollo` (H8 primero) y decidir si la versión web migra de `localStorage` a SQLite en el navegador.
+
+## 2026-11-15 — H9 h09_deteccion_recurrencias (Claude Code, Francisco)
+
+- **Agentes:** `leader` → `spec_author` (actualización del borrador original) → `implementer` → `reviewer` (un ciclo).
+- **Aprobación:** `H9 aprobado por Francisco el 2026-11-15`.
+- **Spec:** el borrador inicial se corrigió contra el código actual: migración v3 (`dismissed_recurrences`), `RecurrencesPanel` dentro de la pestaña «Alertas» (`reminders`), descartes con clave `<categoryId>|<typicalAmountCents>` y tolerancia ±10 %, nuevo R11 (exclusión fuera de la ventana de 60 días) y agrupamiento validado contra la mediana. R1..R11.
+- **Cambios:** dominio (`recurrence.js`, `recurrenceDetector.js`, contrato `recurrenceRepository.js`), datos (`sqliteRecurrenceRepository.js`, `localStorageRecurrenceRepository.js`, migración v3 en `appDatabase.js`, `docs/data_model.md`), presentación (`src/features/recurrences/`, `MonthlyOverviewScreen.jsx`, cableado en `AppShell.jsx`/`App.jsx`) y conjunto etiquetado `test/fixtures/`.
+- **Verificación:** `reviewer` emitió `APPROVED` en `progress/review_h09_deteccion_recurrencias.md`; `./init.sh` en verde (156/156 pruebas). K4: exhaustividad 1,00 y precisión 1,00 (22/22).
+- **Cierre:** `h09_deteccion_recurrencias` marcada `done`. Rama `feature/h09-deteccion-recurrencias` sin commitear. Próxima feature: `H10 — h10_recomendaciones_ia` (`orden: 12`).

@@ -32,8 +32,9 @@
 | H8 | CA2 | R3, R4, R10 | `[H8-R3]`, `[H8-R4]`, `[H8-R10]` (`test/domain/services/categoryRanking.test.js`) | En revisión (`in_progress`) |
 | H7 | CA1 | R1, R2, R3, R4, R5, R6, R8, R9, R10, R12, R13, R14, R15, R16, R17 | `[H7-R1]`, `[H7-R2]`, `[H7-R3]`, `[H7-R4]`, `[H7-R5]`, `[H7-R6]`, `[H7-R8]`, `[H7-R9]`, `[H7-R10]`, `[H7-R12]`, `[H7-R13]`, `[H7-R14]`, `[H7-R15]`, `[H7-R16]`, `[H7-R17]` (`test/domain/services/monthlyComparison.test.js`, `test/core/formatters.test.js`, `test/features/dashboard/monthlyTotalsLoader.test.js`, `test/features/dashboard/MonthlyComparisonPanel.test.jsx`, `test/features/income/MonthlyOverviewScreen.test.jsx`) | En revisión (`in_progress`) |
 | H7 | CA2 | R7, R11 | `[H7-R7]`, `[H7-R11]` (`test/domain/services/monthlyComparison.test.js`, `test/features/dashboard/MonthlyComparisonPanel.test.jsx`) | En revisión (`in_progress`) |
-| H9 | CA1 | R1, R2, R3, R8 | — | Borrador de referencia (`pending`) |
-| H9 | CA2 | R4, R5 | — | Borrador de referencia (`pending`) |
-| H9 | CA3 | R6, R7 | — | Borrador de referencia (`pending`) |
+| H9 | CA1 | R1, R2, R3, R8, R11 | `[H9-R1]`, `[H9-R2]`, `[H9-R3]`, `[H9-R8]`, `[H9-R11]` (`test/domain/services/recurrenceDetector.test.js`, `test/features/recurrences/recurrencesLoader.test.js`, `test/features/recurrences/RecurrencesPanel.test.jsx`, `test/features/income/MonthlyOverviewScreen.test.jsx`) | En revisión (`in_progress`) |
+| H9 | CA2 | R4, R5 | `[H9-R4]`, `[H9-R5]` (`test/domain/services/recurrenceDetectorMetrics.test.js`, fixture `test/fixtures/recurrencias_etiquetadas.json`; K4: exhaustividad 1,00 y precisión 1,00) | En revisión (`in_progress`) |
+| H9 | CA3 | R6, R7 | `[H9-R6]`, `[H9-R7]` (`test/domain/models/recurrence.test.js`, `test/domain/services/recurrenceDetector.test.js`, `test/data/sqliteRecurrenceRepository.test.js`, `test/data/localStorageRecurrenceRepository.test.js`, `test/features/recurrences/recurrencesLoader.test.js`, `test/features/income/MonthlyOverviewScreen.test.jsx`) | En revisión (`in_progress`) |
+| H9 | UI / arquitectura | R9, R10 | `[H9-R9]`, `[H9-R10]` (`test/features/recurrences/RecurrencesPanel.test.jsx`, `test/features/income/MonthlyOverviewScreen.test.jsx`, `test/domain/services/recurrenceDetector.test.js`) | En revisión (`in_progress`) |
 | H10 | CA1, CA2, CA3, CA4 | — | — | Pendiente (`pending`) |
 | H11 | CA1, CA2 | — | — | Pendiente (`pending`) |
