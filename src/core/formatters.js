@@ -68,3 +68,20 @@ export function formatCentsToInput(amountCents) {
   }
   return `${wholePesos},${String(cents).padStart(2, '0')}`;
 }
+
+export function formatVariationTenths(variationTenths) {
+  if (!Number.isInteger(variationTenths)) {
+    throw new InvalidAmount('La variación debe ser un entero en décimas de punto porcentual');
+  }
+
+  const absoluteTenths = Math.abs(variationTenths);
+  const wholePart = Math.trunc(absoluteTenths / 10);
+  const decimalPart = absoluteTenths % 10;
+  let sign = '';
+  if (variationTenths > 0) {
+    sign = '+';
+  } else if (variationTenths < 0) {
+    sign = '-';
+  }
+  return `${sign}${wholePart},${decimalPart} %`;
+}

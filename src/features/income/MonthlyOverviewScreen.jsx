@@ -8,6 +8,7 @@ import {
 import { Investment } from '../../domain/models/investment.js';
 import { Reminder } from '../../domain/models/reminder.js';
 import { buildCategoryRanking } from '../../domain/services/categoryRanking.js';
+import { buildMonthlyComparison } from '../../domain/services/monthlyComparison.js';
 import {
   DomainException,
   InvalidCategory,
@@ -32,6 +33,8 @@ import { PREDEFINED_CATEGORIES } from '../../data/db/appDatabase.js';
 import { ExpenseFormScreen } from '../expenses/ExpenseFormScreen.jsx';
 import { CategoryDistributionChart } from './CategoryDistributionChart.jsx';
 import { CategoryRankingList } from '../dashboard/CategoryRankingList.jsx';
+import { MonthlyComparisonPanel } from '../dashboard/MonthlyComparisonPanel.jsx';
+import { loadPreviousMonthlyTotals } from '../dashboard/monthlyTotalsLoader.js';
 
 const h = React.createElement;
 
@@ -506,6 +509,7 @@ class MonthlyOverviewController {
 
     this.categories = [];
     this.expenses = [];
+    this.previousMonthlyTotals = [];
     this.monthlyIncome = null;
     this.investments = [];
     this.reminders = [];
@@ -540,15 +544,17 @@ class MonthlyOverviewController {
   }
 
   async reloadMonthData(yearMonth) {
-    const [cats, exps, inc, invs, rems] = await Promise.all([
+    const [cats, exps, inc, invs, rems, prevTotals] = await Promise.all([
       this.categoryRepository.findAll(),
       this.expenseRepository.findByYearMonth(yearMonth),
       this.incomeRepository.findByYearMonth(yearMonth),
       this.investmentRepository.findByYearMonth(yearMonth),
       this.reminderRepository.findAll(),
+      loadPreviousMonthlyTotals(this.expenseRepository, yearMonth),
     ]);
     this.categories = cats;
     this.expenses = exps;
+    this.previousMonthlyTotals = prevTotals;
     this.monthlyIncome = inc;
     this.investments = invs;
     this.reminders = rems;
@@ -717,6 +723,11 @@ class MonthlyOverviewController {
       this.monthlyIncome,
     );
     const categoryRanking = buildCategoryRanking(categoryBreakdown);
+    const monthlyComparison = buildMonthlyComparison({
+      activeYearMonth: this.activeYearMonth,
+      currentTotalCents: totalExpensesCents,
+      previousMonthlyTotals: this.previousMonthlyTotals,
+    });
     const adviceList = buildAdviceItems({
       monthlyIncome: this.monthlyIncome,
       expenses: this.expenses,
@@ -741,6 +752,8 @@ class MonthlyOverviewController {
       availableBalanceCents,
       categoryBreakdown,
       categoryRanking,
+      monthlyComparison,
+      previousMonthlyTotals: [...this.previousMonthlyTotals],
       adviceList,
       incomeInput: this.incomeInput,
       incomeError: this.incomeError,
@@ -768,6 +781,7 @@ class MonthlyOverviewController {
       reminderRepository: this.reminderRepository,
       initialCategories: state.categories,
       initialExpenses: state.expenses,
+      initialPreviousMonthlyTotals: state.previousMonthlyTotals,
       initialMonthlyIncome: state.monthlyIncome,
       initialInvestments: state.investments,
       initialReminders: state.reminders,
@@ -791,6 +805,7 @@ export function MonthlyOverviewScreen({
   reminderRepository = null,
   initialCategories = undefined,
   initialExpenses = undefined,
+  initialPreviousMonthlyTotals = undefined,
   initialMonthlyIncome = undefined,
   initialInvestments = undefined,
   initialReminders = undefined,
@@ -832,6 +847,9 @@ export function MonthlyOverviewScreen({
   );
   const [categories, setCategories] = useState(resolvedCategories);
   const [expenses, setExpenses] = useState(initialExpenses ?? []);
+  const [previousMonthlyTotals, setPreviousMonthlyTotals] = useState(
+    initialPreviousMonthlyTotals ?? [],
+  );
   const [monthlyIncome, setMonthlyIncome] = useState(initialMonthlyIncome ?? null);
   const [investments, setInvestments] = useState(initialInvestments ?? []);
   const [reminders, setReminders] = useState(initialReminders ?? []);
@@ -859,15 +877,17 @@ export function MonthlyOverviewScreen({
   const [reminderError, setReminderError] = useState(null);
 
   const reloadPeriod = async (targetYm) => {
-    const [cats, exps, inc, invs, rems] = await Promise.all([
+    const [cats, exps, inc, invs, rems, prevTotals] = await Promise.all([
       catRepo.findAll(),
       expRepo.findByYearMonth(targetYm),
       incRepo.findByYearMonth(targetYm),
       invRepo.findByYearMonth(targetYm),
       remRepo.findAll(),
+      loadPreviousMonthlyTotals(expRepo, targetYm),
     ]);
     setCategories(cats);
     setExpenses(exps);
+    setPreviousMonthlyTotals(prevTotals);
     setMonthlyIncome(inc);
     setInvestments(invs);
     setReminders(rems);
@@ -879,7 +899,8 @@ export function MonthlyOverviewScreen({
     if (
       initialCategories !== undefined &&
       initialExpenses !== undefined &&
-      initialMonthlyIncome !== undefined
+      initialMonthlyIncome !== undefined &&
+      initialPreviousMonthlyTotals !== undefined
     ) {
       return undefined;
     }
@@ -889,10 +910,12 @@ export function MonthlyOverviewScreen({
       incRepo.findByYearMonth(activeYearMonth),
       invRepo.findByYearMonth(activeYearMonth),
       remRepo.findAll(),
-    ]).then(([cats, exps, inc, invs, rems]) => {
+      loadPreviousMonthlyTotals(expRepo, activeYearMonth),
+    ]).then(([cats, exps, inc, invs, rems, prevTotals]) => {
       if (!active) return;
       setCategories(cats);
       setExpenses(exps);
+      setPreviousMonthlyTotals(prevTotals);
       setMonthlyIncome(inc);
       setInvestments(invs);
       setReminders(rems);
@@ -913,6 +936,7 @@ export function MonthlyOverviewScreen({
     initialCategories,
     initialExpenses,
     initialMonthlyIncome,
+    initialPreviousMonthlyTotals,
     initialIncomeInput,
   ]);
 
@@ -941,6 +965,11 @@ export function MonthlyOverviewScreen({
     monthlyIncome,
   );
   const categoryRanking = buildCategoryRanking(categoryBreakdown);
+  const monthlyComparison = buildMonthlyComparison({
+    activeYearMonth,
+    currentTotalCents: totalExpensesCents,
+    previousMonthlyTotals,
+  });
   const adviceList = buildAdviceItems({
     monthlyIncome,
     expenses,
@@ -1442,6 +1471,10 @@ export function MonthlyOverviewScreen({
       }),
       h(CategoryRankingList, {
         ranking: categoryRanking,
+        viewportWidth,
+      }),
+      h(MonthlyComparisonPanel, {
+        comparison: monthlyComparison,
         viewportWidth,
       }),
     );
