@@ -220,3 +220,16 @@
 - **Desvíos aceptados por el reviewer:** `[H9-R6]` pasa a `user_version >= 3`, porque la v4 queda fijada por `[H10-R25]`, y no se crea `.env.example` (lo descarta el design). Pendiente menor: renombrar el título de esa prueba de H9.
 - **Verificación:** `reviewer` emitió `APPROVED` en `progress/review_h10_recomendaciones_ia.md`; `./init.sh` en verde (232/232 pruebas).
 - **Cierre:** `h10_recomendaciones_ia` marcada `done`. Rama `feature/h10-recomendaciones-ia` sin commitear. Próxima feature: `H11 — h11_exportar_historial` (`orden: 13`).
+
+## 2026-11-15 — H11 h11_exportar_historial (Claude Code, Francisco)
+
+- **Agentes:** `leader` → `spec_author` → `implementer` → `reviewer` (un ciclo).
+- **Aprobación:** `H11 aprobado por Francisco el 2026-11-15`. Spec con R1..R28.
+- **Cambios:**
+  - `CsvExporter` puro en `src/domain/services/csvExporter.js`, en formato es-AR: BOM UTF-8, `;`, CRLF, coma decimal por aritmética entera, escape RFC 4180 y prefijo `'` contra CSV injection.
+  - `ExpenseRepository.findAll()` en SQLite y `localStorageExpenseReader` en el navegador.
+  - Entrega con `Blob` + `download` y Web Share opcional en `src/features/export/`.
+  - `ExportHistoryPanel` al final de la pestaña Gastos.
+  - Sin migración ni dependencias nuevas.
+- **Verificación:** `reviewer` emitió `APPROVED` en `progress/review_h11_exportar_historial.md`, sin desvíos. `./init.sh` en verde.
+- **Cierre:** `h11_exportar_historial` marcada `done`. **Las 13 historias de `feature_list.json` quedaron en `done`.**

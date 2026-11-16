@@ -3,9 +3,9 @@
 > Se vacía al cerrar cada sesión y su resumen pasa a `history.md`.
 > Mientras trabajás, **mantenelo actualizado en tiempo real**, no al final.
 
-- **Feature en curso:** `H10 — h10_recomendaciones_ia` (`orden: 12`, `done`)
+- **Feature en curso:** `H11 — h11_exportar_historial` (`orden: 13`, `done`)
 - **Herramienta:** `claude-code`
-- **Rol / agente:** `leader` → `implementer` (`claude-code`) para H10
+- **Rol / agente:** `leader` → `implementer` (`claude-code`) para H11
 - **Integrante responsable:** Francisco
 - **Inicio:** `2026-11-15`
 
@@ -13,15 +13,15 @@
 
 - `H9 aprobado por Francisco el 2026-11-15` (`done`)
 - `H10 aprobado por Francisco el 2026-11-15` (`done`)
+- `H11 aprobado por Francisco el 2026-11-15` (`done`)
 
 ## Plan
 
-- Implementer (`claude-code`, rol `implementer`) ejecutando `specs/h10_recomendaciones_ia/tasks.md`:
-  T1–T6 dominio (errores, `AdviceRequest`, contrato, `buildSpendingSummary` y pruebas) · T7–T12 migración v4,
-  repositorios SQLite/localStorage, pruebas y `docs/data_model.md` · T13–T23 `src/assistant/` (`LlmClient`,
-  config, prompt, `HttpLlmClient`, validación, reserva, `AdviceService`, `FakeLlmClient` y pruebas) ·
-  T24–T26 aviso `2026-11` y ajuste de pruebas de H12 · T27–T33 loader, `RecommendationsPanel`, pestaña
-  «Alertas», `AppShell`/`App` y pruebas · T34–T35 docs y regla 15 · T36–T38 regresión, trazabilidad e `./init.sh`.
+- Implementer (`claude-code`, rol `implementer`) ejecutando `specs/h11_exportar_historial/tasks.md`:
+  T1–T4 dominio (`findAll()` en el contrato, `CsvExporter`, parser de prueba y pruebas) · T5–T8
+  `findAll()` SQLite, `readStoredExpenses` y pruebas · T9–T17 `exportHistory`, `csvDelivery`,
+  `ExportHistoryPanel`, pestaña «Gastos», `App.jsx` y pruebas · T18 docs · T19–T21 regresión,
+  trazabilidad e `./init.sh`.
 
 ## Bitácora
 
@@ -43,9 +43,19 @@
 - `2026-11-15` (`implementer`): T27–T33 listas. `loadSpendingSummary`, `RecommendationsPanel` (Mobile First + Desktop, botón de 44 px, estados idle/loading/ready, avisos de límite y configuración), panel al final de la pestaña «Alertas» (después de `RecurrencesPanel`), controlador con `advice`/`requestAdvice()`, `AppShell`/`App` con `LocalStorageAdviceRequestRepository` y `HttpLlmClient` solo con clave. Casos existentes de H5/H7/H8/H9/H13 sin cambios. `npm test` 232/232, ESLint limpio.
 - `2026-11-15` (`implementer`): T34–T38 listas. Docs (`llm_assistant`, `privacy`, `architecture` D7, `tools_setup`) y regla 15 de `rules.md`. Regresión: H5/H7/H8/H13 sin cambios; H12 solo literales de T25; H9 con el ajuste documentado de `user_version`. `./init.sh` en verde (232/232, ESLint limpio, harness 139/139). Reporte en `progress/impl_h10_recomendaciones_ia.md`, trazabilidad actualizada. Pendiente: `reviewer` (no se marcó `done`).
 - `2026-11-15`: `implementer` completó T1..T38 (`progress/impl_h10_recomendaciones_ia.md`, 232/232). `reviewer` emitió `APPROVED` en `progress/review_h10_recomendaciones_ia.md` y aceptó los desvíos (`[H9-R6]` con `>= 3`, sin `.env.example`). `H10` cerrada en `done`.
+- `2026-11-15`: H10 fusionada en `desarrollo` (PR #11). `./init.sh` en verde (232/232). Seleccionada `H11 — h11_exportar_historial` (`orden: 13`), rama `feature/h11-exportar-historial`. Complejidad media: lanzando `spec_author`.
+- `2026-11-15` (`spec_author`): spec de `H11` en `spec_ready` (`specs/h11_exportar_historial/`, R1..R28). Decisiones: `CsvExporter` puro en `src/domain/services/csvExporter.js`; formato es-AR con BOM UTF-8, separador `;`, CRLF, encabezado `Fecha;Monto (ARS);Categoría;Subcategoría;Nota`, fecha ISO `YYYY-MM-DD`, monto con coma decimal y 2 decimales por aritmética entera, orden fecha/id ascendente, escape RFC 4180 y prefijo `'` ante `=`/`+`/`-`/`@`/tab/CR (OWASP), sin fila de totales; archivo `gestix_gastos_<YYYY-MM-DD>.csv`; sin gastos no se entrega archivo y se muestra mensaje; nuevo `ExpenseRepository.findAll()` (SQLite con `JOIN` y `ORDER BY date, id`; navegador vía `readStoredExpenses(storage)` en `src/data/repositories/localStorageExpenseReader.js`; memoria en `MonthlyOverviewScreen`), sin migración; entrega con `Blob` + `<a download>` y «Compartir» con Web Share API solo si `canShare({ files })`, aislada en `src/features/export/csvDelivery.js` y sin red; panel `ExportHistoryPanel` al final de la pestaña «Gastos» (menú de perfil descartado; Resumen, 5 pestañas y header intactos); el panel muestra cantidad y total exportados (CA2) y advierte que el archivo no está protegido; CA2 se prueba parseando el CSV contra `COUNT`/`SUM` de SQLite. Sin dependencias nuevas.
+- `2026-11-15`: Spec de `H11` aprobado por Francisco. Estado cambiado a `in_progress`. Lanzando `implementer`.
+- `2026-11-15` (`implementer`): T1–T4 listas. `findAll()` en el contrato `ExpenseRepository`; `CsvExporter` puro (BOM, `;`, CRLF, coma decimal entera, orden fecha/id, escape RFC 4180 y prefijo OWASP); parser de prueba `csvTestParser.js`; 15 pruebas `[H11-R2]`..`[H11-R28]` en verde.
+- `2026-11-15` (`implementer`): T5–T8 listas. `SqliteExpenseRepository.findAll()` (`JOIN categories`, `ORDER BY e.date ASC, e.id ASC`, sin migración) y `readStoredExpenses(storage)` en `localStorageExpenseReader.js`; 4 pruebas nuevas (`[H11-R1]`, `[H11-R10]`) en verde.
+- `2026-11-15` (`implementer`): T9–T13 listas. `src/features/export/` (`exportHistory.js`, `csvDelivery.js` con `Blob` + `<a download>` y Web Share API, `ExportHistoryPanel.jsx` Mobile First + Desktop); panel al final de la pestaña «Gastos» y controlador con `csvDelivery`/`exportHistory(mode)`/`exportState`; `expenseRepo.findAll()` en `App.jsx` vía `readStoredExpenses`. `AppShell.jsx` sin cambios. `npm test` 251/251, ESLint limpio.
+- `2026-11-15` (`implementer`): T14–T17 listas. Pruebas de `exportHistory` (CA2 contra `COUNT`/`SUM` de SQLite en memoria), `csvDelivery` (entorno de navegador falso, sin red), `ExportHistoryPanel` (mobile 390 px / desktop 1280 px) y 4 casos nuevos al final de `MonthlyOverviewScreen.test.jsx` (pestaña Gastos, Resumen y header sin exportación). Casos existentes sin cambios. `npm test` 278/278.
+- `2026-11-15` (`implementer`): T18 lista. `docs/architecture.md` D8 (formato CSV es-AR y entrega en el navegador), `docs/privacy.md` fila «Pérdida del dispositivo» ampliada y `docs/data_model.md` nota de `findAll()` sin migración.
+- `2026-11-15` (`implementer`): T19–T21 listas. Regresión H1..H10, H12 y H13 sin cambios en casos existentes. `./init.sh` en verde (278/278, ESLint limpio, arnés 167/167). Reporte en `progress/impl_h11_exportar_historial.md`, trazabilidad actualizada. Pendiente: `reviewer` (no se marcó `done`).
+- `2026-11-15`: `implementer` completó H11 (`progress/impl_h11_exportar_historial.md`). `reviewer` emitió `APPROVED` en `progress/review_h11_exportar_historial.md`, sin desvíos. `H11` cerrada en `done`. **Las 13 historias quedaron en `done`.**
 
 ## Próximo paso
 
-- Commits de H10 y PR de `feature/h10-recomendaciones-ia` hacia **desarrollo**.
-- Validación del equipo del cambio en la regla 15 de `rules.md`.
-- Siguiente feature: `H11 — h11_exportar_historial` (`orden: 13`).
+- Commits de H11 y PR de `feature/h11-exportar-historial` hacia **desarrollo**.
+- Decisión del equipo: pasar `desarrollo` a `main`.
+- Cierre de sesión (`/cerrar-sesion`) y registro de horas.

@@ -206,7 +206,7 @@
         "CA2. Al abrir el archivo en una planilla de cálculo, la cantidad de registros y el total coinciden con los de la aplicación."
       ],
       "sdd": true,
-      "status": "pending",
+      "status": "done",
       "orden": 13
     },
     {
