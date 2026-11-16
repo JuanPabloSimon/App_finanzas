@@ -12,6 +12,7 @@ import { formatIsoDate, formatIsoDateTime, extractYearMonth } from './core/dates
 import { PREDEFINED_CATEGORIES } from './data/db/appDatabase.js';
 import { LocalStorageRecurrenceRepository } from './data/repositories/localStorageRecurrenceRepository.js';
 import { LocalStorageAdviceRequestRepository } from './data/repositories/localStorageAdviceRequestRepository.js';
+import { readStoredExpenses } from './data/repositories/localStorageExpenseReader.js';
 import { readLlmConfig } from './assistant/llmConfig.js';
 import { HttpLlmClient } from './assistant/httpLlmClient.js';
 
@@ -117,6 +118,12 @@ function createBrowserRepositories() {
       const list = readStorage('fp_expenses', []);
       const found = list.find((e) => e.id === Number(id));
       return found ? new Expense(found) : null;
+    },
+    async findAll() {
+      if (typeof window === 'undefined' || !window.localStorage) {
+        return [];
+      }
+      return readStoredExpenses(window.localStorage);
     },
     async findByYearMonth(yearMonth) {
       const list = readStorage('fp_expenses', []);

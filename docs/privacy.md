@@ -12,7 +12,7 @@
 | Resguardo de la información | Datos solo en el dispositivo (móvil o escritorio), sin servidor propio | D1, regla 10 |
 | Transferencia a terceros declarada | El aviso informa el envío del resumen agregado al proveedor del modelo | H12, H10 |
 | Minimización | Al proveedor solo viaja el resumen agregado, sin identificadores | Regla 15 |
-| Pérdida del dispositivo | Exportación CSV a pedido del usuario | H11 |
+| Pérdida del dispositivo | Exportación CSV a pedido del usuario desde la pestaña «Gastos»: incluye fecha, monto, categoría, subcategoría y nota de todos los gastos; se genera y entrega en el propio navegador (descarga o hoja de compartir del sistema) sin ninguna llamada de red ni paso por el asistente; el nombre del archivo no incluye datos de la persona y el panel advierte que el archivo incluye notas y subcategorías y no está protegido | H11, D8 |
 | No asesoramiento profesional | Advertencia visible junto a cada recomendación | Regla 18 |
 
 ## Versión del aviso

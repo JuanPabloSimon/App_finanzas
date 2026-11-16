@@ -33,6 +33,11 @@ Delivery, Suscripciones, Ropa, Educación, Otros.
 
 Índices: `idx_expenses_date (date)`, `idx_expenses_category_date (category_id, date)`.
 
+Exportación del historial (H11): `ExpenseRepository.findAll()` lee la tabla `expenses`
+completa con `JOIN categories` y `ORDER BY date ASC, id ASC` (usa `idx_expenses_date`); en el
+navegador lee la clave `fp_expenses` de `localStorage` con `readStoredExpenses(storage)`. Es
+solo lectura: no hay migración ni cambia `user_version`.
+
 ### `monthly_incomes`
 | Columna | Tipo | Restricciones |
 |---|---|---|

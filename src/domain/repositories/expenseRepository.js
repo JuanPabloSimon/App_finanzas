@@ -9,6 +9,10 @@ export class ExpenseRepository {
     throw new Error('Not implemented');
   }
 
+  async findAll() {
+    throw new Error('Not implemented');
+  }
+
   async findByYearMonth(_yearMonth) {
     void _yearMonth;
     throw new Error('Not implemented');

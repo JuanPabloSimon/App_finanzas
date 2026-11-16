@@ -104,6 +104,24 @@ export class SqliteExpenseRepository extends ExpenseRepository {
     return mapRowToExpense(row);
   }
 
+  async findAll() {
+    const rows = await this.db.all(
+      `SELECT e.id,
+              e.amount_cents,
+              e.date,
+              e.category_id,
+              c.name AS category_name,
+              e.subcategory,
+              e.note,
+              e.created_at,
+              e.updated_at
+         FROM expenses e
+         JOIN categories c ON c.id = e.category_id
+        ORDER BY e.date ASC, e.id ASC`,
+    );
+    return rows.map(mapRowToExpense);
+  }
+
   async findByYearMonth(yearMonth) {
     if (typeof yearMonth !== 'string' || !/^\d{4}-(0[1-9]|1[0-2])$/.test(yearMonth)) {
       return [];
