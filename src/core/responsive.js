@@ -19,5 +19,7 @@ export function getViewportLayout(width = 390) {
     isDesktop,
     columns: safeWidth >= BREAKPOINTS.tablet ? 2 : 1,
     containerMaxWidth: isDesktop ? 960 : 720,
+    desktopContainerWidth: isDesktop ? '80%' : '100%',
+    desktopContainerMaxWidth: isDesktop ? 1440 : isTablet ? 720 : '100%',
   });
 }

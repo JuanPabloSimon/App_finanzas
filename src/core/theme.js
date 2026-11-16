@@ -26,12 +26,12 @@ export const CORPORATE_THEME = Object.freeze({
 });
 
 export const CHART_PALETTE = Object.freeze([
-  '#0F2942',
-  '#4A3525',
-  '#1E4D7B',
-  '#7A5438',
-  '#2E6F95',
-  '#8C6D53',
-  '#3B5978',
-  '#5C4028',
+  '#2563EB',
+  '#10B981',
+  '#F59E0B',
+  '#F43F5E',
+  '#8B5CF6',
+  '#06B6D4',
+  '#84CC16',
+  '#EC4899',
 ]);
