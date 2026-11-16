@@ -233,3 +233,30 @@
   - Sin migración ni dependencias nuevas.
 - **Verificación:** `reviewer` emitió `APPROVED` en `progress/review_h11_exportar_historial.md`, sin desvíos. `./init.sh` en verde.
 - **Cierre:** `h11_exportar_historial` marcada `done`. **Las 13 historias de `feature_list.json` quedaron en `done`.**
+
+## 2026-11-16 — H14 (`h14_refactor_desktop_y_perfil`) — Refactor UX/UI Desktop, paleta vibrante de gráfico y página dedicada de perfil
+
+- **Agente:** Antigravity (`leader` → `spec_author` → `implementer` → `reviewer`) con Juan Pablo.
+- **Aprobación de spec:** `H14 aprobado por Juan Pablo el 2026-11-16`.
+- **Cambios:**
+  - Especificación SDD completa en `specs/h14_refactor_desktop_y_perfil/{requirements,design,tasks}.md` (`R1..R9`, `T1..T8`).
+  - Paleta vibrante en `CHART_PALETTE` (`src/core/theme.js`) y ancho de contenedor Desktop al `80 %` (`maxWidth: 1440`) en `src/core/responsive.js`.
+  - Método `changePassword({ id, currentPassword, newPassword })` en `SqliteUserAccountRepository` (`src/data/repositories/sqliteMonthlyIncomeRepository.js`), en memoria (`src/app/AppShell.jsx`) y en `localStorage` (`src/App.jsx`).
+  - Nueva pantalla dedicada `UserProfileScreen` (`src/features/profile/UserProfileScreen.jsx`) con edición de perfil y cambio de contraseña local.
+  - Refactor de `AppShell.jsx`, `CategoryDistributionChart.jsx` y `MonthlyOverviewScreen.jsx`: navbar `app-header` al 100 % del ancho con navegación integrada en Desktop (sin dock fijo inferior), Resumen Desktop en grilla de 2 columnas sin scroll vertical (`desktop-overview-grid` con dona SVG de `212x212` y 3 paneles informativos ejecutivos en `desktop-overview-insights`) y menú de usuario con acceso a la página dedicada de perfil.
+  - 5 pruebas nuevas etiquetadas (`[H14-R1]`..`[H14-R9]`) en `test/domain/models/monthlyIncome.test.js`, `test/data/sqliteMonthlyIncomeRepository.test.js` y `test/features/income/MonthlyOverviewScreen.test.jsx` (total: 283 pruebas en 46 suites).
+- **Verificación:** `reviewer` emitió `APPROVED` en `progress/review_h14_refactor_desktop_y_perfil.md`; `./init.ps1`, `eslint` y `npm test` (283/283, 176/176 requisitos) en verde.
+- **Cierre:** `h14_refactor_desktop_y_perfil` marcada `done` en `feature_list.json`. Próxima feature en orden: `H15 — h15_ingresos_multiples` (`orden: 15`).
+
+## 2026-11-16 — H15 (`h15_ingresos_multiples`) — Registrar múltiples ingresos en cualquier momento y acumular el total mensual
+
+- **Agente:** Antigravity (`leader` → `spec_author` → `implementer` → `reviewer`) con Juan Pablo.
+- **Aprobación de spec:** `H15 aprobado por Juan Pablo el 2026-11-16`.
+- **Cambios:**
+  - Especificación SDD completa en `specs/h15_ingresos_multiples/{requirements,design,tasks}.md` (`R1..R8`, `T1..T5`).
+  - Modelo inmutable `IncomeEntry` y `sumIncomeEntries` en `src/domain/models/monthlyIncome.js` y extensión del contrato `MonthlyIncomeRepository` (`src/domain/repositories/monthlyIncomeRepository.js`).
+  - Migración SQLite **v5** (`income_entries` + índice `idx_income_entries_date`) en `src/data/db/appDatabase.js`, documentada en `docs/data_model.md`, e implementación de `addEntry`, `findEntriesByYearMonth`, `updateEntry` y `deleteEntryById` en `SqliteMonthlyIncomeRepository` (`src/data/repositories/sqliteMonthlyIncomeRepository.js`) y en `src/App.jsx` (`fp_income_entries` sincronizando `fp_incomes`).
+  - Pestaña **Ingresos** en `src/features/income/MonthlyOverviewScreen.jsx` con carga de múltiples ingresos (monto, fecha propuesta hoy y concepto opcional), listado de movimientos del mes (`income-entries-list`) con edición y eliminación (`income-entry-edit-<id>`, `income-entry-delete-<id>`) y recálculo en vivo de todos los indicadores.
+  - 3 pruebas nuevas etiquetadas (`[H15-R1]`..`[H15-R8]`) en `test/domain/models/monthlyIncome.test.js`, `test/data/sqliteMonthlyIncomeRepository.test.js` y `test/features/income/MonthlyOverviewScreen.test.jsx` (total: 286 pruebas en 47 suites).
+- **Verificación:** `reviewer` emitió `APPROVED` en `progress/review_h15_ingresos_multiples.md`; `./init.ps1`, `eslint` y `npm test` (286/286, 184/184 requisitos) en verde.
+- **Cierre:** `h15_ingresos_multiples` marcada `done` en `feature_list.json`. **Las 15 historias de `feature_list.json` quedaron en `done`.**

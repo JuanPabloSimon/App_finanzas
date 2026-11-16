@@ -245,6 +245,43 @@
       "sdd": true,
       "status": "done",
       "orden": 8
+    },
+    {
+      "id": 14,
+      "historia": "H14",
+      "name": "h14_refactor_desktop_y_perfil",
+      "title": "Refactor UX/UI Desktop: navbar de ancho completo con navegación integrada, Resumen ejecutivo al 80 % sin scroll, paleta vibrante de gráfico y página dedicada de perfil",
+      "epic": "Visualización",
+      "priority": "alta",
+      "points": 5,
+      "iteration": 3,
+      "acceptance": [
+        "CA1. En versión Desktop, el navbar superior ocupa el 100 % del ancho de la pantalla e integra directamente los botones de navegación de las cinco secciones (Resumen, Gastos, Ingresos, Inversiones y Alertas) manteniendo su identidad visual de selección, sin mostrar la barra fija de tarjetas inferiores (que se conserva en mobile).",
+        "CA2. En versión Desktop, el contenedor principal ocupa el 80 % del ancho disponible (con tope estándar de 1440px) y la pestaña Resumen mantiene el bloqueo de scroll vertical (overflowY: hidden), distribuyendo el espacio en una grilla donde el gráfico de categorías se amplía como elemento protagónico junto a paneles informativos de pulso mensual (comparativa con el mes anterior, últimos movimientos registrados y próximos vencimientos/recurrencias).",
+        "CA3. El gráfico de distribución de gastos por categoría utiliza una paleta de colores vibrantes y de alto contraste visual, independiente de la paleta corporativa sobria del resto de la aplicación.",
+        "CA4. Al tocar el botón de usuario en el navbar, el menú desplegable ya no edita los datos ahí mismo, sino que ofrece la opción de ir a una página dedicada de Perfil del Usuario (además de Privacidad y Cerrar sesión), donde se visualizan y actualizan los datos de la cuenta local y su contraseña."
+      ],
+      "sdd": true,
+      "status": "done",
+      "orden": 14
+    },
+    {
+      "id": 15,
+      "historia": "H15",
+      "name": "h15_ingresos_multiples",
+      "title": "Registrar múltiples ingresos en cualquier momento y acumular el total mensual",
+      "epic": "Registro",
+      "priority": "alta",
+      "points": 5,
+      "iteration": 3,
+      "acceptance": [
+        "CA1. El usuario puede registrar múltiples ingresos individuales en cualquier fecha del mes (con monto mayor que cero, fecha propuesta por defecto en el día actual y concepto/nota opcional), quedando cada ingreso guardado y listado en la pestaña Ingresos de forma análoga a los gastos.",
+        "CA2. El ingreso total del período se calcula automáticamente como la suma acumulada de todos los ingresos registrados en ese mes, actualizando sin reiniciar la aplicación los indicadores del Resumen, el balance disponible, la absorción por categoría y el resumen para recomendaciones.",
+        "CA3. El usuario puede eliminar (o editar) un ingreso individual registrado en el mes y el total acumulado de ingresos y los porcentajes de absorción se recalculan de inmediato."
+      ],
+      "sdd": true,
+      "status": "done",
+      "orden": 15
     }
   ]
 }

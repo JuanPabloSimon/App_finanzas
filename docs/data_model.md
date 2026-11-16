@@ -45,6 +45,19 @@ solo lectura: no hay migración ni cambia `user_version`.
 | amount_cents | INTEGER | NOT NULL, CHECK (amount_cents > 0) |
 | updated_at | TEXT | NOT NULL |
 
+### `income_entries` (H15, múltiples ingresos por período)
+| Columna | Tipo | Restricciones |
+|---|---|---|
+| id | INTEGER | PK autoincremental |
+| amount_cents | INTEGER | NOT NULL, CHECK (amount_cents > 0) |
+| date | TEXT | NOT NULL, `YYYY-MM-DD` |
+| note | TEXT | NULL (concepto opcional hasta 200 caracteres) |
+| created_at | TEXT | NOT NULL, ISO 8601 |
+
+Índice: `idx_income_entries_date (date)`.
+
+Cada alta (`addEntry`), edición (`updateEntry`) o baja (`deleteEntryById`) de un movimiento de ingreso en `income_entries` recalcula la suma acumulada del período (`substr(date, 1, 7)`) y sincroniza el total en `monthly_incomes` (o elimina la fila si no quedan ingresos en el mes). En el navegador se persiste bajo la clave `fp_income_entries` de `localStorage`.
+
 ### `dismissed_recurrences` (H9)
 | Columna | Tipo | Restricciones |
 |---|---|---|
@@ -131,5 +144,6 @@ propaga para que no se invoque al modelo sin registro.
 | 2 | `user_accounts`, `investments`, `reminders` | H5 y Panel de Resumen General |
 | 3 | `dismissed_recurrences` | H9 |
 | 4 | `advice_requests` | H10 |
+| 5 | `income_entries` + `idx_income_entries_date` | H15 |
 
 Regla: nunca se modifica una migración ya publicada; se agrega una nueva versión en `src/data/db/`.

@@ -7,7 +7,7 @@ import {
   SqliteReminderRepository,
   SqliteUserAccountRepository,
 } from '../../src/data/repositories/sqliteMonthlyIncomeRepository.js';
-import { MonthlyIncome } from '../../src/domain/models/monthlyIncome.js';
+import { MonthlyIncome, IncomeEntry } from '../../src/domain/models/monthlyIncome.js';
 import { Investment } from '../../src/domain/models/investment.js';
 import { Reminder } from '../../src/domain/models/reminder.js';
 import {
@@ -144,5 +144,116 @@ describe('H5 persistencia de ingreso mensual, inversiones, recordatorios y cuent
       () => userRepo.authenticate({ username: 'juanpablo', password: '9999' }),
       InvalidCredentials,
     );
+  });
+
+  it('[H14-R8][H14-R9] cambia la contraseña local en SQLite cuando la clave actual es válida y la nueva tiene >= 4 caracteres, rechazando claves inválidas sin modificar user_accounts', async () => {
+    const created = await userRepo.register({
+      fullName: 'Juan Pablo',
+      username: 'juanpablo',
+      password: '1234',
+    });
+
+    await assert.rejects(
+      () =>
+        userRepo.changePassword({
+          id: created.id,
+          currentPassword: 'wrong',
+          newPassword: '5678',
+        }),
+      InvalidCredentials,
+    );
+
+    await assert.rejects(
+      () =>
+        userRepo.changePassword({
+          id: created.id,
+          currentPassword: '1234',
+          newPassword: '12',
+        }),
+      InvalidCredentials,
+    );
+
+    const stillOld = await userRepo.authenticate({
+      username: 'juanpablo',
+      password: '1234',
+    });
+    assert.equal(stillOld.id, created.id);
+
+    const changed = await userRepo.changePassword({
+      id: created.id,
+      currentPassword: '1234',
+      newPassword: 'nuevaClave99',
+    });
+    assert.equal(changed, true);
+
+    await assert.rejects(
+      () => userRepo.authenticate({ username: 'juanpablo', password: '1234' }),
+      InvalidCredentials,
+    );
+
+    const withNew = await userRepo.authenticate({
+      username: 'juanpablo',
+      password: 'nuevaClave99',
+    });
+    assert.equal(withNew.username, 'juanpablo');
+  });
+
+  it('[H15-R3][H15-R4][H15-R5] ejecuta la migración v5 (income_entries), persiste múltiples ingresos en el mes ordenados por fecha descendente, acumula su suma en findByYearMonth y recalcula al editar o eliminar', async () => {
+    const version = await db.get('PRAGMA user_version;');
+    assert.equal(Number(version.user_version), 5);
+    const idx = await db.get(
+      "SELECT name FROM sqlite_master WHERE type = 'index' AND name = 'idx_income_entries_date'",
+    );
+    assert.notEqual(idx, null);
+
+    const e1 = await incomeRepo.addEntry(
+      new IncomeEntry({
+        amountCents: 100000000,
+        date: '2026-11-02',
+        note: 'Sueldo',
+        createdAt: '2026-11-02T09:00:00',
+      }),
+    );
+    const e2 = await incomeRepo.addEntry(
+      new IncomeEntry({
+        amountCents: 45000000,
+        date: '2026-11-12',
+        note: 'Honorarios freelance',
+        createdAt: '2026-11-12T14:00:00',
+      }),
+    );
+    await incomeRepo.addEntry(
+      new IncomeEntry({
+        amountCents: 80000000,
+        date: '2026-10-05',
+        note: 'Octubre',
+        createdAt: '2026-10-05T10:00:00',
+      }),
+    );
+
+    const novEntries = await incomeRepo.findEntriesByYearMonth('2026-11');
+    assert.equal(novEntries.length, 2);
+    assert.equal(novEntries[0].id, e2.id);
+    assert.equal(novEntries[0].note, 'Honorarios freelance');
+    assert.equal(novEntries[1].id, e1.id);
+
+    const novTotal = await incomeRepo.findByYearMonth('2026-11');
+    assert.notEqual(novTotal, null);
+    assert.equal(novTotal.amountCents, 145000000);
+
+    await incomeRepo.updateEntry(
+      e2.copyWith({ amountCents: 60000000, note: 'Honorarios actualizados' }),
+    );
+    const afterUpdate = await incomeRepo.findByYearMonth('2026-11');
+    assert.equal(afterUpdate.amountCents, 160000000);
+
+    await incomeRepo.deleteEntryById(e1.id);
+    const afterDeleteOne = await incomeRepo.findByYearMonth('2026-11');
+    assert.equal(afterDeleteOne.amountCents, 60000000);
+
+    await incomeRepo.deleteEntryById(e2.id);
+    const afterDeleteAll = await incomeRepo.findByYearMonth('2026-11');
+    assert.equal(afterDeleteAll, null);
+    assert.deepEqual(await incomeRepo.findEntriesByYearMonth('2026-11'), []);
   });
 });

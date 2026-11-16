@@ -3,59 +3,26 @@
 > Se vacía al cerrar cada sesión y su resumen pasa a `history.md`.
 > Mientras trabajás, **mantenelo actualizado en tiempo real**, no al final.
 
-- **Feature en curso:** `H11 — h11_exportar_historial` (`orden: 13`, `done`)
-- **Herramienta:** `claude-code`
-- **Rol / agente:** `leader` → `implementer` (`claude-code`) para H11
-- **Integrante responsable:** Francisco
-- **Inicio:** `2026-11-15`
+- **Feature en curso:** `H15 — h15_ingresos_multiples` (`orden: 15`, `done`)
+- **Herramienta:** `antigravity`
+- **Rol / agente:** `leader` → `reviewer` (`antigravity`)
+- **Integrante responsable:** Juan Pablo
+- **Inicio:** `2026-11-16`
 
 ## Aprobaciones de spec
 
-- `H9 aprobado por Francisco el 2026-11-15` (`done`)
-- `H10 aprobado por Francisco el 2026-11-15` (`done`)
-- `H11 aprobado por Francisco el 2026-11-15` (`done`)
+- `H14 aprobado por Juan Pablo el 2026-11-16` (`done`)
+- `H15 aprobado por Juan Pablo el 2026-11-16` (`done`)
 
 ## Plan
 
-- Implementer (`claude-code`, rol `implementer`) ejecutando `specs/h11_exportar_historial/tasks.md`:
-  T1–T4 dominio (`findAll()` en el contrato, `CsvExporter`, parser de prueba y pruebas) · T5–T8
-  `findAll()` SQLite, `readStoredExpenses` y pruebas · T9–T17 `exportHistory`, `csvDelivery`,
-  `ExportHistoryPanel`, pestaña «Gastos», `App.jsx` y pruebas · T18 docs · T19–T21 regresión,
-  trazabilidad e `./init.sh`.
+- `H14` y `H15` completadas bajo SDD y aprobadas por `reviewer` (`done`).
 
 ## Bitácora
 
-- `2026-11-15`: `desarrollo` sincronizado con `origin` (H7 y H8 en `done`). `./init.sh` en verde (118/118). Seleccionada `H9`; su spec existía como borrador de referencia desactualizado (migración v2 ya usada, UI fuera de la pestaña Alertas). Lanzando `spec_author` para actualizarlo.
-- `2026-11-15` (`spec_author`): spec de H9 actualizado y en `spec_ready`. Cambios sobre el borrador: migración **v3** (`MIGRATION_V3_SQL`, v1/v2 intactas); UI como `RecurrencesPanel` dentro de la pestaña «Alertas» (`reminders`) de `MonthlyOverviewScreen` (Resumen sin cambios, H13 intacto) en lugar de `RecurrencesScreen`; R7 ahora compara descartes con tolerancia ±10 % y clave exacta `<categoryId>|<typicalAmountCents>` (el redondeo a $10 hacía reaparecer descartadas, CA3); R8/R9 ubicados en Alertas; nuevo R11 (exclusión fuera de ventana); algoritmo de agrupamiento 20 % reemplazado por barrido validado contra la mediana (el anterior partía conjuntos válidos de ±10 %, R1); lectura de la ventana con 3 `findByYearMonth` (sin cambiar `ExpenseRepository`); `InvalidRecurrence`, `LocalStorageRecurrenceRepository` para el navegador, cableado en `AppShell.jsx`/`App.jsx` y pruebas mapeadas a la estructura real de `test/`. Se quitó la nota de borrador.
-- `2026-11-15`: Spec de `H9` aprobado por Francisco. Estado cambiado a `in_progress`. Lanzando `implementer`.
-- `2026-11-15` (`implementer`): T1–T8 listas. Fixture etiquetado (106 gastos, 22 recurrencias, 31 señuelos/atípicos); `InvalidRecurrence`, `Recurrence`, `RecurrenceDetector`, `filterDismissedRecurrences`, contrato `RecurrenceRepository`; 19 pruebas de dominio en verde; K4 exhaustividad 1,00 y precisión 1,00.
-- `2026-11-15` (`implementer`): T9–T14 listas. Migración v3 (`dismissed_recurrences`), formato de clave en `docs/data_model.md`, `SqliteRecurrenceRepository` y `LocalStorageRecurrenceRepository` con 7 pruebas; `npm test` 144/144.
-- `2026-11-15` (`implementer`): T15–T24 listas. `recurrencesLoader`, `RecurrencesPanel` (Mobile First + Desktop), panel al final de la pestaña «Alertas», controlador con `recurrences`/`dismissRecurrence`, cableado `AppShell`/`App` con `LocalStorageRecurrenceRepository`. Casos existentes sin modificar. `./init.sh` en verde (156/156, ESLint limpio, harness H9 OK). Reporte en `progress/impl_h09_deteccion_recurrencias.md`, trazabilidad actualizada. Pendiente: `reviewer` (no se marcó `done`).
-- `2026-11-15`: `implementer` completó T1..T24 (`progress/impl_h09_deteccion_recurrencias.md`). `reviewer` emitió `APPROVED` en `progress/review_h09_deteccion_recurrencias.md` (156/156 pruebas, K4 exhaustividad 1,00 y precisión 1,00). `H9` cerrada en `done`.
-- `2026-11-15`: H9 fusionada en `desarrollo` (PR #10). `./init.sh` en verde (156/156). Seleccionada `H10 — h10_recomendaciones_ia` (`orden: 12`), rama `feature/h10-recomendaciones-ia`. Compleja (IA + privacidad): lanzando 3 `Explore` y luego `spec_author`.
-- `2026-11-15`: Investigación de H10 en `progress/explore_h10_{contrato_llm,datos_resumen,ui_pruebas}.md`. Decisiones de Francisco: proveedor **Google Gemini (Flash)** con `fetch` nativo y sin SDK; la actualización del aviso de privacidad (nueva `policy_version`, que agregue el ingreso mensual y los nombres de categorías) entra en H10. Lanzando `spec_author`.
-- `2026-11-15` (`spec_author`): spec de `H10` en `spec_ready` (`specs/h10_recomendaciones_ia/`, R1..R34; harness OK). Decisiones: Gemini Flash por REST (`gemini-2.5-flash` configurable con `VITE_LLM_MODEL`, clave en encabezado `x-goog-api-key`, `fetch` inyectable, sin SDK); consume cupo toda invocación al modelo, registrada antes de invocar (4 por mes local y por navegador, `fp_advice_requests`, migración v4 con CHECK e índice); «Otros» fuera de las 8 (máximo 9); pesos con redondeo de medios hacia arriba; `variacion_pct` null sin mes anterior; `monto_tipico` redondeado a $100 y como máximo 10 recurrencias; validación con rechazo total (tolera un solo bloque markdown, largos en *code points*, `categoria` del resumen o «General»); reserva con el mismo formato de 1 a 3 sugerencias; sin clave, reserva sin consumir cupo; panel en «Alertas» después de recurrencias, a pedido con botón; aviso `2026-11` con ingreso y nombres de categorías, y ajuste justificado de 3 literales de pruebas de H12; sin `.env.example` (lo bloquea el hook `protect_secrets.sh`; las variables se documentan en `docs/tools_setup.md`); T35 aclara la regla 15 en `rules.md` («nombres de personas») si se aprueba el spec.
-- `2026-11-15`: Spec de `H10` aprobado por Francisco. Estado cambiado a `in_progress`. Lanzando `implementer`.
-- `2026-11-15` (`implementer`): T1–T6 listas. Errores `InvalidAdviceRequest`/`InvalidLlmResponse`/`LlmTimeout`/`LlmRequestFailed`, modelo `AdviceRequest`, contrato `AdviceRequestRepository` y `buildSpendingSummary` (lista blanca, top 8 + «Otros», `variacion_pct` null, 10 recurrencias a $100). 14 pruebas nuevas; `npm test` 170/170.
-- `2026-11-15` (`implementer`): T7–T12 listas. Migración v4 (`advice_requests` con CHECK e índice), `SqliteAdviceRequestRepository`, `LocalStorageAdviceRequestRepository` (`fp_advice_requests`), 8 pruebas y `docs/data_model.md`. Desvío: la prueba `[H9-R6]` fijaba `user_version === 3`; con la v4 obligatoria se ajustaron sus 2 aserciones a `>= 3` (ver `progress/impl_h10_recomendaciones_ia.md`). `npm test` 178/178.
-- `2026-11-15` (`implementer`): T13–T23 listas. `src/assistant/`: `LlmClient`, `readLlmConfig`, `prompt.js` (`h10-v1`), `HttpLlmClient` (Gemini REST, `x-goog-api-key`, `fetchImpl` inyectable; único archivo con red), `adviceResponse.js`, `fallbackAdvisor.js`, `AdviceService` (consentimiento → clave → datos → cupo → registro → timeout 10 s con `AbortController`). `FakeLlmClient` en `test/assistant/`. 38 pruebas nuevas sin red; `npm test` 216/216, ESLint limpio.
-- `2026-11-15` (`implementer`): T24–T26 listas. `CURRENT_POLICY_VERSION = 2026-11` y nuevo texto de `thirdPartyTransfer` (Gemini, ingreso mensual, nombres de categorías). Ajustados solo los literales de versión vigente indicados en `design.md` (`consent.test.js`, `sqliteConsentRepository.test.js:34`, `PrivacyNoticeScreen.test.jsx:195`). Pruebas `[H10-R30]` y `[H10-R31]`.
-- `2026-11-15` (`implementer`): T27–T33 listas. `loadSpendingSummary`, `RecommendationsPanel` (Mobile First + Desktop, botón de 44 px, estados idle/loading/ready, avisos de límite y configuración), panel al final de la pestaña «Alertas» (después de `RecurrencesPanel`), controlador con `advice`/`requestAdvice()`, `AppShell`/`App` con `LocalStorageAdviceRequestRepository` y `HttpLlmClient` solo con clave. Casos existentes de H5/H7/H8/H9/H13 sin cambios. `npm test` 232/232, ESLint limpio.
-- `2026-11-15` (`implementer`): T34–T38 listas. Docs (`llm_assistant`, `privacy`, `architecture` D7, `tools_setup`) y regla 15 de `rules.md`. Regresión: H5/H7/H8/H13 sin cambios; H12 solo literales de T25; H9 con el ajuste documentado de `user_version`. `./init.sh` en verde (232/232, ESLint limpio, harness 139/139). Reporte en `progress/impl_h10_recomendaciones_ia.md`, trazabilidad actualizada. Pendiente: `reviewer` (no se marcó `done`).
-- `2026-11-15`: `implementer` completó T1..T38 (`progress/impl_h10_recomendaciones_ia.md`, 232/232). `reviewer` emitió `APPROVED` en `progress/review_h10_recomendaciones_ia.md` y aceptó los desvíos (`[H9-R6]` con `>= 3`, sin `.env.example`). `H10` cerrada en `done`.
-- `2026-11-15`: H10 fusionada en `desarrollo` (PR #11). `./init.sh` en verde (232/232). Seleccionada `H11 — h11_exportar_historial` (`orden: 13`), rama `feature/h11-exportar-historial`. Complejidad media: lanzando `spec_author`.
-- `2026-11-15` (`spec_author`): spec de `H11` en `spec_ready` (`specs/h11_exportar_historial/`, R1..R28). Decisiones: `CsvExporter` puro en `src/domain/services/csvExporter.js`; formato es-AR con BOM UTF-8, separador `;`, CRLF, encabezado `Fecha;Monto (ARS);Categoría;Subcategoría;Nota`, fecha ISO `YYYY-MM-DD`, monto con coma decimal y 2 decimales por aritmética entera, orden fecha/id ascendente, escape RFC 4180 y prefijo `'` ante `=`/`+`/`-`/`@`/tab/CR (OWASP), sin fila de totales; archivo `gestix_gastos_<YYYY-MM-DD>.csv`; sin gastos no se entrega archivo y se muestra mensaje; nuevo `ExpenseRepository.findAll()` (SQLite con `JOIN` y `ORDER BY date, id`; navegador vía `readStoredExpenses(storage)` en `src/data/repositories/localStorageExpenseReader.js`; memoria en `MonthlyOverviewScreen`), sin migración; entrega con `Blob` + `<a download>` y «Compartir» con Web Share API solo si `canShare({ files })`, aislada en `src/features/export/csvDelivery.js` y sin red; panel `ExportHistoryPanel` al final de la pestaña «Gastos» (menú de perfil descartado; Resumen, 5 pestañas y header intactos); el panel muestra cantidad y total exportados (CA2) y advierte que el archivo no está protegido; CA2 se prueba parseando el CSV contra `COUNT`/`SUM` de SQLite. Sin dependencias nuevas.
-- `2026-11-15`: Spec de `H11` aprobado por Francisco. Estado cambiado a `in_progress`. Lanzando `implementer`.
-- `2026-11-15` (`implementer`): T1–T4 listas. `findAll()` en el contrato `ExpenseRepository`; `CsvExporter` puro (BOM, `;`, CRLF, coma decimal entera, orden fecha/id, escape RFC 4180 y prefijo OWASP); parser de prueba `csvTestParser.js`; 15 pruebas `[H11-R2]`..`[H11-R28]` en verde.
-- `2026-11-15` (`implementer`): T5–T8 listas. `SqliteExpenseRepository.findAll()` (`JOIN categories`, `ORDER BY e.date ASC, e.id ASC`, sin migración) y `readStoredExpenses(storage)` en `localStorageExpenseReader.js`; 4 pruebas nuevas (`[H11-R1]`, `[H11-R10]`) en verde.
-- `2026-11-15` (`implementer`): T9–T13 listas. `src/features/export/` (`exportHistory.js`, `csvDelivery.js` con `Blob` + `<a download>` y Web Share API, `ExportHistoryPanel.jsx` Mobile First + Desktop); panel al final de la pestaña «Gastos» y controlador con `csvDelivery`/`exportHistory(mode)`/`exportState`; `expenseRepo.findAll()` en `App.jsx` vía `readStoredExpenses`. `AppShell.jsx` sin cambios. `npm test` 251/251, ESLint limpio.
-- `2026-11-15` (`implementer`): T14–T17 listas. Pruebas de `exportHistory` (CA2 contra `COUNT`/`SUM` de SQLite en memoria), `csvDelivery` (entorno de navegador falso, sin red), `ExportHistoryPanel` (mobile 390 px / desktop 1280 px) y 4 casos nuevos al final de `MonthlyOverviewScreen.test.jsx` (pestaña Gastos, Resumen y header sin exportación). Casos existentes sin cambios. `npm test` 278/278.
-- `2026-11-15` (`implementer`): T18 lista. `docs/architecture.md` D8 (formato CSV es-AR y entrega en el navegador), `docs/privacy.md` fila «Pérdida del dispositivo» ampliada y `docs/data_model.md` nota de `findAll()` sin migración.
-- `2026-11-15` (`implementer`): T19–T21 listas. Regresión H1..H10, H12 y H13 sin cambios en casos existentes. `./init.sh` en verde (278/278, ESLint limpio, arnés 167/167). Reporte en `progress/impl_h11_exportar_historial.md`, trazabilidad actualizada. Pendiente: `reviewer` (no se marcó `done`).
-- `2026-11-15`: `implementer` completó H11 (`progress/impl_h11_exportar_historial.md`). `reviewer` emitió `APPROVED` en `progress/review_h11_exportar_historial.md`, sin desvíos. `H11` cerrada en `done`. **Las 13 historias quedaron en `done`.**
+- `2026-11-16`: `H14 — h14_refactor_desktop_y_perfil` completada y cerrada en `done` (`progress/review_h14_refactor_desktop_y_perfil.md`), incluyendo el ajuste de contenedor estático del gráfico en Resumen con scroll interno exclusivo en la lista de categorías (`category-breakdown-list`).
+- `2026-11-16`: `H15 — h15_ingresos_multiples` aprobada por Juan Pablo, implementada (`T1..T5`, `progress/impl_h15_ingresos_multiples.md`) y aprobada por `reviewer` (`APPROVED` en `progress/review_h15_ingresos_multiples.md`). **Las 15 historias de `feature_list.json` quedaron en `done`.**
 
 ## Próximo paso
 
-- Commits de H11 y PR de `feature/h11-exportar-historial` hacia **desarrollo**.
-- Decisión del equipo: pasar `desarrollo` a `main`.
-- Cierre de sesión (`/cerrar-sesion`) y registro de horas.
+- Verificación visual en navegador y decisión de cierre de sesión / commits.

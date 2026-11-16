@@ -3,11 +3,11 @@ import { AppShell } from './app/AppShell.jsx';
 import { Consent, CURRENT_POLICY_VERSION } from './domain/models/consent.js';
 import { Category } from './domain/models/category.js';
 import { Expense } from './domain/models/expense.js';
-import { MonthlyIncome } from './domain/models/monthlyIncome.js';
+import { MonthlyIncome, IncomeEntry, sumIncomeEntries } from './domain/models/monthlyIncome.js';
 import { Investment } from './domain/models/investment.js';
 import { Reminder } from './domain/models/reminder.js';
 import { UserAccount } from './domain/models/userAccount.js';
-import { InvalidCategory, ExpenseNotFound, InvalidCredentials } from './core/errors.js';
+import { InvalidCategory, ExpenseNotFound, InvalidCredentials, InvalidAmount } from './core/errors.js';
 import { formatIsoDate, formatIsoDateTime, extractYearMonth } from './core/dates.js';
 import { PREDEFINED_CATEGORIES } from './data/db/appDatabase.js';
 import { LocalStorageRecurrenceRepository } from './data/repositories/localStorageRecurrenceRepository.js';
@@ -166,7 +166,79 @@ function createBrowserRepositories() {
     },
   };
 
+  const syncBrowserIncomeAggregate = (yearMonth) => {
+    const entries = readStorage('fp_income_entries', []);
+    const total = sumIncomeEntries(entries, yearMonth);
+    const map = readStorage('fp_incomes', {});
+    if (total > 0) {
+      map[yearMonth] = {
+        yearMonth,
+        amountCents: total,
+        updatedAt: formatIsoDateTime(new Date()),
+      };
+    } else {
+      delete map[yearMonth];
+    }
+    writeStorage('fp_incomes', map);
+  };
+
   const incomeRepo = {
+    async addEntry(entry) {
+      const record = entry instanceof IncomeEntry ? entry : new IncomeEntry(entry);
+      const list = readStorage('fp_income_entries', []);
+      const nextId = list.reduce((max, item) => Math.max(max, item.id ?? 0), 0) + 1;
+      const saved = new IncomeEntry({
+        id: nextId,
+        amountCents: record.amountCents,
+        date: record.date,
+        note: record.note,
+        createdAt: record.createdAt ?? formatIsoDateTime(new Date()),
+      });
+      list.push(saved);
+      writeStorage('fp_income_entries', list);
+      syncBrowserIncomeAggregate(saved.yearMonth);
+      return saved;
+    },
+    async findEntriesByYearMonth(yearMonth) {
+      const list = readStorage('fp_income_entries', []);
+      return list
+        .filter((e) => typeof e.date === 'string' && e.date.slice(0, 7) === yearMonth)
+        .sort((a, b) =>
+          a.date !== b.date ? b.date.localeCompare(a.date) : (b.id ?? 0) - (a.id ?? 0),
+        )
+        .map((e) => new IncomeEntry(e));
+    },
+    async updateEntry(entry) {
+      const record = entry instanceof IncomeEntry ? entry : new IncomeEntry(entry);
+      const list = readStorage('fp_income_entries', []);
+      const idx = list.findIndex((e) => e.id === Number(record.id));
+      if (idx === -1) throw new InvalidAmount('El ingreso seleccionado no existe');
+      const prevYm = extractYearMonth(list[idx].date);
+      const updated = new IncomeEntry({
+        id: Number(record.id),
+        amountCents: record.amountCents,
+        date: record.date,
+        note: record.note,
+        createdAt: list[idx].createdAt,
+      });
+      list[idx] = updated;
+      writeStorage('fp_income_entries', list);
+      syncBrowserIncomeAggregate(updated.yearMonth);
+      if (prevYm !== updated.yearMonth) {
+        syncBrowserIncomeAggregate(prevYm);
+      }
+      return updated;
+    },
+    async deleteEntryById(id) {
+      const list = readStorage('fp_income_entries', []);
+      const idx = list.findIndex((e) => e.id === Number(id));
+      if (idx === -1) throw new InvalidAmount('El ingreso seleccionado no existe');
+      const ym = extractYearMonth(list[idx].date);
+      list.splice(idx, 1);
+      writeStorage('fp_income_entries', list);
+      syncBrowserIncomeAggregate(ym);
+      return true;
+    },
     async save(income) {
       const record =
         income instanceof MonthlyIncome ? income : new MonthlyIncome(income);
@@ -180,6 +252,15 @@ function createBrowserRepositories() {
       return new MonthlyIncome(map[record.yearMonth]);
     },
     async findByYearMonth(yearMonth) {
+      const entries = readStorage('fp_income_entries', []);
+      const entriesTotal = sumIncomeEntries(entries, yearMonth);
+      if (entriesTotal > 0) {
+        return new MonthlyIncome({
+          yearMonth,
+          amountCents: entriesTotal,
+          updatedAt: formatIsoDateTime(new Date()),
+        });
+      }
       const map = readStorage('fp_incomes', {});
       return map[yearMonth] ? new MonthlyIncome(map[yearMonth]) : null;
     },
@@ -275,17 +356,67 @@ function createBrowserRepositories() {
       }
       return new UserAccount(found);
     },
+    async updateProfile({ id, fullName, username }) {
+      const numericId = Number(id);
+      const draft = new UserAccount({ id: numericId || 1, fullName, username });
+      const accounts = readStorage('fp_accounts', []);
+      if (accounts.some((a) => a.username === draft.username && a.id !== numericId)) {
+        throw new InvalidCredentials('Ya existe una cuenta con ese usuario');
+      }
+      const idx = accounts.findIndex((a) => a.id === numericId);
+      if (idx !== -1) {
+        accounts[idx] = {
+          ...accounts[idx],
+          fullName: draft.fullName,
+          username: draft.username,
+        };
+        writeStorage('fp_accounts', accounts);
+        return new UserAccount(accounts[idx]);
+      }
+      return draft;
+    },
+    async changePassword({ id, currentPassword, newPassword }) {
+      const numericId = Number(id);
+      const cleanCurrent =
+        typeof currentPassword === 'string' ? currentPassword.trim() : '';
+      const cleanNew = typeof newPassword === 'string' ? newPassword.trim() : '';
+      if (!cleanCurrent) {
+        throw new InvalidCredentials('Ingresá tu clave actual');
+      }
+      if (cleanNew.length < 4) {
+        throw new InvalidCredentials('La nueva clave debe tener al menos 4 caracteres');
+      }
+      const accounts = readStorage('fp_accounts', []);
+      const idx = accounts.findIndex((a) => a.id === numericId);
+      if (idx === -1) {
+        throw new InvalidCredentials('La cuenta de usuario no existe');
+      }
+      if (accounts[idx].passwordHash !== `local:${cleanCurrent}`) {
+        throw new InvalidCredentials('La clave actual es incorrecta');
+      }
+      accounts[idx] = {
+        ...accounts[idx],
+        passwordHash: `local:${cleanNew}`,
+      };
+      writeStorage('fp_accounts', accounts);
+      return true;
+    },
   };
 
   const seedDemoDataIfEmpty = async () => {
     const todayStr = formatIsoDate(new Date());
     const ym = extractYearMonth(todayStr);
-    const existingIncome = await incomeRepo.findByYearMonth(ym);
-    if (!existingIncome) {
-      await incomeRepo.save({
-        yearMonth: ym,
-        amountCents: 185000000,
-        updatedAt: formatIsoDateTime(new Date()),
+    const existingIncomeEntries = await incomeRepo.findEntriesByYearMonth(ym);
+    if (existingIncomeEntries.length === 0) {
+      await incomeRepo.addEntry({
+        amountCents: 150000000,
+        date: `${ym}-01`,
+        note: 'Haberes mensuales acreditados',
+      });
+      await incomeRepo.addEntry({
+        amountCents: 35000000,
+        date: `${ym}-10`,
+        note: 'Honorarios profesionales independientes',
       });
     }
     const existingExpenses = await expenseRepo.findByYearMonth(ym);
