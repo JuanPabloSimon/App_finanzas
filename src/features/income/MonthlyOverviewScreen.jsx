@@ -43,6 +43,9 @@ import { AdviceService } from '../../assistant/adviceService.js';
 import { buildFallbackAdvice } from '../../assistant/fallbackAdvisor.js';
 import { buildSpendingSummary } from '../../domain/services/spendingSummaryBuilder.js';
 import { MONTHLY_MODEL_REQUEST_LIMIT } from '../../domain/models/adviceRequest.js';
+import { ExportHistoryPanel } from '../export/ExportHistoryPanel.jsx';
+import { buildIdleExportState, exportHistory } from '../export/exportHistory.js';
+import { createBrowserCsvDelivery } from '../export/csvDelivery.js';
 
 const RECURRENCE_DISMISS_ERROR_MESSAGE = 'No se pudo descartar la recurrencia. Probá de nuevo.';
 
@@ -101,6 +104,11 @@ function createInMemoryExpenseRepository(categoryRepository) {
     },
     async findById(id) {
       return expenses.find((e) => e.id === id) ?? null;
+    },
+    async findAll() {
+      return [...expenses].sort((a, b) =>
+        a.date !== b.date ? a.date.localeCompare(b.date) : (a.id ?? 0) - (b.id ?? 0),
+      );
     },
     async findByYearMonth(yearMonth) {
       return expenses
@@ -585,6 +593,7 @@ class MonthlyOverviewController {
     recurrenceRepository,
     llmClient = null,
     adviceRequestRepository = null,
+    csvDelivery = null,
     isConsentAccepted = () => true,
     today = () => formatIsoDate(new Date()),
     now = () => new Date(),
@@ -630,6 +639,8 @@ class MonthlyOverviewController {
     this.recurrences = [];
     this.recurrenceError = null;
     this.advice = buildIdleAdviceState();
+    this.csvDelivery = csvDelivery ?? createBrowserCsvDelivery();
+    this.exportState = buildIdleExportState();
 
     this.incomeInput = '';
     this.incomeError = null;
@@ -703,6 +714,17 @@ class MonthlyOverviewController {
       yearMonth: this.activeYearMonth,
       recurrences: this.recurrences,
       remainingModelRequests: remainingBefore,
+    });
+    return this.getState();
+  }
+
+  async exportHistory(mode = 'download') {
+    this.exportState = await exportHistory({
+      expenseRepository: this.expenseRepository,
+      categoryRepository: this.categoryRepository,
+      today: this.today,
+      delivery: this.csvDelivery,
+      mode,
     });
     return this.getState();
   }
@@ -919,6 +941,7 @@ class MonthlyOverviewController {
       recurrences: [...this.recurrences],
       recurrenceError: this.recurrenceError,
       advice: this.advice,
+      exportState: this.exportState,
       totalExpensesCents,
       totalInvestmentsCents,
       availableBalanceCents,
@@ -954,8 +977,10 @@ class MonthlyOverviewController {
       recurrenceRepository: this.recurrenceRepository,
       llmClient: this.llmClient,
       adviceRequestRepository: this.adviceRequestRepository,
+      csvDelivery: this.csvDelivery,
       isConsentAccepted: this.isConsentAccepted,
       initialAdvice: state.advice,
+      initialExportState: state.exportState,
       initialCategories: state.categories,
       initialExpenses: state.expenses,
       initialPreviousMonthlyTotals: state.previousMonthlyTotals,
@@ -985,8 +1010,10 @@ export function MonthlyOverviewScreen({
   recurrenceRepository = null,
   llmClient = null,
   adviceRequestRepository = null,
+  csvDelivery = null,
   isConsentAccepted = () => true,
   initialAdvice = undefined,
+  initialExportState = undefined,
   initialCategories = undefined,
   initialExpenses = undefined,
   initialPreviousMonthlyTotals = undefined,
@@ -1056,6 +1083,11 @@ export function MonthlyOverviewScreen({
   const [recurrences, setRecurrences] = useState(initialRecurrences ?? []);
   const [recurrenceError, setRecurrenceError] = useState(initialRecurrenceError);
   const [advice, setAdvice] = useState(() => initialAdvice ?? buildIdleAdviceState());
+  const [delivery] = useState(() => csvDelivery ?? createBrowserCsvDelivery());
+  const [canShare] = useState(() => delivery.canShare());
+  const [exportState, setExportState] = useState(
+    () => initialExportState ?? buildIdleExportState(),
+  );
 
   const [incomeInput, setIncomeInput] = useState(
     initialIncomeInput !== undefined
@@ -1159,6 +1191,18 @@ export function MonthlyOverviewScreen({
       remainingModelRequests: remainingBefore,
     });
     setAdvice(next);
+  };
+
+  const handleExportHistory = async (mode) => {
+    setExportState(
+      await exportHistory({
+        expenseRepository: expRepo,
+        categoryRepository: catRepo,
+        today,
+        delivery,
+        mode,
+      }),
+    );
   };
 
   const resetAdviceForPeriodChange = () => {
@@ -1765,6 +1809,13 @@ export function MonthlyOverviewScreen({
       }),
       h(MonthlyComparisonPanel, {
         comparison: monthlyComparison,
+        viewportWidth,
+      }),
+      h(ExportHistoryPanel, {
+        exportState,
+        canShare,
+        onDownload: () => handleExportHistory('download'),
+        onShare: () => handleExportHistory('share'),
         viewportWidth,
       }),
     );
