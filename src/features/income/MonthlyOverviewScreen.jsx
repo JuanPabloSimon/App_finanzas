@@ -3,6 +3,8 @@ import { Category } from '../../domain/models/category.js';
 import { Expense } from '../../domain/models/expense.js';
 import {
   MonthlyIncome,
+  IncomeEntry,
+  sumIncomeEntries,
   calculateCategoryIncomeBreakdown,
 } from '../../domain/models/monthlyIncome.js';
 import { Investment } from '../../domain/models/investment.js';
@@ -11,6 +13,7 @@ import { buildCategoryRanking } from '../../domain/services/categoryRanking.js';
 import { buildMonthlyComparison } from '../../domain/services/monthlyComparison.js';
 import {
   DomainException,
+  InvalidAmount,
   InvalidCategory,
   ExpenseNotFound,
 } from '../../core/errors.js';
@@ -26,6 +29,7 @@ import {
   parseAmountToCents,
   formatCentsToArs,
   formatCentsToInput,
+  formatVariationTenths,
 } from '../../core/formatters.js';
 import { getViewportLayout } from '../../core/responsive.js';
 import { CORPORATE_THEME } from '../../core/theme.js';
@@ -156,7 +160,77 @@ function createInMemoryExpenseRepository(categoryRepository) {
 
 function createInMemoryIncomeRepository() {
   const map = new Map();
+  const entries = [];
+  let nextId = 1;
+
+  const syncYearMonth = (yearMonth) => {
+    const total = sumIncomeEntries(entries, yearMonth);
+    if (total > 0) {
+      map.set(
+        yearMonth,
+        new MonthlyIncome({
+          yearMonth,
+          amountCents: total,
+          updatedAt: formatIsoDateTime(new Date()),
+        }),
+      );
+    } else {
+      map.delete(yearMonth);
+    }
+  };
+
   return {
+    async addEntry(entry) {
+      const record = entry instanceof IncomeEntry ? entry : new IncomeEntry(entry);
+      const saved = new IncomeEntry({
+        id: nextId++,
+        amountCents: record.amountCents,
+        date: record.date,
+        note: record.note,
+        createdAt: record.createdAt ?? formatIsoDateTime(new Date()),
+      });
+      entries.push(saved);
+      syncYearMonth(saved.yearMonth);
+      return saved;
+    },
+    async findEntriesByYearMonth(yearMonth) {
+      return entries
+        .filter((e) => e.yearMonth === yearMonth)
+        .sort((a, b) =>
+          a.date !== b.date ? b.date.localeCompare(a.date) : (b.id ?? 0) - (a.id ?? 0),
+        );
+    },
+    async updateEntry(entry) {
+      const record = entry instanceof IncomeEntry ? entry : new IncomeEntry(entry);
+      const idx = entries.findIndex((e) => e.id === record.id);
+      if (idx === -1) {
+        throw new InvalidAmount('El ingreso seleccionado no existe');
+      }
+      const prevYm = entries[idx].yearMonth;
+      const updated = new IncomeEntry({
+        id: record.id,
+        amountCents: record.amountCents,
+        date: record.date,
+        note: record.note,
+        createdAt: entries[idx].createdAt,
+      });
+      entries[idx] = updated;
+      syncYearMonth(updated.yearMonth);
+      if (prevYm !== updated.yearMonth) {
+        syncYearMonth(prevYm);
+      }
+      return updated;
+    },
+    async deleteEntryById(id) {
+      const idx = entries.findIndex((e) => e.id === id);
+      if (idx === -1) {
+        throw new InvalidAmount('El ingreso seleccionado no existe');
+      }
+      const ym = entries[idx].yearMonth;
+      entries.splice(idx, 1);
+      syncYearMonth(ym);
+      return true;
+    },
     async save(income) {
       const record =
         income instanceof MonthlyIncome ? income : new MonthlyIncome(income);
@@ -364,10 +438,18 @@ function buildOverviewStyles(viewportWidth = 390) {
     gridColumns,
     theme: CORPORATE_THEME,
     wrapper: Object.freeze({
-      width: '100%',
+      width: layout.isDesktop ? layout.desktopContainerWidth : '100%',
       boxSizing: 'border-box',
-      padding: layout.isMobile ? '4px 6px 74px' : '8px 12px 80px',
-      maxWidth: layout.isMobile ? '100%' : layout.containerMaxWidth,
+      padding: layout.isMobile
+        ? '4px 6px 74px'
+        : layout.isDesktop
+          ? '14px 0 28px'
+          : '8px 12px 80px',
+      maxWidth: layout.isDesktop
+        ? layout.desktopContainerMaxWidth
+        : layout.isMobile
+          ? '100%'
+          : layout.containerMaxWidth,
       margin: '0 auto',
       color: CORPORATE_THEME.textPrimary,
       fontFamily: CORPORATE_THEME.fontSans,
@@ -375,10 +457,40 @@ function buildOverviewStyles(viewportWidth = 390) {
     overviewViewportBox: Object.freeze({
       display: 'flex',
       flexDirection: 'column',
-      gap: layout.isMobile ? 4 : 8,
+      gap: layout.isMobile ? 4 : layout.isDesktop ? 10 : 8,
       overflowY: 'hidden',
       boxSizing: 'border-box',
-      maxHeight: layout.isMobile ? 'calc(100dvh - 46px - 62px)' : 'none',
+      maxHeight: layout.isMobile
+        ? 'calc(100dvh - 46px - 62px)'
+        : layout.isDesktop
+          ? 'calc(100dvh - 76px)'
+          : 'none',
+    }),
+    desktopOverviewGrid: Object.freeze({
+      display: 'grid',
+      gridTemplateColumns: 'minmax(0, 1.45fr) minmax(0, 1fr)',
+      gap: 16,
+      alignItems: 'start',
+    }),
+    desktopInsightsColumn: Object.freeze({
+      display: 'flex',
+      flexDirection: 'column',
+      gap: 10,
+      minWidth: 0,
+    }),
+    desktopInsightCard: Object.freeze({
+      backgroundColor: CORPORATE_THEME.surface,
+      border: `1px solid ${CORPORATE_THEME.border}`,
+      borderTop: `2px solid ${CORPORATE_THEME.navyPrimary}`,
+      borderRadius: 6,
+      padding: '10px 14px',
+    }),
+    desktopInsightCardBrown: Object.freeze({
+      backgroundColor: CORPORATE_THEME.surface,
+      border: `1px solid ${CORPORATE_THEME.border}`,
+      borderTop: `2px solid ${CORPORATE_THEME.brownPrimary}`,
+      borderRadius: 6,
+      padding: '10px 14px',
     }),
     topBar: Object.freeze({
       display: 'flex',
@@ -414,8 +526,8 @@ function buildOverviewStyles(viewportWidth = 390) {
       transition: 'background-color 150ms ease',
     }),
     tabsBar: Object.freeze({
-      position: 'fixed',
-      bottom: 0,
+      position: layout.isDesktop ? 'static' : 'fixed',
+      bottom: layout.isDesktop ? 'auto' : 0,
       left: 0,
       right: 0,
       zIndex: 40,
@@ -423,15 +535,30 @@ function buildOverviewStyles(viewportWidth = 390) {
       gridTemplateColumns: 'repeat(5, minmax(0, 1fr))',
       gap: layout.isMobile ? 4 : 8,
       padding: layout.isMobile ? '6px 6px 6px' : '8px 20px 8px',
-      maxWidth: layout.isMobile ? '100%' : layout.containerMaxWidth,
-      margin: '0 auto',
+      width: '100%',
+      maxWidth: layout.isDesktop
+        ? '100%'
+        : layout.isMobile
+          ? '100%'
+          : layout.containerMaxWidth,
+      margin: layout.isDesktop ? '0 0 12px 0' : '0 auto',
       boxSizing: 'border-box',
-      backgroundColor: 'rgba(242, 244, 247, 0.96)',
-      borderTop: `1px solid ${CORPORATE_THEME.borderStrong}`,
-      boxShadow: '0 -6px 20px rgba(11, 25, 44, 0.08)',
+      backgroundColor: layout.isDesktop
+        ? CORPORATE_THEME.navyPrimary
+        : 'rgba(242, 244, 247, 0.96)',
+      borderTop: layout.isDesktop
+        ? 'none'
+        : `1px solid ${CORPORATE_THEME.borderStrong}`,
+      borderBottom: layout.isDesktop
+        ? `2px solid ${CORPORATE_THEME.brownPrimary}`
+        : 'none',
+      borderRadius: layout.isDesktop ? 6 : 0,
+      boxShadow: layout.isDesktop
+        ? '0 4px 12px rgba(11, 25, 44, 0.08)'
+        : '0 -6px 20px rgba(11, 25, 44, 0.08)',
     }),
     tabButton: Object.freeze({
-      minHeight: layout.isMobile ? 44 : 50,
+      minHeight: layout.isMobile ? 44 : 42,
       padding: layout.isMobile ? '4px 2px' : '6px 10px',
       borderRadius: 8,
       border: `1px solid ${CORPORATE_THEME.borderStrong}`,
@@ -451,7 +578,7 @@ function buildOverviewStyles(viewportWidth = 390) {
       boxShadow: '0 2px 5px rgba(11, 25, 44, 0.05)',
     }),
     activeTabButton: Object.freeze({
-      minHeight: layout.isMobile ? 44 : 50,
+      minHeight: layout.isMobile ? 44 : 42,
       padding: layout.isMobile ? '4px 2px' : '6px 10px',
       borderRadius: 8,
       border: `1px solid ${CORPORATE_THEME.brownPrimary}`,
@@ -465,7 +592,7 @@ function buildOverviewStyles(viewportWidth = 390) {
       justifyContent: 'center',
       gap: 2,
       cursor: 'pointer',
-      transform: 'translateY(-8px)',
+      transform: layout.isDesktop ? 'translateY(0px)' : 'translateY(-8px)',
       transition:
         'transform 160ms ease, background-color 160ms ease, box-shadow 160ms ease',
       boxShadow: '0 8px 18px rgba(74, 53, 37, 0.28)',
@@ -484,6 +611,7 @@ function buildOverviewStyles(viewportWidth = 390) {
       borderRadius: 6,
       overflow: 'hidden',
       marginBottom: 0,
+      flexShrink: 0,
       boxShadow: '0 2px 8px rgba(11, 25, 44, 0.04)',
     }),
     kpiCardNavy: Object.freeze({
@@ -634,6 +762,7 @@ class MonthlyOverviewController {
     this.expenses = [];
     this.previousMonthlyTotals = [];
     this.monthlyIncome = null;
+    this.incomeEntries = [];
     this.investments = [];
     this.reminders = [];
     this.recurrences = [];
@@ -643,6 +772,9 @@ class MonthlyOverviewController {
     this.exportState = buildIdleExportState();
 
     this.incomeInput = '';
+    this.incomeDateInput = initialDate;
+    this.incomeNoteInput = '';
+    this.editingIncomeId = null;
     this.incomeError = null;
 
     this.investmentAssetInput = '';
@@ -664,6 +796,7 @@ class MonthlyOverviewController {
     const defaultDate = formatIsoDate(this.today());
     this.currentYearMonth = extractYearMonth(defaultDate);
     this.activeYearMonth = this.currentYearMonth;
+    this.incomeDateInput = defaultDate;
     this.investmentDateInput = defaultDate;
     this.reminderDueDateInput = defaultDate;
     await this.reloadMonthData(this.activeYearMonth);
@@ -672,10 +805,13 @@ class MonthlyOverviewController {
   }
 
   async reloadMonthData(yearMonth) {
-    const [cats, exps, inc, invs, rems, prevTotals] = await Promise.all([
+    const [cats, exps, inc, incEntries, invs, rems, prevTotals] = await Promise.all([
       this.categoryRepository.findAll(),
       this.expenseRepository.findByYearMonth(yearMonth),
       this.incomeRepository.findByYearMonth(yearMonth),
+      typeof this.incomeRepository.findEntriesByYearMonth === 'function'
+        ? this.incomeRepository.findEntriesByYearMonth(yearMonth)
+        : Promise.resolve([]),
       this.investmentRepository.findByYearMonth(yearMonth),
       this.reminderRepository.findAll(),
       loadPreviousMonthlyTotals(this.expenseRepository, yearMonth),
@@ -684,9 +820,15 @@ class MonthlyOverviewController {
     this.expenses = exps;
     this.previousMonthlyTotals = prevTotals;
     this.monthlyIncome = inc;
+    this.incomeEntries = incEntries;
     this.investments = invs;
     this.reminders = rems;
-    this.incomeInput = inc ? formatCentsToInput(inc.amountCents) : '';
+    this.editingIncomeId = null;
+    this.incomeInput = '';
+    this.incomeNoteInput = '';
+    const defaultToday = formatIsoDate(this.today());
+    this.incomeDateInput =
+      extractYearMonth(defaultToday) === yearMonth ? defaultToday : `${yearMonth}-01`;
     await this.reloadRecurrences();
     await this.reloadRemainingModelRequests();
   }
@@ -761,19 +903,114 @@ class MonthlyOverviewController {
     return this.getState();
   }
 
+  setIncomeInputs(patch = {}) {
+    if (patch.amountInput !== undefined) {
+      this.incomeInput =
+        patch.amountInput === null ? '' : String(patch.amountInput);
+    }
+    if (patch.date !== undefined) {
+      this.incomeDateInput = patch.date === null ? '' : String(patch.date);
+    }
+    if (patch.note !== undefined) {
+      this.incomeNoteInput = patch.note === null ? '' : String(patch.note);
+    }
+    this.incomeError = null;
+    return this.getState();
+  }
+
+  startEditIncomeEntry(id) {
+    const found = this.incomeEntries.find((item) => item.id === id);
+    if (!found) {
+      return this.getState();
+    }
+    this.editingIncomeId = found.id;
+    this.incomeInput = formatCentsToInput(found.amountCents);
+    this.incomeDateInput = found.date;
+    this.incomeNoteInput = found.note ?? '';
+    this.incomeError = null;
+    return this.getState();
+  }
+
+  cancelEditIncomeEntry() {
+    this.editingIncomeId = null;
+    this.incomeInput = '';
+    this.incomeNoteInput = '';
+    this.incomeError = null;
+    return this.getState();
+  }
+
   async submitMonthlyIncome(rawOverride = undefined) {
-    const rawValue = rawOverride !== undefined ? rawOverride : this.incomeInput;
+    const isObjectOverride =
+      rawOverride !== null && typeof rawOverride === 'object';
+    const rawValue = isObjectOverride
+      ? (rawOverride.amountInput ?? this.incomeInput)
+      : rawOverride !== undefined
+        ? rawOverride
+        : this.incomeInput;
+    const defaultDate = formatIsoDate(this.today());
+    const fallbackDate =
+      extractYearMonth(defaultDate) === this.activeYearMonth
+        ? defaultDate
+        : `${this.activeYearMonth}-01`;
+    const resolvedDate = isObjectOverride
+      ? (rawOverride.date ?? this.incomeDateInput ?? fallbackDate)
+      : (this.incomeDateInput || fallbackDate);
+    const resolvedNote = isObjectOverride
+      ? (rawOverride.note !== undefined ? rawOverride.note : this.incomeNoteInput)
+      : this.incomeNoteInput;
+
     this.incomeError = null;
     try {
       const amountCents = parseAmountToCents(rawValue);
       const updatedAt = formatIsoDateTime(this.now());
-      const draft = new MonthlyIncome({
-        yearMonth: this.activeYearMonth,
-        amountCents,
-        updatedAt,
-      });
-      this.monthlyIncome = await this.incomeRepository.save(draft);
-      this.incomeInput = formatCentsToInput(this.monthlyIncome.amountCents);
+
+      if (typeof this.incomeRepository.addEntry === 'function') {
+        if (
+          this.editingIncomeId !== null &&
+          typeof this.incomeRepository.updateEntry === 'function'
+        ) {
+          await this.incomeRepository.updateEntry(
+            new IncomeEntry({
+              id: this.editingIncomeId,
+              amountCents,
+              date: resolvedDate,
+              note: resolvedNote || null,
+            }),
+          );
+          this.editingIncomeId = null;
+        } else {
+          await this.incomeRepository.addEntry(
+            new IncomeEntry({
+              amountCents,
+              date: resolvedDate,
+              note: resolvedNote || null,
+              createdAt: updatedAt,
+            }),
+          );
+        }
+        const targetYm = extractYearMonth(resolvedDate);
+        if (targetYm && targetYm !== this.activeYearMonth) {
+          this.activeYearMonth = targetYm;
+        }
+        this.monthlyIncome = await this.incomeRepository.findByYearMonth(
+          this.activeYearMonth,
+        );
+        this.incomeEntries =
+          typeof this.incomeRepository.findEntriesByYearMonth === 'function'
+            ? await this.incomeRepository.findEntriesByYearMonth(this.activeYearMonth)
+            : [];
+        this.incomeInput = '';
+        this.incomeNoteInput = '';
+      } else {
+        const accumulatedCents = (this.monthlyIncome?.amountCents ?? 0) + amountCents;
+        const draft = new MonthlyIncome({
+          yearMonth: this.activeYearMonth,
+          amountCents: accumulatedCents,
+          updatedAt,
+        });
+        this.monthlyIncome = await this.incomeRepository.save(draft);
+        this.incomeInput = '';
+      }
       return this.getState();
     } catch (err) {
       if (err instanceof DomainException) {
@@ -785,6 +1022,24 @@ class MonthlyOverviewController {
       }
       throw err;
     }
+  }
+
+  async deleteIncomeEntry(id) {
+    this.incomeError = null;
+    await this.incomeRepository.deleteEntryById(id);
+    this.monthlyIncome = await this.incomeRepository.findByYearMonth(
+      this.activeYearMonth,
+    );
+    this.incomeEntries =
+      typeof this.incomeRepository.findEntriesByYearMonth === 'function'
+        ? await this.incomeRepository.findEntriesByYearMonth(this.activeYearMonth)
+        : [];
+    if (this.editingIncomeId === id) {
+      this.editingIncomeId = null;
+      this.incomeInput = '';
+      this.incomeNoteInput = '';
+    }
+    return this.getState();
   }
 
   setInvestmentInputs(patch = {}) {
@@ -936,6 +1191,7 @@ class MonthlyOverviewController {
       categories: [...this.categories],
       expenses: [...this.expenses],
       monthlyIncome: this.monthlyIncome,
+      incomeEntries: [...this.incomeEntries],
       investments: [...this.investments],
       reminders: [...this.reminders],
       recurrences: [...this.recurrences],
@@ -951,6 +1207,9 @@ class MonthlyOverviewController {
       previousMonthlyTotals: [...this.previousMonthlyTotals],
       adviceList,
       incomeInput: this.incomeInput,
+      incomeDateInput: this.incomeDateInput,
+      incomeNoteInput: this.incomeNoteInput,
+      editingIncomeId: this.editingIncomeId,
       incomeError: this.incomeError,
       investmentAssetInput: this.investmentAssetInput,
       investmentPlatformInput: this.investmentPlatformInput,
@@ -985,6 +1244,7 @@ class MonthlyOverviewController {
       initialExpenses: state.expenses,
       initialPreviousMonthlyTotals: state.previousMonthlyTotals,
       initialMonthlyIncome: state.monthlyIncome,
+      initialIncomeEntries: state.incomeEntries,
       initialInvestments: state.investments,
       initialReminders: state.reminders,
       initialRecurrences: state.recurrences,
@@ -992,6 +1252,9 @@ class MonthlyOverviewController {
       initialActiveYearMonth: state.activeYearMonth,
       initialActiveTab: state.activeTab,
       initialIncomeInput: state.incomeInput,
+      initialIncomeDateInput: state.incomeDateInput,
+      initialIncomeNoteInput: state.incomeNoteInput,
+      initialEditingIncomeId: state.editingIncomeId,
       initialIncomeError: state.incomeError,
       initialInvestmentError: state.investmentError,
       today: this.today,
@@ -1018,13 +1281,20 @@ export function MonthlyOverviewScreen({
   initialExpenses = undefined,
   initialPreviousMonthlyTotals = undefined,
   initialMonthlyIncome = undefined,
+  initialIncomeEntries = undefined,
   initialInvestments = undefined,
   initialReminders = undefined,
   initialRecurrences = undefined,
   initialRecurrenceError = null,
   initialActiveYearMonth = undefined,
   initialActiveTab = 'overview',
+  activeTab: controlledActiveTab = undefined,
+  onTabChange = null,
+  hideNavigationBar = false,
   initialIncomeInput = undefined,
+  initialIncomeDateInput = undefined,
+  initialIncomeNoteInput = undefined,
+  initialEditingIncomeId = null,
   initialIncomeError = null,
   initialInvestmentError = null,
   today = () => formatIsoDate(new Date()),
@@ -1066,7 +1336,15 @@ export function MonthlyOverviewScreen({
       }),
   );
 
-  const [activeTab, setActiveTab] = useState(initialActiveTab);
+  const [internalActiveTab, setInternalActiveTab] = useState(initialActiveTab);
+  const activeTab =
+    controlledActiveTab !== undefined ? controlledActiveTab : internalActiveTab;
+  const setActiveTab = (nextTab) => {
+    setInternalActiveTab(nextTab);
+    if (typeof onTabChange === 'function') {
+      onTabChange(nextTab);
+    }
+  };
   const [activeYearMonth, setActiveYearMonth] = useState(
     initialActiveYearMonth && isValidYearMonth(initialActiveYearMonth)
       ? initialActiveYearMonth
@@ -1078,6 +1356,7 @@ export function MonthlyOverviewScreen({
     initialPreviousMonthlyTotals ?? [],
   );
   const [monthlyIncome, setMonthlyIncome] = useState(initialMonthlyIncome ?? null);
+  const [incomeEntries, setIncomeEntries] = useState(initialIncomeEntries ?? []);
   const [investments, setInvestments] = useState(initialInvestments ?? []);
   const [reminders, setReminders] = useState(initialReminders ?? []);
   const [recurrences, setRecurrences] = useState(initialRecurrences ?? []);
@@ -1090,12 +1369,15 @@ export function MonthlyOverviewScreen({
   );
 
   const [incomeInput, setIncomeInput] = useState(
-    initialIncomeInput !== undefined
-      ? initialIncomeInput
-      : initialMonthlyIncome
-        ? formatCentsToInput(initialMonthlyIncome.amountCents)
-        : '',
+    initialIncomeInput !== undefined ? initialIncomeInput : '',
   );
+  const [incomeDateInput, setIncomeDateInput] = useState(
+    initialIncomeDateInput !== undefined ? initialIncomeDateInput : defaultToday,
+  );
+  const [incomeNoteInput, setIncomeNoteInput] = useState(
+    initialIncomeNoteInput !== undefined ? initialIncomeNoteInput : '',
+  );
+  const [editingIncomeId, setEditingIncomeId] = useState(initialEditingIncomeId);
   const [incomeError, setIncomeError] = useState(initialIncomeError);
   const [incomeSuccess, setIncomeSuccess] = useState(null);
 
@@ -1112,10 +1394,13 @@ export function MonthlyOverviewScreen({
   const [reminderError, setReminderError] = useState(null);
 
   const reloadPeriod = async (targetYm) => {
-    const [cats, exps, inc, invs, rems, prevTotals] = await Promise.all([
+    const [cats, exps, inc, incEntries, invs, rems, prevTotals] = await Promise.all([
       catRepo.findAll(),
       expRepo.findByYearMonth(targetYm),
       incRepo.findByYearMonth(targetYm),
+      typeof incRepo.findEntriesByYearMonth === 'function'
+        ? incRepo.findEntriesByYearMonth(targetYm)
+        : Promise.resolve([]),
       invRepo.findByYearMonth(targetYm),
       remRepo.findAll(),
       loadPreviousMonthlyTotals(expRepo, targetYm),
@@ -1124,9 +1409,15 @@ export function MonthlyOverviewScreen({
     setExpenses(exps);
     setPreviousMonthlyTotals(prevTotals);
     setMonthlyIncome(inc);
+    setIncomeEntries(incEntries);
     setInvestments(invs);
     setReminders(rems);
-    setIncomeInput(inc ? formatCentsToInput(inc.amountCents) : '');
+    setEditingIncomeId(null);
+    setIncomeInput('');
+    setIncomeNoteInput('');
+    setIncomeDateInput(
+      extractYearMonth(defaultToday) === targetYm ? defaultToday : `${targetYm}-01`,
+    );
     setRecurrences(
       await loadVisibleRecurrences({
         expenseRepository: expRepo,
@@ -1240,20 +1531,21 @@ export function MonthlyOverviewScreen({
       catRepo.findAll(),
       expRepo.findByYearMonth(activeYearMonth),
       incRepo.findByYearMonth(activeYearMonth),
+      typeof incRepo.findEntriesByYearMonth === 'function'
+        ? incRepo.findEntriesByYearMonth(activeYearMonth)
+        : Promise.resolve([]),
       invRepo.findByYearMonth(activeYearMonth),
       remRepo.findAll(),
       loadPreviousMonthlyTotals(expRepo, activeYearMonth),
-    ]).then(([cats, exps, inc, invs, rems, prevTotals]) => {
+    ]).then(([cats, exps, inc, incEntries, invs, rems, prevTotals]) => {
       if (!active) return;
       setCategories(cats);
       setExpenses(exps);
       setPreviousMonthlyTotals(prevTotals);
       setMonthlyIncome(inc);
+      setIncomeEntries(incEntries);
       setInvestments(invs);
       setReminders(rems);
-      if (initialIncomeInput === undefined) {
-        setIncomeInput(inc ? formatCentsToInput(inc.amountCents) : '');
-      }
     });
     return () => {
       active = false;
@@ -1354,22 +1646,108 @@ export function MonthlyOverviewScreen({
     setIncomeSuccess(null);
     try {
       const amountCents = parseAmountToCents(incomeInput);
-      const saved = await incRepo.save(
-        new MonthlyIncome({
-          yearMonth: activeYearMonth,
-          amountCents,
-          updatedAt: formatIsoDateTime(now()),
-        }),
-      );
-      setMonthlyIncome(saved);
-      setIncomeInput(formatCentsToInput(saved.amountCents));
-      setIncomeSuccess('Ingreso mensual actualizado correctamente.');
+      const nowIso = formatIsoDateTime(now());
+      const fallbackDate =
+        extractYearMonth(defaultToday) === activeYearMonth
+          ? defaultToday
+          : `${activeYearMonth}-01`;
+      const resolvedDate = incomeDateInput || fallbackDate;
+
+      if (typeof incRepo.addEntry === 'function') {
+        if (editingIncomeId !== null && typeof incRepo.updateEntry === 'function') {
+          await incRepo.updateEntry(
+            new IncomeEntry({
+              id: editingIncomeId,
+              amountCents,
+              date: resolvedDate,
+              note: incomeNoteInput || null,
+            }),
+          );
+          setEditingIncomeId(null);
+          setIncomeSuccess('Ingreso actualizado correctamente.');
+        } else {
+          await incRepo.addEntry(
+            new IncomeEntry({
+              amountCents,
+              date: resolvedDate,
+              note: incomeNoteInput || null,
+              createdAt: nowIso,
+            }),
+          );
+          setIncomeSuccess('Ingreso registrado y sumado al total del mes.');
+        }
+        const targetYm = extractYearMonth(resolvedDate) || activeYearMonth;
+        if (targetYm !== activeYearMonth) {
+          setActiveYearMonth(targetYm);
+        }
+        const [updatedInc, updatedEntries] = await Promise.all([
+          incRepo.findByYearMonth(targetYm),
+          typeof incRepo.findEntriesByYearMonth === 'function'
+            ? incRepo.findEntriesByYearMonth(targetYm)
+            : Promise.resolve([]),
+        ]);
+        setMonthlyIncome(updatedInc);
+        setIncomeEntries(updatedEntries);
+        setIncomeInput('');
+        setIncomeNoteInput('');
+      } else {
+        const accumulatedCents = (monthlyIncome?.amountCents ?? 0) + amountCents;
+        const saved = await incRepo.save(
+          new MonthlyIncome({
+            yearMonth: activeYearMonth,
+            amountCents: accumulatedCents,
+            updatedAt: nowIso,
+          }),
+        );
+        setMonthlyIncome(saved);
+        setIncomeInput('');
+        setIncomeSuccess('Ingreso registrado y sumado al total del mes.');
+      }
     } catch (err) {
       if (err instanceof DomainException) {
         setIncomeError(err.message);
         return;
       }
       throw err;
+    }
+  };
+
+  const handleStartEditIncome = (entry) => {
+    setEditingIncomeId(entry.id);
+    setIncomeInput(formatCentsToInput(entry.amountCents));
+    setIncomeDateInput(entry.date);
+    setIncomeNoteInput(entry.note ?? '');
+    setIncomeError(null);
+    setIncomeSuccess(null);
+  };
+
+  const handleCancelEditIncome = () => {
+    setEditingIncomeId(null);
+    setIncomeInput('');
+    setIncomeNoteInput('');
+    setIncomeError(null);
+    setIncomeSuccess(null);
+  };
+
+  const handleDeleteIncomeEntry = async (id) => {
+    setIncomeError(null);
+    setIncomeSuccess(null);
+    if (typeof incRepo.deleteEntryById !== 'function') {
+      return;
+    }
+    await incRepo.deleteEntryById(id);
+    const [updatedInc, updatedEntries] = await Promise.all([
+      incRepo.findByYearMonth(activeYearMonth),
+      typeof incRepo.findEntriesByYearMonth === 'function'
+        ? incRepo.findEntriesByYearMonth(activeYearMonth)
+        : Promise.resolve([]),
+    ]);
+    setMonthlyIncome(updatedInc);
+    setIncomeEntries(updatedEntries);
+    if (editingIncomeId === id) {
+      setEditingIncomeId(null);
+      setIncomeInput('');
+      setIncomeNoteInput('');
     }
   };
 
@@ -1462,6 +1840,7 @@ export function MonthlyOverviewScreen({
         gap: layout.isMobile ? 2 : 4,
         width: '100%',
         margin: '0 auto',
+        flexShrink: 0,
       },
     },
     h(
@@ -1564,6 +1943,297 @@ export function MonthlyOverviewScreen({
   let activeTabContent = null;
 
   if (activeTab === 'overview') {
+    const chartNode = h(CategoryDistributionChart, {
+      categoryBreakdown,
+      totalExpensesCents,
+      viewportWidth,
+      compact: true,
+      onNavigateToExpenses: () => setActiveTab('expenses'),
+    });
+
+    const allocationStripNode =
+      incomeCents !== null && incomeCents > 0
+        ? h(
+            'div',
+            {
+              'data-testid': 'capital-allocation-strip',
+              style: {
+                backgroundColor: CORPORATE_THEME.surface,
+                border: `1px solid ${CORPORATE_THEME.border}`,
+                borderRadius: 6,
+                padding: layout.isMobile ? '4px 8px' : '6px 12px',
+                flexShrink: 0,
+              },
+            },
+            h(
+              'div',
+              {
+                style: {
+                  display: 'flex',
+                  justifyContent: 'space-between',
+                  flexWrap: 'wrap',
+                  gap: 4,
+                  fontSize: layout.isMobile ? 10.5 : 11.5,
+                  color: CORPORATE_THEME.textSecondary,
+                  marginBottom: 3,
+                  fontVariantNumeric: CORPORATE_THEME.tabularNums,
+                },
+              },
+              h(
+                'span',
+                null,
+                `Asignación del ingreso: Gastos ${expensesSharePct}% · Inversiones ${investmentsSharePct}% · Liquidez ${liquiditySharePct}%`,
+              ),
+              h('span', { style: { fontWeight: 600 } }, formatCentsToArs(incomeCents)),
+            ),
+            h(
+              'div',
+              {
+                style: {
+                  display: 'flex',
+                  height: layout.isMobile ? 4 : 6,
+                  borderRadius: 2,
+                  overflow: 'hidden',
+                  backgroundColor: CORPORATE_THEME.surfaceMuted,
+                  border: `1px solid ${CORPORATE_THEME.border}`,
+                },
+              },
+              h('div', {
+                style: {
+                  width: `${expensesSharePct}%`,
+                  backgroundColor: CORPORATE_THEME.navyPrimary,
+                },
+              }),
+              h('div', {
+                style: {
+                  width: `${investmentsSharePct}%`,
+                  backgroundColor: CORPORATE_THEME.brownPrimary,
+                },
+              }),
+              h('div', {
+                style: {
+                  width: `${liquiditySharePct}%`,
+                  backgroundColor: '#94A3B8',
+                },
+              }),
+            ),
+          )
+        : null;
+
+    const currentMonthComparison = monthlyComparison?.months?.[0] ?? null;
+    const variationLabel =
+      currentMonthComparison && currentMonthComparison.variationTenths !== null
+        ? `${formatVariationTenths(currentMonthComparison.variationTenths)} vs. mes anterior`
+        : 'Sin mes previo para comparar';
+    const topCategoryItem = categoryBreakdown[0] ?? null;
+    const recentExpenses = expenses.slice(0, 3);
+    const alertItems = [
+      ...combinedReminders.map((rem) => ({
+        key: rem.key,
+        label: rem.title,
+        detail: rem.dueDate,
+      })),
+      ...recurrences.map((rec) => ({
+        key: rec.key,
+        label: `Recurrente: ${rec.categoryName}`,
+        detail: formatCentsToArs(rec.typicalAmountCents),
+      })),
+    ].slice(0, 3);
+
+    const desktopInsightsNode = layout.isDesktop
+      ? h(
+          'div',
+          {
+            'data-testid': 'desktop-overview-insights',
+            style: styles.desktopInsightsColumn,
+          },
+          h(
+            'section',
+            {
+              'data-testid': 'desktop-insight-pulse',
+              style: styles.desktopInsightCard,
+            },
+            h(
+              'h3',
+              {
+                style: {
+                  margin: '0 0 6px 0',
+                  fontSize: 14,
+                  fontFamily: CORPORATE_THEME.fontSerif,
+                  fontWeight: 600,
+                  color: CORPORATE_THEME.navyPrimary,
+                },
+              },
+              'Pulso mensual y liquidez',
+            ),
+            h(
+              'div',
+              {
+                style: {
+                  display: 'grid',
+                  gap: 4,
+                  fontSize: 12.5,
+                  color: CORPORATE_THEME.textSecondary,
+                  fontVariantNumeric: CORPORATE_THEME.tabularNums,
+                },
+              },
+              h(
+                'div',
+                { style: { display: 'flex', justifyContent: 'space-between', gap: 8 } },
+                h('span', null, 'Variación mensual de gastos:'),
+                h('strong', { style: { color: CORPORATE_THEME.navyPrimary } }, variationLabel),
+              ),
+              h(
+                'div',
+                { style: { display: 'flex', justifyContent: 'space-between', gap: 8 } },
+                h('span', null, 'Margen de liquidez del mes:'),
+                h(
+                  'strong',
+                  { style: { color: CORPORATE_THEME.brownPrimary } },
+                  incomeCents !== null && incomeCents > 0
+                    ? `${liquiditySharePct} % disponible`
+                    : 'Sin ingreso registrado',
+                ),
+              ),
+              h(
+                'div',
+                { style: { display: 'flex', justifyContent: 'space-between', gap: 8 } },
+                h('span', null, 'Principal rubro del mes:'),
+                h(
+                  'strong',
+                  { style: { color: CORPORATE_THEME.textPrimary } },
+                  topCategoryItem
+                    ? `${topCategoryItem.categoryName} (${formatCentsToArs(topCategoryItem.amountCents)})`
+                    : 'Sin gastos en el período',
+                ),
+              ),
+            ),
+          ),
+          h(
+            'section',
+            {
+              'data-testid': 'desktop-insight-recent',
+              style: styles.desktopInsightCardBrown,
+            },
+            h(
+              'h3',
+              {
+                style: {
+                  margin: '0 0 6px 0',
+                  fontSize: 14,
+                  fontFamily: CORPORATE_THEME.fontSerif,
+                  fontWeight: 600,
+                  color: CORPORATE_THEME.brownPrimary,
+                },
+              },
+              'Últimos movimientos del mes',
+            ),
+            recentExpenses.length === 0
+              ? h(
+                  'p',
+                  {
+                    style: {
+                      margin: 0,
+                      fontSize: 12.5,
+                      color: CORPORATE_THEME.textMuted,
+                    },
+                  },
+                  'Sin movimientos registrados en este período.',
+                )
+              : h(
+                  'ul',
+                  { style: { listStyle: 'none', margin: 0, padding: 0 } },
+                  ...recentExpenses.map((exp) =>
+                    h(
+                      'li',
+                      {
+                        key: exp.id,
+                        style: {
+                          display: 'flex',
+                          justifyContent: 'space-between',
+                          alignItems: 'center',
+                          padding: '3px 0',
+                          borderBottom: `1px solid ${CORPORATE_THEME.border}`,
+                          fontSize: 12.5,
+                          fontVariantNumeric: CORPORATE_THEME.tabularNums,
+                        },
+                      },
+                      h(
+                        'span',
+                        { style: { color: CORPORATE_THEME.textSecondary } },
+                        `${exp.date} · ${exp.categoryName ?? 'Gasto'}`,
+                      ),
+                      h(
+                        'strong',
+                        { style: { color: CORPORATE_THEME.navyPrimary } },
+                        formatCentsToArs(exp.amountCents),
+                      ),
+                    ),
+                  ),
+                ),
+          ),
+          h(
+            'section',
+            {
+              'data-testid': 'desktop-insight-alerts',
+              style: styles.desktopInsightCard,
+            },
+            h(
+              'h3',
+              {
+                style: {
+                  margin: '0 0 6px 0',
+                  fontSize: 14,
+                  fontFamily: CORPORATE_THEME.fontSerif,
+                  fontWeight: 600,
+                  color: CORPORATE_THEME.navyPrimary,
+                },
+              },
+              'Radar de vencimientos y recurrencias',
+            ),
+            alertItems.length === 0
+              ? h(
+                  'p',
+                  {
+                    style: {
+                      margin: 0,
+                      fontSize: 12.5,
+                      color: CORPORATE_THEME.textMuted,
+                    },
+                  },
+                  'Sin vencimientos próximos ni recurrencias activas.',
+                )
+              : h(
+                  'ul',
+                  { style: { listStyle: 'none', margin: 0, padding: 0 } },
+                  ...alertItems.map((item) =>
+                    h(
+                      'li',
+                      {
+                        key: item.key,
+                        style: {
+                          display: 'flex',
+                          justifyContent: 'space-between',
+                          alignItems: 'center',
+                          padding: '3px 0',
+                          borderBottom: `1px solid ${CORPORATE_THEME.border}`,
+                          fontSize: 12.5,
+                          fontVariantNumeric: CORPORATE_THEME.tabularNums,
+                        },
+                      },
+                      h('span', { style: { color: CORPORATE_THEME.textSecondary } }, item.label),
+                      h(
+                        'strong',
+                        { style: { color: CORPORATE_THEME.brownPrimary } },
+                        item.detail,
+                      ),
+                    ),
+                  ),
+                ),
+          ),
+        )
+      : null;
+
     activeTabContent = h(
       'div',
       {
@@ -1713,79 +2383,29 @@ export function MonthlyOverviewScreen({
           ),
         ),
       ),
-      h(CategoryDistributionChart, {
-        categoryBreakdown,
-        totalExpensesCents,
-        viewportWidth,
-        compact: true,
-        onNavigateToExpenses: () => setActiveTab('expenses'),
-      }),
-      incomeCents !== null && incomeCents > 0
+      layout.isDesktop
         ? h(
             'div',
             {
-              'data-testid': 'capital-allocation-strip',
-              style: {
-                backgroundColor: CORPORATE_THEME.surface,
-                border: `1px solid ${CORPORATE_THEME.border}`,
-                borderRadius: 6,
-                padding: layout.isMobile ? '4px 8px' : '6px 12px',
-              },
+              'data-testid': 'desktop-overview-grid',
+              style: styles.desktopOverviewGrid,
             },
             h(
               'div',
               {
                 style: {
                   display: 'flex',
-                  justifyContent: 'space-between',
-                  flexWrap: 'wrap',
-                  gap: 4,
-                  fontSize: layout.isMobile ? 10.5 : 11.5,
-                  color: CORPORATE_THEME.textSecondary,
-                  marginBottom: 3,
-                  fontVariantNumeric: CORPORATE_THEME.tabularNums,
+                  flexDirection: 'column',
+                  gap: 10,
+                  minWidth: 0,
                 },
               },
-              h(
-                'span',
-                null,
-                `Asignación del ingreso: Gastos ${expensesSharePct}% · Inversiones ${investmentsSharePct}% · Liquidez ${liquiditySharePct}%`,
-              ),
-              h('span', { style: { fontWeight: 600 } }, formatCentsToArs(incomeCents)),
+              chartNode,
+              allocationStripNode,
             ),
-            h(
-              'div',
-              {
-                style: {
-                  display: 'flex',
-                  height: layout.isMobile ? 4 : 6,
-                  borderRadius: 2,
-                  overflow: 'hidden',
-                  backgroundColor: CORPORATE_THEME.surfaceMuted,
-                  border: `1px solid ${CORPORATE_THEME.border}`,
-                },
-              },
-              h('div', {
-                style: {
-                  width: `${expensesSharePct}%`,
-                  backgroundColor: CORPORATE_THEME.navyPrimary,
-                },
-              }),
-              h('div', {
-                style: {
-                  width: `${investmentsSharePct}%`,
-                  backgroundColor: CORPORATE_THEME.brownPrimary,
-                },
-              }),
-              h('div', {
-                style: {
-                  width: `${liquiditySharePct}%`,
-                  backgroundColor: '#94A3B8',
-                },
-              }),
-            ),
+            desktopInsightsNode,
           )
-        : null,
+        : h(React.Fragment, null, chartNode, allocationStripNode),
     );
   } else if (activeTab === 'expenses') {
     activeTabContent = h(
@@ -1831,103 +2451,334 @@ export function MonthlyOverviewScreen({
         'div',
         { style: styles.grid },
         h(
-          'form',
-          {
-            'data-testid': 'monthly-income-form',
-            style: styles.card,
-            onSubmit: handleSaveIncome,
-            noValidate: true,
-          },
+          'div',
+          { style: { display: 'flex', flexDirection: 'column', gap: 14 } },
           h(
-            'h3',
+            'form',
             {
-              style: {
-                marginTop: 0,
-                marginBottom: 8,
-                color: CORPORATE_THEME.navyPrimary,
-                fontSize: 18,
-                fontFamily: CORPORATE_THEME.fontSerif,
-                fontWeight: 600,
+              'data-testid': 'monthly-income-form',
+              style: styles.card,
+              onSubmit: handleSaveIncome,
+              noValidate: true,
+            },
+            h(
+              'h3',
+              {
+                style: {
+                  marginTop: 0,
+                  marginBottom: 8,
+                  color: CORPORATE_THEME.navyPrimary,
+                  fontSize: 18,
+                  fontFamily: CORPORATE_THEME.fontSerif,
+                  fontWeight: 600,
+                },
               },
-            },
-            `Ingreso mensual (${activeYearMonth})`,
-          ),
-          h(
-            'p',
-            {
-              style: {
-                marginTop: 0,
-                marginBottom: 12,
-                fontSize: 13,
-                lineHeight: 1.45,
-                color: CORPORATE_THEME.textSecondary,
+              editingIncomeId !== null
+                ? `Editar ingreso (${activeYearMonth})`
+                : `Registrar ingreso (${activeYearMonth})`,
+            ),
+            h(
+              'p',
+              {
+                style: {
+                  marginTop: 0,
+                  marginBottom: 12,
+                  fontSize: 13,
+                  lineHeight: 1.45,
+                  color: CORPORATE_THEME.textSecondary,
+                },
               },
-            },
-            'Registrá el ingreso total del mes para calcular qué proporción absorbe cada categoría de gasto.',
-          ),
-          h('input', {
-            id: 'income-amount-input',
-            'data-testid': 'income-amount-input',
-            type: 'text',
-            inputMode: 'decimal',
-            placeholder: 'Ej: 1200000',
-            value: incomeInput,
-            tabIndex: 0,
-            style: {
-              ...styles.amountInput,
-              marginBottom: 10,
-            },
-            onChange: (e) => {
-              setIncomeInput(e?.target?.value ?? '');
-              if (incomeError) setIncomeError(null);
-            },
-          }),
-          incomeError
-            ? h(
-                'p',
+              'Cargá cada ingreso individual del período; todos se suman automáticamente al ingreso mensual disponible.',
+            ),
+            h(
+              'div',
+              { style: { display: 'grid', gap: 10, marginBottom: 10 } },
+              h('input', {
+                id: 'income-amount-input',
+                'data-testid': 'income-amount-input',
+                type: 'text',
+                inputMode: 'decimal',
+                placeholder: 'Monto del ingreso (ej: 1200000)',
+                value: incomeInput,
+                tabIndex: 0,
+                style: styles.amountInput,
+                onChange: (e) => {
+                  setIncomeInput(e?.target?.value ?? '');
+                  if (incomeError) setIncomeError(null);
+                },
+              }),
+              h('input', {
+                id: 'income-date-input',
+                'data-testid': 'income-date-input',
+                type: 'date',
+                value: incomeDateInput,
+                tabIndex: 0,
+                style: styles.input,
+                onChange: (e) => {
+                  setIncomeDateInput(e?.target?.value ?? defaultToday);
+                  if (incomeError) setIncomeError(null);
+                },
+              }),
+              h('input', {
+                id: 'income-note-input',
+                'data-testid': 'income-note-input',
+                type: 'text',
+                placeholder: 'Concepto o fuente opcional (ej: Sueldo, Aguinaldo, Honorarios)',
+                value: incomeNoteInput,
+                tabIndex: 0,
+                style: styles.input,
+                onChange: (e) => {
+                  setIncomeNoteInput(e?.target?.value ?? '');
+                  if (incomeError) setIncomeError(null);
+                },
+              }),
+            ),
+            incomeError
+              ? h(
+                  'p',
+                  {
+                    'data-testid': 'income-error',
+                    role: 'alert',
+                    style: {
+                      margin: '0 0 10px 0',
+                      padding: '8px 10px',
+                      borderRadius: 4,
+                      backgroundColor: CORPORATE_THEME.dangerBg,
+                      color: CORPORATE_THEME.danger,
+                      fontSize: 13,
+                      fontWeight: 600,
+                    },
+                  },
+                  incomeError,
+                )
+              : null,
+            incomeSuccess
+              ? h(
+                  'p',
+                  {
+                    style: {
+                      margin: '0 0 10px 0',
+                      padding: '8px 10px',
+                      borderRadius: 4,
+                      backgroundColor: CORPORATE_THEME.successBg,
+                      color: CORPORATE_THEME.success,
+                      fontSize: 13,
+                      fontWeight: 600,
+                    },
+                  },
+                  incomeSuccess,
+                )
+              : null,
+            h(
+              'div',
+              { style: { display: 'flex', gap: 8, flexWrap: 'wrap' } },
+              h(
+                'button',
                 {
-                  'data-testid': 'income-error',
-                  role: 'alert',
+                  type: 'submit',
+                  'data-testid': 'income-submit-button',
+                  tabIndex: 0,
+                  style: styles.primaryButton,
+                  onClick: handleSaveIncome,
+                },
+                editingIncomeId !== null ? 'Actualizar ingreso' : 'Registrar ingreso',
+              ),
+              editingIncomeId !== null
+                ? h(
+                    'button',
+                    {
+                      type: 'button',
+                      'data-testid': 'income-cancel-edit-button',
+                      tabIndex: 0,
+                      style: {
+                        minHeight: 42,
+                        padding: '8px 14px',
+                        borderRadius: 4,
+                        border: `1px solid ${CORPORATE_THEME.borderStrong}`,
+                        backgroundColor: CORPORATE_THEME.surface,
+                        color: CORPORATE_THEME.textSecondary,
+                        fontWeight: 600,
+                        fontSize: 13,
+                        cursor: 'pointer',
+                      },
+                      onClick: handleCancelEditIncome,
+                    },
+                    'Cancelar edición',
+                  )
+                : null,
+            ),
+          ),
+          h(
+            'section',
+            {
+              'data-testid': 'income-entries-section',
+              style: styles.card,
+            },
+            h(
+              'div',
+              {
+                style: {
+                  display: 'flex',
+                  justifyContent: 'space-between',
+                  alignItems: 'center',
+                  marginBottom: 10,
+                },
+              },
+              h(
+                'h3',
+                {
                   style: {
-                    margin: '0 0 10px 0',
-                    padding: '8px 10px',
-                    borderRadius: 4,
-                    backgroundColor: CORPORATE_THEME.dangerBg,
-                    color: CORPORATE_THEME.danger,
-                    fontSize: 13,
+                    margin: 0,
+                    color: CORPORATE_THEME.navyPrimary,
+                    fontSize: 18,
+                    fontFamily: CORPORATE_THEME.fontSerif,
                     fontWeight: 600,
                   },
                 },
-                incomeError,
-              )
-            : null,
-          incomeSuccess
-            ? h(
-                'p',
+                'Ingresos registrados del mes',
+              ),
+              h(
+                'strong',
                 {
+                  'data-testid': 'income-entries-total',
                   style: {
-                    margin: '0 0 10px 0',
-                    padding: '8px 10px',
-                    borderRadius: 4,
-                    backgroundColor: CORPORATE_THEME.successBg,
-                    color: CORPORATE_THEME.success,
-                    fontSize: 13,
-                    fontWeight: 600,
+                    color: CORPORATE_THEME.navyPrimary,
+                    fontVariantNumeric: CORPORATE_THEME.tabularNums,
                   },
                 },
-                incomeSuccess,
-              )
-            : null,
-          h(
-            'button',
-            {
-              type: 'submit',
-              'data-testid': 'income-submit-button',
-              tabIndex: 0,
-              style: styles.primaryButton,
-              onClick: handleSaveIncome,
-            },
-            'Guardar ingreso del mes',
+                formatCentsToArs(incomeCents ?? 0),
+              ),
+            ),
+            incomeEntries.length === 0
+              ? h(
+                  'p',
+                  {
+                    'data-testid': 'income-entries-empty',
+                    style: {
+                      margin: 0,
+                      fontSize: 13.5,
+                      color: CORPORATE_THEME.textMuted,
+                    },
+                  },
+                  'No hay movimientos de ingreso registrados en este período.',
+                )
+              : h(
+                  'ul',
+                  {
+                    'data-testid': 'income-entries-list',
+                    style: {
+                      listStyle: 'none',
+                      margin: 0,
+                      padding: 0,
+                    },
+                  },
+                  ...incomeEntries.map((entry) =>
+                    h(
+                      'li',
+                      {
+                        key: entry.id,
+                        'data-testid': `income-entry-row-${entry.id}`,
+                        style: {
+                          padding: '10px 0',
+                          borderTop: `1px solid ${CORPORATE_THEME.border}`,
+                          display: 'flex',
+                          justifyContent: 'space-between',
+                          alignItems: 'center',
+                          flexWrap: 'wrap',
+                          gap: 8,
+                        },
+                      },
+                      h(
+                        'div',
+                        null,
+                        h(
+                          'strong',
+                          {
+                            style: {
+                              display: 'block',
+                              fontSize: 14,
+                              color: CORPORATE_THEME.textPrimary,
+                            },
+                          },
+                          entry.note ?? 'Ingreso registrado',
+                        ),
+                        h(
+                          'span',
+                          {
+                            style: {
+                              fontSize: 12,
+                              color: CORPORATE_THEME.textMuted,
+                              fontVariantNumeric: CORPORATE_THEME.tabularNums,
+                            },
+                          },
+                          entry.date,
+                        ),
+                      ),
+                      h(
+                        'div',
+                        {
+                          style: {
+                            display: 'flex',
+                            alignItems: 'center',
+                            gap: 8,
+                          },
+                        },
+                        h(
+                          'strong',
+                          {
+                            'data-testid': `income-entry-amount-${entry.id}`,
+                            style: {
+                              color: CORPORATE_THEME.navyPrimary,
+                              fontSize: 14.5,
+                              fontVariantNumeric: CORPORATE_THEME.tabularNums,
+                            },
+                          },
+                          formatCentsToArs(entry.amountCents),
+                        ),
+                        h(
+                          'button',
+                          {
+                            type: 'button',
+                            'data-testid': `income-entry-edit-${entry.id}`,
+                            style: {
+                              minHeight: 34,
+                              padding: '4px 10px',
+                              borderRadius: 4,
+                              border: `1px solid ${CORPORATE_THEME.borderStrong}`,
+                              backgroundColor: CORPORATE_THEME.surface,
+                              color: CORPORATE_THEME.navyPrimary,
+                              fontSize: 12,
+                              fontWeight: 600,
+                              cursor: 'pointer',
+                            },
+                            onClick: () => handleStartEditIncome(entry),
+                          },
+                          'Editar',
+                        ),
+                        h(
+                          'button',
+                          {
+                            type: 'button',
+                            'data-testid': `income-entry-delete-${entry.id}`,
+                            style: {
+                              minHeight: 34,
+                              padding: '4px 10px',
+                              borderRadius: 4,
+                              border: `1px solid ${CORPORATE_THEME.danger}`,
+                              backgroundColor: CORPORATE_THEME.dangerBg,
+                              color: CORPORATE_THEME.danger,
+                              fontSize: 12,
+                              fontWeight: 600,
+                              cursor: 'pointer',
+                            },
+                            onClick: () => handleDeleteIncomeEntry(entry.id),
+                          },
+                          'Eliminar',
+                        ),
+                      ),
+                    ),
+                  ),
+                ),
           ),
         ),
         h(
@@ -2597,6 +3448,35 @@ export function MonthlyOverviewScreen({
     );
   }
 
+  const tabsNavNode = hideNavigationBar
+    ? null
+    : h(
+        'nav',
+        {
+          'data-testid': 'overview-tabs',
+          'data-nav-placement': layout.isDesktop ? 'top' : 'bottom',
+          'aria-label': 'Secciones del panel financiero',
+          style: styles.tabsBar,
+        },
+        ...tabs.map((tab) => {
+          const isActive = activeTab === tab.id;
+          return h(
+            'button',
+            {
+              key: tab.id,
+              type: 'button',
+              'data-testid': `tab-${tab.id}`,
+              'data-active': isActive ? 'true' : 'false',
+              'aria-selected': isActive,
+              tabIndex: 0,
+              style: isActive ? styles.activeTabButton : styles.tabButton,
+              onClick: () => setActiveTab(tab.id),
+            },
+            h('span', null, tab.label),
+          );
+        }),
+      );
+
   return h(
     'section',
     {
@@ -2607,32 +3487,9 @@ export function MonthlyOverviewScreen({
       'data-active-tab': activeTab,
       style: styles.wrapper,
     },
+    layout.isDesktop ? tabsNavNode : null,
     activeTabContent,
-    h(
-      'nav',
-      {
-        'data-testid': 'overview-tabs',
-        'aria-label': 'Secciones del panel financiero',
-        style: styles.tabsBar,
-      },
-      ...tabs.map((tab) => {
-        const isActive = activeTab === tab.id;
-        return h(
-          'button',
-          {
-            key: tab.id,
-            type: 'button',
-            'data-testid': `tab-${tab.id}`,
-            'data-active': isActive ? 'true' : 'false',
-            'aria-selected': isActive,
-            tabIndex: 0,
-            style: isActive ? styles.activeTabButton : styles.tabButton,
-            onClick: () => setActiveTab(tab.id),
-          },
-          h('span', null, tab.label),
-        );
-      }),
-    ),
+    layout.isDesktop ? null : tabsNavNode,
   );
 }
 

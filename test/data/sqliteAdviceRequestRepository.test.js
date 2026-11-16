@@ -74,9 +74,9 @@ describe('H10 persistencia de consultas al asistente en SQLite', () => {
     assert.equal(await repo.countByYearMonth('2026-09', 'model'), 0);
   });
 
-  it('[H10-R25] la migración 4 deja user_version en 4 y actualiza una base en versión 3 sin perder gastos', async () => {
+  it('[H10-R25] la migración 4 deja user_version en >= 4 y actualiza una base en versión 3 sin perder gastos', async () => {
     const version = await db.get('PRAGMA user_version;');
-    assert.equal(Number(version.user_version), 4);
+    assert.ok(Number(version.user_version) >= 4);
     const index = await db.get(
       "SELECT name FROM sqlite_master WHERE type = 'index' AND name = 'idx_advice_requests_year_month'",
     );
@@ -97,7 +97,7 @@ describe('H10 persistencia de consultas al asistente en SQLite', () => {
     await db.migrate();
 
     const migrated = await db.get('PRAGMA user_version;');
-    assert.equal(Number(migrated.user_version), 4);
+    assert.ok(Number(migrated.user_version) >= 4);
     const table = await db.get(
       "SELECT name FROM sqlite_master WHERE type = 'table' AND name = 'advice_requests'",
     );

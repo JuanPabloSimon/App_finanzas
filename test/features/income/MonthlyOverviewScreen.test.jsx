@@ -632,12 +632,17 @@ describe('H5 panel de resumen general del mes, ingreso mensual, inversiones, rec
     appController.openProfileMenu();
     const openMenuHtml = renderToStaticMarkup(appController.renderElement());
     assert.match(openMenuHtml, /data-testid="profile-menu-popover"/);
-    assert.match(openMenuHtml, /data-testid="profile-edit-form"/);
-    assert.match(openMenuHtml, /data-testid="profile-fullname-input"/);
-    assert.match(openMenuHtml, /data-testid="profile-username-input"/);
-    assert.match(openMenuHtml, /data-testid="profile-save-button"/);
+    assert.match(openMenuHtml, /data-testid="open-profile-page-button"/);
     assert.match(openMenuHtml, /data-testid="open-settings-privacy-button"/);
     assert.match(openMenuHtml, /data-testid="logout-button"/);
+
+    appController.openProfilePage();
+    const profilePageHtml = renderToStaticMarkup(appController.renderElement());
+    assert.match(profilePageHtml, /data-testid="user-profile-screen"/);
+    assert.match(profilePageHtml, /data-testid="profile-edit-form"/);
+    assert.match(profilePageHtml, /data-testid="profile-fullname-input"/);
+    assert.match(profilePageHtml, /data-testid="profile-username-input"/);
+    assert.match(profilePageHtml, /data-testid="profile-save-button"/);
 
     const updatedState = await appController.updateProfile({
       fullName: 'Juan Pablo Simón',
@@ -1452,5 +1457,356 @@ describe('H11 exportación del historial en la pestaña Gastos', () => {
       html,
       /data-testid="export-message"[^>]*>Se exportaron 2 gastos por un total de \$ 7\.734,56\.</,
     );
+  });
+});
+
+describe('H14 refactor UX/UI Desktop, paleta vibrante de gráfico y página dedicada de perfil', () => {
+  let db;
+  let consentRepo;
+  let userAccountRepo;
+  let categoryRepo;
+  let expenseRepo;
+  let incomeRepo;
+  let investmentRepo;
+  let reminderRepo;
+
+  beforeEach(async () => {
+    db = await AppDatabase.openInMemory();
+    consentRepo = new SqliteConsentRepository(db);
+    userAccountRepo = new SqliteUserAccountRepository(db);
+    categoryRepo = new SqliteCategoryRepository(db);
+    expenseRepo = new SqliteExpenseRepository(db);
+    incomeRepo = new SqliteMonthlyIncomeRepository(db);
+    investmentRepo = new SqliteInvestmentRepository(db);
+    reminderRepo = new SqliteReminderRepository(db);
+  });
+
+  afterEach(async () => {
+    if (db) {
+      await db.close();
+    }
+  });
+
+  it('[H14-R1][H14-R2] en Desktop el navbar ocupa el 100 % del ancho e integra las 5 pestañas en la barra superior sin dock fijo inferior, conservando las tarjetas inferiores fijas en Mobile', async () => {
+    const desktopShellStyles = AppShell.buildStyles(1280);
+    assert.equal(desktopShellStyles.mainScreen.width, '100%');
+    assert.equal(desktopShellStyles.mainScreen.maxWidth, '100%');
+    assert.equal(desktopShellStyles.header.width, '100%');
+    assert.equal(desktopShellStyles.header.borderRadius, 0);
+
+    const desktopOverviewStyles = MonthlyOverviewScreen.buildStyles(1280);
+    assert.equal(desktopOverviewStyles.tabsBar.position, 'static');
+
+    const mobileOverviewStyles = MonthlyOverviewScreen.buildStyles(390);
+    assert.equal(mobileOverviewStyles.tabsBar.position, 'fixed');
+    assert.equal(mobileOverviewStyles.tabsBar.bottom, 0);
+    assert.equal(mobileOverviewStyles.activeTabButton.transform, 'translateY(-8px)');
+
+    const desktopApp = AppShell.createController({
+      consentRepository: consentRepo,
+      userAccountRepository: userAccountRepo,
+      expenseRepository: expenseRepo,
+      categoryRepository: categoryRepo,
+      incomeRepository: incomeRepo,
+      investmentRepository: investmentRepo,
+      reminderRepository: reminderRepo,
+      requireAuth: true,
+      today: () => '2026-11-15',
+      viewportWidth: 1280,
+    });
+    await desktopApp.initialize();
+    await desktopApp.acceptPrivacyNotice();
+    await desktopApp.registerAccount({
+      fullName: 'Juan Pablo',
+      username: 'juanpablo',
+      password: '1234',
+    });
+
+    const desktopHtml = renderToStaticMarkup(desktopApp.renderElement());
+    const headerStart = desktopHtml.indexOf('data-testid="app-header"');
+    const headerEnd = desktopHtml.indexOf('</header>', headerStart);
+    const headerHtml = desktopHtml.slice(headerStart, headerEnd);
+    assert.match(headerHtml, /data-testid="overview-tabs"/);
+    assert.match(headerHtml, /data-nav-placement="header"/);
+    assert.match(headerHtml, /data-testid="tab-overview"/);
+    assert.match(headerHtml, /data-testid="tab-expenses"/);
+    assert.match(headerHtml, /data-testid="tab-income"/);
+    assert.match(headerHtml, /data-testid="tab-investments"/);
+    assert.match(headerHtml, /data-testid="tab-reminders"/);
+    assert.equal([...desktopHtml.matchAll(/data-testid="overview-tabs"/g)].length, 1);
+
+    const mobileApp = AppShell.createController({
+      consentRepository: consentRepo,
+      userAccountRepository: userAccountRepo,
+      expenseRepository: expenseRepo,
+      categoryRepository: categoryRepo,
+      incomeRepository: incomeRepo,
+      investmentRepository: investmentRepo,
+      reminderRepository: reminderRepo,
+      requireAuth: false,
+      today: () => '2026-11-15',
+      viewportWidth: 390,
+    });
+    await mobileApp.initialize();
+    const mobileHtml = renderToStaticMarkup(mobileApp.renderElement());
+    const mobileHeaderStart = mobileHtml.indexOf('data-testid="app-header"');
+    const mobileHeaderEnd = mobileHtml.indexOf('</header>', mobileHeaderStart);
+    const mobileHeaderHtml = mobileHtml.slice(mobileHeaderStart, mobileHeaderEnd);
+    assert.doesNotMatch(mobileHeaderHtml, /data-testid="overview-tabs"/);
+    assert.match(mobileHtml, /data-testid="overview-tabs"[^>]*data-nav-placement="bottom"/);
+  });
+
+  it('[H14-R3][H14-R4][H14-R5] en Desktop el contenedor principal ocupa el 80 % del ancho sin scroll vertical en Resumen, amplía el gráfico con colores vibrantes y muestra los tres paneles informativos complementarios', async () => {
+    await expenseRepo.save(
+      new Expense({
+        amountCents: 4200000,
+        date: '2026-11-04',
+        categoryId: 1,
+        note: 'Supermercado',
+        createdAt: '2026-11-04T10:00:00',
+      }),
+    );
+    await expenseRepo.save(
+      new Expense({
+        amountCents: 1800000,
+        date: '2026-10-12',
+        categoryId: 1,
+        note: 'Octubre',
+        createdAt: '2026-10-12T10:00:00',
+      }),
+    );
+    await reminderRepo.save({
+      title: 'Vencimiento tarjeta Visa',
+      dueDate: '2026-11-24',
+      createdAt: '2026-11-01T10:00:00',
+    });
+
+    const desktopStyles = MonthlyOverviewScreen.buildStyles(1280);
+    assert.equal(desktopStyles.wrapper.width, '80%');
+    assert.equal(desktopStyles.wrapper.maxWidth, 1440);
+    assert.equal(desktopStyles.overviewViewportBox.overflowY, 'hidden');
+    assert.equal(desktopStyles.kpiGrid.flexShrink, 0);
+
+    const compactChartDesktopStyles = CategoryDistributionChart.buildStyles(1280, true);
+    assert.equal(compactChartDesktopStyles.card.height, 310);
+    assert.equal(compactChartDesktopStyles.card.maxHeight, 310);
+    assert.equal(compactChartDesktopStyles.donutContainer.flexShrink, 0);
+    assert.equal(compactChartDesktopStyles.breakdownList.overflowY, 'auto');
+    assert.equal(compactChartDesktopStyles.breakdownList.maxHeight, 186);
+
+    const controller = MonthlyOverviewScreen.createController({
+      expenseRepository: expenseRepo,
+      categoryRepository: categoryRepo,
+      incomeRepository: incomeRepo,
+      investmentRepository: investmentRepo,
+      reminderRepository: reminderRepo,
+      today: () => '2026-11-15',
+      viewportWidth: 1280,
+    });
+    await controller.initialize();
+    await controller.submitMonthlyIncome('15000000');
+
+    const html = renderToStaticMarkup(controller.renderElement());
+    assert.match(html, /data-testid="desktop-overview-grid"/);
+    assert.match(html, /data-testid="category-donut-svg"[^>]*width="212"[^>]*height="212"/);
+    assert.match(html, /stroke="#2563EB"/);
+    assert.match(html, /data-testid="desktop-overview-insights"/);
+    assert.match(html, /data-testid="desktop-insight-pulse"/);
+    assert.match(html, /data-testid="desktop-insight-recent"/);
+    assert.match(html, /data-testid="desktop-insight-alerts"/);
+    assert.match(html, /Vencimiento tarjeta Visa/);
+    assert.doesNotMatch(html, /data-testid="monthly-income-form"/);
+    assert.doesNotMatch(html, /data-testid="expense-form"/);
+  });
+
+  it('[H14-R6][H14-R7][H14-R8][H14-R9] el menú de usuario abre la página dedicada de perfil donde edita sus datos y cambia su contraseña validando la clave actual y el largo mínimo', async () => {
+    const appController = AppShell.createController({
+      consentRepository: consentRepo,
+      userAccountRepository: userAccountRepo,
+      expenseRepository: expenseRepo,
+      categoryRepository: categoryRepo,
+      incomeRepository: incomeRepo,
+      investmentRepository: investmentRepo,
+      reminderRepository: reminderRepo,
+      requireAuth: true,
+      today: () => '2026-11-15',
+      viewportWidth: 1280,
+    });
+
+    await appController.initialize();
+    await appController.acceptPrivacyNotice();
+    await appController.registerAccount({
+      fullName: 'Juan Pablo',
+      username: 'juanpablo',
+      password: '1234',
+    });
+
+    appController.openProfileMenu();
+    const menuHtml = renderToStaticMarkup(appController.renderElement());
+    assert.match(menuHtml, /data-testid="profile-menu-popover"/);
+    assert.match(menuHtml, /data-testid="open-profile-page-button"/);
+    assert.doesNotMatch(menuHtml, /data-testid="profile-edit-form"/);
+
+    const profileState = appController.openProfilePage();
+    assert.equal(profileState.view, 'profile');
+    assert.equal(profileState.isProfileMenuOpen, false);
+
+    const profileHtml = renderToStaticMarkup(appController.renderElement());
+    assert.match(profileHtml, /data-testid="user-profile-screen"/);
+    assert.match(profileHtml, /data-testid="profile-edit-form"/);
+    assert.match(profileHtml, /data-testid="profile-password-form"/);
+    assert.match(profileHtml, /data-testid="close-profile-page-button"/);
+
+    const wrongCurrentState = await appController.changePassword({
+      currentPassword: '9999',
+      newPassword: 'nuevaClave',
+    });
+    assert.equal(wrongCurrentState.passwordError, 'La clave actual es incorrecta');
+    assert.match(
+      renderToStaticMarkup(appController.renderElement()),
+      /data-testid="profile-password-error"/,
+    );
+
+    const shortNewState = await appController.changePassword({
+      currentPassword: '1234',
+      newPassword: '12',
+    });
+    assert.equal(
+      shortNewState.passwordError,
+      'La nueva clave debe tener al menos 4 caracteres',
+    );
+
+    const changedState = await appController.changePassword({
+      currentPassword: '1234',
+      newPassword: 'claveSegura2026',
+    });
+    assert.equal(changedState.passwordError, null);
+    assert.equal(
+      changedState.passwordSuccess,
+      'Contraseña actualizada correctamente.',
+    );
+    assert.match(
+      renderToStaticMarkup(appController.renderElement()),
+      /data-testid="profile-password-success"/,
+    );
+
+    const backMainState = appController.closeProfilePage();
+    assert.equal(backMainState.view, 'main');
+
+    appController.logoutAccount();
+    const reloginOld = await appController.loginAccount({
+      username: 'juanpablo',
+      password: '1234',
+    });
+    assert.equal(reloginOld.currentUser, null);
+    assert.equal(reloginOld.authError, 'Usuario o clave incorrectos');
+
+    const reloginNew = await appController.loginAccount({
+      username: 'juanpablo',
+      password: 'claveSegura2026',
+    });
+    assert.equal(reloginNew.currentUser.username, 'juanpablo');
+    assert.equal(reloginNew.view, 'main');
+  });
+});
+
+describe('H15 múltiples ingresos en cualquier momento con suma acumulada mensual', () => {
+  let db;
+  let categoryRepo;
+  let expenseRepo;
+  let incomeRepo;
+  let investmentRepo;
+  let reminderRepo;
+
+  beforeEach(async () => {
+    db = await AppDatabase.openInMemory();
+    categoryRepo = new SqliteCategoryRepository(db);
+    expenseRepo = new SqliteExpenseRepository(db);
+    incomeRepo = new SqliteMonthlyIncomeRepository(db);
+    investmentRepo = new SqliteInvestmentRepository(db);
+    reminderRepo = new SqliteReminderRepository(db);
+  });
+
+  afterEach(async () => {
+    if (db) {
+      await db.close();
+    }
+  });
+
+  it('[H15-R6][H15-R7][H15-R8] permite cargar múltiples ingresos con fecha y concepto en la pestaña Ingresos, acumula su suma en el ingreso mensual y recalcula todo al editar o eliminar un ingreso', async () => {
+    await expenseRepo.save(
+      new Expense({
+        amountCents: 30000000,
+        date: '2026-11-05',
+        categoryId: 1,
+        note: 'Supermercado',
+        createdAt: '2026-11-05T10:00:00',
+      }),
+    );
+
+    const controller = MonthlyOverviewScreen.createController({
+      expenseRepository: expenseRepo,
+      categoryRepository: categoryRepo,
+      incomeRepository: incomeRepo,
+      investmentRepository: investmentRepo,
+      reminderRepository: reminderRepo,
+      today: () => '2026-11-15',
+      viewportWidth: 1280,
+    });
+
+    await controller.initialize();
+    controller.setActiveTab('income');
+
+    const initialIncomeHtml = renderToStaticMarkup(controller.renderElement());
+    assert.match(initialIncomeHtml, /data-testid="income-amount-input"/);
+    assert.match(initialIncomeHtml, /data-testid="income-date-input"[^>]*value="2026-11-15"/);
+    assert.match(initialIncomeHtml, /data-testid="income-note-input"/);
+    assert.match(initialIncomeHtml, /data-testid="income-entries-empty"/);
+
+    controller.setIncomeInputs({
+      amountInput: '1000000',
+      date: '2026-11-02',
+      note: 'Sueldo neto',
+    });
+    const afterFirst = await controller.submitMonthlyIncome();
+    assert.equal(afterFirst.monthlyIncome.amountCents, 100000000);
+    assert.equal(afterFirst.incomeEntries.length, 1);
+    assert.equal(afterFirst.incomeInput, '');
+    assert.equal(afterFirst.incomeNoteInput, '');
+
+    controller.setIncomeInputs({
+      amountInput: '500000',
+      date: '2026-11-14',
+      note: 'Cobro freelance',
+    });
+    const afterSecond = await controller.submitMonthlyIncome();
+    assert.equal(afterSecond.monthlyIncome.amountCents, 150000000);
+    assert.equal(afterSecond.availableBalanceCents, 120000000);
+    assert.equal(afterSecond.incomeEntries.length, 2);
+    assert.equal(afterSecond.categoryBreakdown[0].incomePercentage, 20);
+
+    const listHtml = renderToStaticMarkup(controller.renderElement());
+    assert.match(listHtml, /data-testid="income-entries-list"/);
+    assert.match(listHtml, /Sueldo neto/);
+    assert.match(listHtml, /Cobro freelance/);
+    assert.match(listHtml, /\$ 1\.500\.000/);
+    assert.match(listHtml, /20 % del ingreso/);
+
+    const secondEntryId = afterSecond.incomeEntries[0].id;
+    controller.startEditIncomeEntry(secondEntryId);
+    controller.setIncomeInputs({
+      amountInput: '200000',
+      date: '2026-11-14',
+      note: 'Cobro freelance ajustado',
+    });
+    const afterEdit = await controller.submitMonthlyIncome();
+    assert.equal(afterEdit.monthlyIncome.amountCents, 120000000);
+    assert.equal(afterEdit.availableBalanceCents, 90000000);
+    assert.equal(afterEdit.categoryBreakdown[0].incomePercentage, 25);
+
+    const firstEntryId = afterEdit.incomeEntries[1].id;
+    const afterDelete = await controller.deleteIncomeEntry(firstEntryId);
+    assert.equal(afterDelete.incomeEntries.length, 1);
+    assert.equal(afterDelete.monthlyIncome.amountCents, 20000000);
   });
 });

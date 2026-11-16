@@ -97,6 +97,18 @@ const MIGRATION_V4_SQL = `
   CREATE INDEX IF NOT EXISTS idx_advice_requests_year_month ON advice_requests (year_month);
 `;
 
+const MIGRATION_V5_SQL = `
+  CREATE TABLE IF NOT EXISTS income_entries (
+    id INTEGER PRIMARY KEY AUTOINCREMENT,
+    amount_cents INTEGER NOT NULL CHECK (amount_cents > 0),
+    date TEXT NOT NULL,
+    note TEXT NULL,
+    created_at TEXT NOT NULL
+  );
+
+  CREATE INDEX IF NOT EXISTS idx_income_entries_date ON income_entries(date);
+`;
+
 export class AppDatabase {
   constructor(driver) {
     this.driver = driver;
@@ -142,6 +154,11 @@ export class AppDatabase {
     if (currentVersion < 4) {
       await this.exec(MIGRATION_V4_SQL);
       await this.exec('PRAGMA user_version = 4;');
+    }
+
+    if (currentVersion < 5) {
+      await this.exec(MIGRATION_V5_SQL);
+      await this.exec('PRAGMA user_version = 5;');
     }
   }
 

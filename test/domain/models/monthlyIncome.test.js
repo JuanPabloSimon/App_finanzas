@@ -12,6 +12,8 @@ import { Category } from '../../../src/domain/models/category.js';
 import { Expense } from '../../../src/domain/models/expense.js';
 import {
   MonthlyIncome,
+  IncomeEntry,
+  sumIncomeEntries,
   calculateCategoryIncomeBreakdown,
 } from '../../../src/domain/models/monthlyIncome.js';
 import { Investment } from '../../../src/domain/models/investment.js';
@@ -227,8 +229,37 @@ describe('H5 modelos de dominio MonthlyIncome, Investment, Reminder, UserAccount
         breakdown.reduce((s, item) => s + item.expensePercentage, 0) * 10,
       ) / 10;
     assert.equal(sumPct, 100);
-    assert.equal(breakdown[0].colorHex, '#0F2942');
-    assert.equal(breakdown[1].colorHex, '#4A3525');
+    assert.equal(breakdown[0].colorHex, '#2563EB');
+    assert.equal(breakdown[1].colorHex, '#10B981');
+  });
+
+  it('[H14-R5] asigna a las categorías del gráfico una paleta cromática vibrante e independiente de la paleta corporativa sobria', () => {
+    const categories = [
+      new Category({ id: 1, name: 'Alimentos', isPredefined: true }),
+      new Category({ id: 2, name: 'Salud', isPredefined: true }),
+      new Category({ id: 3, name: 'Ocio', isPredefined: true }),
+      new Category({ id: 4, name: 'Delivery', isPredefined: true }),
+    ];
+    const expenses = [
+      new Expense({ id: 1, amountCents: 40000, date: '2026-11-01', categoryId: 1 }),
+      new Expense({ id: 2, amountCents: 30000, date: '2026-11-02', categoryId: 2 }),
+      new Expense({ id: 3, amountCents: 20000, date: '2026-11-03', categoryId: 3 }),
+      new Expense({ id: 4, amountCents: 10000, date: '2026-11-04', categoryId: 4 }),
+    ];
+
+    const breakdown = calculateCategoryIncomeBreakdown(expenses, categories, null);
+    assert.deepEqual(
+      breakdown.map((item) => item.colorHex),
+      ['#2563EB', '#10B981', '#F59E0B', '#F43F5E'],
+    );
+    assert.equal(
+      breakdown.some(
+        (item) =>
+          item.colorHex === CORPORATE_THEME.navyPrimary ||
+          item.colorHex === CORPORATE_THEME.brownPrimary,
+      ),
+      false,
+    );
   });
 
   it('[H6-R4][H6-R5] maneja coherentemente un único gasto (100 %) y ningún gasto (arreglo vacío sin NaN)', () => {
@@ -256,5 +287,48 @@ describe('H5 modelos de dominio MonthlyIncome, Investment, Reminder, UserAccount
     assert.equal(singleBreakdown[0].amountCents, 450000);
     assert.equal(singleBreakdown[0].expenseCount, 1);
     assert.equal(singleBreakdown[0].expensePercentage, 100);
+  });
+
+  it('[H15-R1][H15-R2] crea instancias inmutables de IncomeEntry con fecha ISO, concepto opcional y suma por período, rechazando montos <= 0, fechas inválidas o notas > 200 caracteres', () => {
+    const first = new IncomeEntry({
+      id: 1,
+      amountCents: 90000000,
+      date: '2026-11-02',
+      note: '  Sueldo mensual ',
+      createdAt: '2026-11-02T09:00:00',
+    });
+    assert.equal(first.id, 1);
+    assert.equal(first.amountCents, 90000000);
+    assert.equal(first.date, '2026-11-02');
+    assert.equal(first.yearMonth, '2026-11');
+    assert.equal(first.note, 'Sueldo mensual');
+    assert.equal(Object.isFrozen(first), true);
+
+    const second = first.copyWith({ id: 2, amountCents: 35000000, note: '   ' });
+    assert.equal(second.note, null);
+    assert.equal(sumIncomeEntries([first, second], '2026-11'), 125000000);
+    assert.equal(sumIncomeEntries([first, second], '2026-10'), 0);
+
+    assert.throws(
+      () => new IncomeEntry({ amountCents: 0, date: '2026-11-02' }),
+      InvalidAmount,
+    );
+    assert.throws(
+      () => new IncomeEntry({ amountCents: -100, date: '2026-11-02' }),
+      InvalidAmount,
+    );
+    assert.throws(
+      () => new IncomeEntry({ amountCents: 1000, date: '2026-13-40' }),
+      InvalidExpenseDate,
+    );
+    assert.throws(
+      () =>
+        new IncomeEntry({
+          amountCents: 1000,
+          date: '2026-11-02',
+          note: 'x'.repeat(201),
+        }),
+      InvalidAmount,
+    );
   });
 });
