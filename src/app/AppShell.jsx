@@ -7,8 +7,17 @@ import { getViewportLayout } from '../core/responsive.js';
 import { CORPORATE_THEME } from '../core/theme.js';
 import { PrivacyNoticeScreen } from '../features/privacy/PrivacyNoticeScreen.jsx';
 import { MonthlyOverviewScreen } from '../features/income/MonthlyOverviewScreen.jsx';
+import { UserProfileScreen } from '../features/profile/UserProfileScreen.jsx';
 
 const h = React.createElement;
+
+const NAV_TABS = Object.freeze([
+  { id: 'overview', label: 'Resumen' },
+  { id: 'expenses', label: 'Gastos' },
+  { id: 'income', label: 'Ingresos' },
+  { id: 'investments', label: 'Inversiones' },
+  { id: 'reminders', label: 'Alertas' },
+]);
 
 function createBrowserFallbackConsentRepository() {
   const store = new Map();
@@ -81,6 +90,27 @@ function createInMemoryUserAccountRepository() {
       }
       return draft;
     },
+    async changePassword({ id, currentPassword, newPassword }) {
+      const numericId = Number(id);
+      const cleanCurrent =
+        typeof currentPassword === 'string' ? currentPassword.trim() : '';
+      const cleanNew = typeof newPassword === 'string' ? newPassword.trim() : '';
+      if (!cleanCurrent) {
+        throw new InvalidCredentials('Ingresá tu clave actual');
+      }
+      if (cleanNew.length < 4) {
+        throw new InvalidCredentials('La nueva clave debe tener al menos 4 caracteres');
+      }
+      const found = accounts.find((a) => a.user.id === numericId);
+      if (!found) {
+        throw new InvalidCredentials('La cuenta de usuario no existe');
+      }
+      if (found.password !== cleanCurrent) {
+        throw new InvalidCredentials('La clave actual es incorrecta');
+      }
+      found.password = cleanNew;
+      return true;
+    },
   };
 }
 
@@ -92,9 +122,10 @@ function buildAppShellStyles(viewportWidth = 390) {
       minHeight: '100dvh',
       backgroundColor: CORPORATE_THEME.background,
       color: CORPORATE_THEME.textPrimary,
-      padding: layout.isMobile ? 0 : '0 24px 24px',
-      maxWidth: layout.isMobile ? '100%' : layout.containerMaxWidth,
-      margin: layout.isMobile ? 0 : '0 auto',
+      padding: 0,
+      width: '100%',
+      maxWidth: '100%',
+      margin: 0,
       borderRadius: 0,
       boxSizing: 'border-box',
       fontFamily: CORPORATE_THEME.fontSans,
@@ -104,15 +135,47 @@ function buildAppShellStyles(viewportWidth = 390) {
       flexDirection: 'row',
       justifyContent: 'space-between',
       alignItems: 'center',
-      gap: 12,
+      gap: 16,
       width: '100%',
       boxSizing: 'border-box',
       margin: 0,
-      padding: layout.isMobile ? '7px 14px' : '12px 24px',
-      borderRadius: layout.isMobile ? 0 : '0 0 8px 8px',
+      padding: layout.isMobile ? '7px 14px' : '12px 32px',
+      borderRadius: 0,
       backgroundColor: CORPORATE_THEME.navyPrimary,
       color: '#FFFFFF',
       borderBottom: `3px solid ${CORPORATE_THEME.brownPrimary}`,
+    }),
+    headerNav: Object.freeze({
+      display: 'flex',
+      alignItems: 'center',
+      justifyContent: 'center',
+      gap: 8,
+      flexWrap: 'wrap',
+    }),
+    headerTabButton: Object.freeze({
+      minHeight: 40,
+      padding: '6px 14px',
+      borderRadius: 6,
+      border: `1px solid ${CORPORATE_THEME.borderStrong}`,
+      backgroundColor: CORPORATE_THEME.surface,
+      color: CORPORATE_THEME.textSecondary,
+      fontWeight: 600,
+      fontSize: 13,
+      cursor: 'pointer',
+      transition: 'background-color 150ms ease, color 150ms ease',
+    }),
+    headerActiveTabButton: Object.freeze({
+      minHeight: 40,
+      padding: '6px 14px',
+      borderRadius: 6,
+      border: `1px solid ${CORPORATE_THEME.brownPrimary}`,
+      backgroundColor: CORPORATE_THEME.brownPrimary,
+      color: '#FFFFFF',
+      fontWeight: 700,
+      fontSize: 13,
+      cursor: 'pointer',
+      boxShadow: '0 4px 12px rgba(74, 53, 37, 0.28)',
+      transition: 'background-color 150ms ease, color 150ms ease',
     }),
     brandTitle: Object.freeze({
       margin: 0,
@@ -181,6 +244,9 @@ class AppConsentController {
     this.isProfileMenuOpen = false;
     this.profileError = null;
     this.profileSuccess = null;
+    this.passwordError = null;
+    this.passwordSuccess = null;
+    this.activeTab = 'overview';
     this.view = 'privacy_gate';
     this.initialized = false;
   }
@@ -280,6 +346,35 @@ class AppConsentController {
     return this.getState();
   }
 
+  openProfilePage() {
+    if (!this.hasValidConsent()) {
+      this.view = 'privacy_gate';
+      return this.getState();
+    }
+    this.isProfileMenuOpen = false;
+    this.profileError = null;
+    this.passwordError = null;
+    this.view = 'profile';
+    return this.getState();
+  }
+
+  closeProfilePage() {
+    if (!this.hasValidConsent()) {
+      this.view = 'privacy_gate';
+      return this.getState();
+    }
+    this.view = this.requireAuth && !this.currentUser ? 'auth' : 'main';
+    return this.getState();
+  }
+
+  setActiveTab(tab) {
+    this.activeTab = tab;
+    if (this.view === 'profile') {
+      this.view = 'main';
+    }
+    return this.getState();
+  }
+
   async updateProfile({ fullName, username }) {
     this.profileError = null;
     this.profileSuccess = null;
@@ -307,6 +402,26 @@ class AppConsentController {
       return this.getState();
     } catch (err) {
       this.profileError = err.message;
+      return this.getState();
+    }
+  }
+
+  async changePassword({ currentPassword, newPassword }) {
+    this.passwordError = null;
+    this.passwordSuccess = null;
+    try {
+      if (typeof this.userAccountRepository.changePassword !== 'function') {
+        throw new InvalidCredentials('El repositorio no soporta cambio de clave');
+      }
+      await this.userAccountRepository.changePassword({
+        id: this.currentUser?.id ?? 1,
+        currentPassword,
+        newPassword,
+      });
+      this.passwordSuccess = 'Contraseña actualizada correctamente.';
+      return this.getState();
+    } catch (err) {
+      this.passwordError = err.message;
       return this.getState();
     }
   }
@@ -344,7 +459,11 @@ class AppConsentController {
       this.view = 'privacy_gate';
       return this.getState();
     }
-    if (targetView === 'settings_privacy' || targetView === 'main') {
+    if (
+      targetView === 'settings_privacy' ||
+      targetView === 'profile' ||
+      targetView === 'main'
+    ) {
       this.view = targetView;
     }
     return this.getState();
@@ -362,6 +481,8 @@ class AppConsentController {
         resolvedView = 'settings_privacy';
       } else if (this.requireAuth && !this.currentUser) {
         resolvedView = 'auth';
+      } else if (this.view === 'profile') {
+        resolvedView = 'profile';
       } else {
         resolvedView = 'main';
       }
@@ -377,6 +498,9 @@ class AppConsentController {
       isProfileMenuOpen: this.isProfileMenuOpen,
       profileError: this.profileError,
       profileSuccess: this.profileSuccess,
+      passwordError: this.passwordError,
+      passwordSuccess: this.passwordSuccess,
+      activeTab: this.activeTab,
       view: resolvedView,
       viewportWidth: this.viewportWidth,
     });
@@ -404,6 +528,9 @@ class AppConsentController {
         initialProfileMenuOpen: state.isProfileMenuOpen,
         initialProfileError: state.profileError,
         initialProfileSuccess: state.profileSuccess,
+        initialPasswordError: state.passwordError,
+        initialPasswordSuccess: state.passwordSuccess,
+        initialActiveTab: state.activeTab,
         initialView: state.view,
         viewportWidth: state.viewportWidth,
         today: this.today,
@@ -432,6 +559,9 @@ export function AppShell({
   initialProfileMenuOpen = false,
   initialProfileError = null,
   initialProfileSuccess = null,
+  initialPasswordError = null,
+  initialPasswordSuccess = null,
+  initialActiveTab = 'overview',
   initialView = 'main',
   onDemoSeed = null,
   viewportWidth = 390,
@@ -473,6 +603,12 @@ export function AppShell({
   const [profileError, setProfileError] = useState(initialProfileError);
   const [profileSuccess, setProfileSuccess] = useState(initialProfileSuccess);
 
+  const [currentPasswordInput, setCurrentPasswordInput] = useState('');
+  const [newPasswordInput, setNewPasswordInput] = useState('');
+  const [passwordError, setPasswordError] = useState(initialPasswordError);
+  const [passwordSuccess, setPasswordSuccess] = useState(initialPasswordSuccess);
+  const [activeTab, setActiveTab] = useState(initialActiveTab);
+
   const [loading, setLoading] = useState(initialConsent === undefined);
   const [activeView, setActiveView] = useState(() => {
     const hasValidInitial =
@@ -481,7 +617,13 @@ export function AppShell({
     if (!hasValidInitial) {
       return 'privacy_gate';
     }
-    return initialView === 'settings_privacy' ? 'settings_privacy' : 'main';
+    if (initialView === 'settings_privacy') {
+      return 'settings_privacy';
+    }
+    if (initialView === 'profile') {
+      return 'profile';
+    }
+    return 'main';
   });
 
   useEffect(() => {
@@ -525,6 +667,27 @@ export function AppShell({
   };
 
   const handleCloseSettingsPrivacy = () => {
+    if (hasValidConsent) {
+      setActiveView('main');
+    }
+  };
+
+  const handleOpenProfilePage = () => {
+    if (hasValidConsent) {
+      if (currentUser) {
+        setProfileFullNameInput(currentUser.fullName ?? '');
+        setProfileUsernameInput(currentUser.username ?? '');
+      }
+      setProfileError(null);
+      setProfileSuccess(null);
+      setPasswordError(null);
+      setPasswordSuccess(null);
+      setIsProfileMenuOpen(false);
+      setActiveView('profile');
+    }
+  };
+
+  const handleCloseProfilePage = () => {
     if (hasValidConsent) {
       setActiveView('main');
     }
@@ -578,8 +741,32 @@ export function AppShell({
     }
   };
 
+  const handlePasswordChange = async (e) => {
+    if (e && typeof e.preventDefault === 'function') {
+      e.preventDefault();
+    }
+    setPasswordError(null);
+    setPasswordSuccess(null);
+    try {
+      if (typeof userRepo.changePassword !== 'function') {
+        throw new InvalidCredentials('El repositorio no soporta cambio de clave');
+      }
+      await userRepo.changePassword({
+        id: currentUser?.id ?? 1,
+        currentPassword: currentPasswordInput,
+        newPassword: newPasswordInput,
+      });
+      setCurrentPasswordInput('');
+      setNewPasswordInput('');
+      setPasswordSuccess('Contraseña actualizada correctamente.');
+    } catch (err) {
+      setPasswordError(err.message);
+    }
+  };
+
   const handleLogout = () => {
     setIsProfileMenuOpen(false);
+    setActiveView('main');
     setCurrentUser(null);
   };
 
@@ -972,6 +1159,41 @@ export function AppShell({
         },
         'Ge$tix',
       ),
+      layout.isDesktop
+        ? h(
+            'nav',
+            {
+              'data-testid': 'overview-tabs',
+              'data-nav-placement': 'header',
+              'aria-label': 'Secciones del panel financiero',
+              style: shellStyles.headerNav,
+            },
+            ...NAV_TABS.map((tab) => {
+              const isActive = activeView === 'main' && activeTab === tab.id;
+              return h(
+                'button',
+                {
+                  key: tab.id,
+                  type: 'button',
+                  'data-testid': `tab-${tab.id}`,
+                  'data-active': isActive ? 'true' : 'false',
+                  'aria-selected': isActive,
+                  tabIndex: 0,
+                  style: isActive
+                    ? shellStyles.headerActiveTabButton
+                    : shellStyles.headerTabButton,
+                  onClick: () => {
+                    setActiveTab(tab.id);
+                    if (activeView === 'profile') {
+                      setActiveView('main');
+                    }
+                  },
+                },
+                h('span', null, tab.label),
+              );
+            }),
+          )
+        : null,
       h(
         'button',
         {
@@ -1019,7 +1241,7 @@ export function AppShell({
               borderRight: layout.isMobile
                 ? 'none'
                 : `1px solid ${CORPORATE_THEME.border}`,
-              padding: layout.isMobile ? '14px 16px' : '16px 24px',
+              padding: layout.isMobile ? '14px 16px' : '16px 32px',
               boxShadow: '0 10px 24px rgba(11, 25, 44, 0.12)',
               display: 'flex',
               flexDirection: 'column',
@@ -1074,111 +1296,6 @@ export function AppShell({
             ),
           ),
           h(
-            'form',
-            {
-              'data-testid': 'profile-edit-form',
-              onSubmit: handleProfileSave,
-              noValidate: true,
-              style: {
-                display: 'grid',
-                gridTemplateColumns: layout.isMobile
-                  ? '1fr'
-                  : '1fr 1fr auto',
-                gap: 8,
-                alignItems: 'center',
-              },
-            },
-            h('input', {
-              'data-testid': 'profile-fullname-input',
-              type: 'text',
-              placeholder: 'Nombre completo',
-              value: profileFullNameInput,
-              style: {
-                minHeight: 40,
-                padding: '7px 10px',
-                borderRadius: 4,
-                border: `1px solid ${CORPORATE_THEME.borderStrong}`,
-                backgroundColor: '#FFFFFF',
-                color: CORPORATE_THEME.textPrimary,
-                fontSize: 13,
-              },
-              onChange: (e) => setProfileFullNameInput(e?.target?.value ?? ''),
-            }),
-            h('input', {
-              'data-testid': 'profile-username-input',
-              type: 'text',
-              placeholder: 'Usuario (@alias)',
-              value: profileUsernameInput,
-              style: {
-                minHeight: 40,
-                padding: '7px 10px',
-                borderRadius: 4,
-                border: `1px solid ${CORPORATE_THEME.borderStrong}`,
-                backgroundColor: '#FFFFFF',
-                color: CORPORATE_THEME.textPrimary,
-                fontSize: 13,
-              },
-              onChange: (e) => setProfileUsernameInput(e?.target?.value ?? ''),
-            }),
-            h(
-              'button',
-              {
-                type: 'submit',
-                'data-testid': 'profile-save-button',
-                style: {
-                  minHeight: 40,
-                  padding: '8px 14px',
-                  borderRadius: 4,
-                  border: 'none',
-                  backgroundColor: CORPORATE_THEME.navyPrimary,
-                  color: '#FFFFFF',
-                  fontSize: 13,
-                  fontWeight: 600,
-                  cursor: 'pointer',
-                },
-                onClick: handleProfileSave,
-              },
-              'Guardar perfil',
-            ),
-          ),
-          profileError
-            ? h(
-                'p',
-                {
-                  'data-testid': 'profile-edit-error',
-                  role: 'alert',
-                  style: {
-                    margin: 0,
-                    padding: '6px 10px',
-                    borderRadius: 4,
-                    backgroundColor: CORPORATE_THEME.dangerBg,
-                    color: CORPORATE_THEME.danger,
-                    fontSize: 12,
-                    fontWeight: 600,
-                  },
-                },
-                profileError,
-              )
-            : null,
-          profileSuccess
-            ? h(
-                'p',
-                {
-                  'data-testid': 'profile-edit-success',
-                  style: {
-                    margin: 0,
-                    padding: '6px 10px',
-                    borderRadius: 4,
-                    backgroundColor: CORPORATE_THEME.successBg,
-                    color: CORPORATE_THEME.success,
-                    fontSize: 12,
-                    fontWeight: 600,
-                  },
-                },
-                profileSuccess,
-              )
-            : null,
-          h(
             'div',
             {
               style: {
@@ -1187,29 +1304,58 @@ export function AppShell({
                 alignItems: 'center',
                 gap: 8,
                 flexWrap: 'wrap',
-                paddingTop: 8,
-                borderTop: `1px solid ${CORPORATE_THEME.border}`,
               },
             },
             h(
-              'button',
+              'div',
               {
-                type: 'button',
-                'data-testid': 'open-settings-privacy-button',
                 style: {
-                  minHeight: 36,
-                  padding: '6px 10px',
-                  borderRadius: 4,
-                  border: `1px solid ${CORPORATE_THEME.border}`,
-                  backgroundColor: 'transparent',
-                  color: CORPORATE_THEME.textSecondary,
-                  cursor: 'pointer',
-                  fontSize: 12,
-                  fontWeight: 500,
+                  display: 'flex',
+                  alignItems: 'center',
+                  gap: 8,
+                  flexWrap: 'wrap',
                 },
-                onClick: handleOpenSettingsPrivacy,
               },
-              'Privacidad y datos (Ley 25.326)',
+              h(
+                'button',
+                {
+                  type: 'button',
+                  'data-testid': 'open-profile-page-button',
+                  style: {
+                    minHeight: 38,
+                    padding: '7px 14px',
+                    borderRadius: 4,
+                    border: 'none',
+                    backgroundColor: CORPORATE_THEME.navyPrimary,
+                    color: '#FFFFFF',
+                    cursor: 'pointer',
+                    fontSize: 13,
+                    fontWeight: 600,
+                  },
+                  onClick: handleOpenProfilePage,
+                },
+                'Ir a mi perfil',
+              ),
+              h(
+                'button',
+                {
+                  type: 'button',
+                  'data-testid': 'open-settings-privacy-button',
+                  style: {
+                    minHeight: 38,
+                    padding: '7px 12px',
+                    borderRadius: 4,
+                    border: `1px solid ${CORPORATE_THEME.border}`,
+                    backgroundColor: 'transparent',
+                    color: CORPORATE_THEME.textSecondary,
+                    cursor: 'pointer',
+                    fontSize: 12.5,
+                    fontWeight: 500,
+                  },
+                  onClick: handleOpenSettingsPrivacy,
+                },
+                'Privacidad y datos (Ley 25.326)',
+              ),
             ),
             h(
               'button',
@@ -1217,14 +1363,14 @@ export function AppShell({
                 type: 'button',
                 'data-testid': 'logout-button',
                 style: {
-                  minHeight: 36,
-                  padding: '6px 14px',
+                  minHeight: 38,
+                  padding: '7px 14px',
                   borderRadius: 4,
                   border: `1px solid ${CORPORATE_THEME.brownAccent}`,
                   backgroundColor: CORPORATE_THEME.brownPrimary,
                   color: '#FFFFFF',
                   cursor: 'pointer',
-                  fontSize: 12,
+                  fontSize: 12.5,
                   fontWeight: 600,
                 },
                 onClick: handleLogout,
@@ -1240,43 +1386,69 @@ export function AppShell({
         'data-testid': 'app-main-content',
         style: { paddingTop: 0 },
       },
-      children ??
-        h(
-          React.Fragment,
-          null,
-          h(
-            'p',
-            {
-              'data-testid': 'app-ready-message',
-              style: {
-                position: 'absolute',
-                width: 1,
-                height: 1,
-                padding: 0,
-                margin: -1,
-                overflow: 'hidden',
-                clip: 'rect(0, 0, 0, 0)',
-                whiteSpace: 'nowrap',
-                border: 0,
-              },
-            },
-            'Panel principal desbloqueado — Almacenamiento exclusivo en este dispositivo (Ley 25.326).',
-          ),
-          h(MonthlyOverviewScreen, {
-            expenseRepository,
-            categoryRepository,
-            incomeRepository,
-            investmentRepository,
-            reminderRepository,
-            recurrenceRepository,
-            llmClient,
-            adviceRequestRepository,
-            isConsentAccepted: () => hasValidConsent,
-            today,
-            now,
+      activeView === 'profile'
+        ? h(UserProfileScreen, {
+            currentUser,
+            consent,
+            fullNameInput: profileFullNameInput,
+            usernameInput: profileUsernameInput,
+            onFullNameChange: setProfileFullNameInput,
+            onUsernameChange: setProfileUsernameInput,
+            onSaveProfile: handleProfileSave,
+            profileError,
+            profileSuccess,
+            currentPasswordInput,
+            newPasswordInput,
+            onCurrentPasswordChange: setCurrentPasswordInput,
+            onNewPasswordChange: setNewPasswordInput,
+            onChangePassword: handlePasswordChange,
+            passwordError,
+            passwordSuccess,
+            onClose: handleCloseProfilePage,
+            onOpenPrivacy: handleOpenSettingsPrivacy,
+            onLogout: handleLogout,
             viewportWidth,
-          }),
-        ),
+          })
+        : (children ??
+          h(
+            React.Fragment,
+            null,
+            h(
+              'p',
+              {
+                'data-testid': 'app-ready-message',
+                style: {
+                  position: 'absolute',
+                  width: 1,
+                  height: 1,
+                  padding: 0,
+                  margin: -1,
+                  overflow: 'hidden',
+                  clip: 'rect(0, 0, 0, 0)',
+                  whiteSpace: 'nowrap',
+                  border: 0,
+                },
+              },
+              'Panel principal desbloqueado — Almacenamiento exclusivo en este dispositivo (Ley 25.326).',
+            ),
+            h(MonthlyOverviewScreen, {
+              expenseRepository,
+              categoryRepository,
+              incomeRepository,
+              investmentRepository,
+              reminderRepository,
+              recurrenceRepository,
+              llmClient,
+              adviceRequestRepository,
+              isConsentAccepted: () => hasValidConsent,
+              activeTab,
+              onTabChange: setActiveTab,
+              hideNavigationBar: layout.isDesktop,
+              today,
+              now,
+              viewportWidth,
+            }),
+          )),
     ),
   );
 }

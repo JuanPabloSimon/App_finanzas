@@ -25,6 +25,24 @@ function buildCategoryChartStyles(viewportWidth = 390, compact = false) {
         : layout.isMobile
           ? 16
           : 22,
+      height: compact
+        ? layout.isDesktop
+          ? 310
+          : layout.isMobile
+            ? 250
+            : 280
+        : 'auto',
+      maxHeight: compact
+        ? layout.isDesktop
+          ? 310
+          : layout.isMobile
+            ? 250
+            : 280
+        : 'none',
+      boxSizing: 'border-box',
+      display: 'flex',
+      flexDirection: 'column',
+      overflow: compact ? 'hidden' : 'visible',
       fontFamily: CORPORATE_THEME.fontSans,
     }),
     headerRow: Object.freeze({
@@ -36,18 +54,23 @@ function buildCategoryChartStyles(viewportWidth = 390, compact = false) {
       marginBottom: compact ? 3 : 14,
       paddingBottom: compact ? 2 : 10,
       borderBottom: `1px solid ${CORPORATE_THEME.border}`,
+      flexShrink: 0,
     }),
     chartBodyGrid: Object.freeze({
       display: 'grid',
       gridTemplateColumns: compact
         ? layout.isMobile
           ? '1fr'
-          : '132px minmax(0, 1fr)'
+          : layout.isDesktop
+            ? '228px minmax(0, 1fr)'
+            : '132px minmax(0, 1fr)'
         : layout.isMobile
           ? '1fr'
           : '188px minmax(0, 1fr)',
-      gap: compact ? (layout.isMobile ? 4 : 10) : layout.isMobile ? 16 : 22,
-      alignItems: 'center',
+      gap: compact ? (layout.isMobile ? 4 : layout.isDesktop ? 20 : 10) : layout.isMobile ? 16 : 22,
+      alignItems: compact ? 'stretch' : 'center',
+      flex: compact ? 1 : 'initial',
+      minHeight: 0,
     }),
     donutContainer: Object.freeze({
       display: 'flex',
@@ -59,6 +82,29 @@ function buildCategoryChartStyles(viewportWidth = 390, compact = false) {
       backgroundColor: CORPORATE_THEME.surfaceMuted,
       border: `1px solid ${CORPORATE_THEME.border}`,
       borderRadius: 6,
+      flexShrink: 0,
+    }),
+    breakdownColumn: Object.freeze({
+      minWidth: 0,
+      minHeight: 0,
+      display: 'flex',
+      flexDirection: 'column',
+      overflow: 'hidden',
+    }),
+    breakdownList: Object.freeze({
+      listStyle: 'none',
+      margin: 0,
+      padding: compact ? '0 4px 0 0' : 0,
+      flex: compact ? 1 : 'initial',
+      minHeight: 0,
+      maxHeight: compact
+        ? layout.isDesktop
+          ? 186
+          : layout.isMobile
+            ? 112
+            : 150
+        : 'none',
+      overflowY: compact ? 'auto' : 'visible',
     }),
     emptyBox: Object.freeze({
       display: 'flex',
@@ -95,6 +141,7 @@ function buildCategoryChartStyles(viewportWidth = 390, compact = false) {
       border: `1px solid ${CORPORATE_THEME.border}`,
       borderLeft: `3px solid ${CORPORATE_THEME.brownPrimary}`,
       fontVariantNumeric: CORPORATE_THEME.tabularNums,
+      flexShrink: 0,
     }),
   });
 }
@@ -217,6 +264,14 @@ export function CategoryDistributionChart({
           'div',
           {
             'data-testid': 'category-distribution-chart',
+            style: compact
+              ? {
+                  flex: 1,
+                  minHeight: 0,
+                  display: 'flex',
+                  flexDirection: 'column',
+                }
+              : undefined,
           },
           h(
             'div',
@@ -228,8 +283,8 @@ export function CategoryDistributionChart({
                 'svg',
                 {
                   'data-testid': 'category-donut-svg',
-                  width: compact ? (layout.isMobile ? 68 : 104) : 168,
-                  height: compact ? (layout.isMobile ? 68 : 104) : 168,
+                  width: layout.isDesktop ? 212 : compact ? (layout.isMobile ? 68 : 104) : 168,
+                  height: layout.isDesktop ? 212 : compact ? (layout.isMobile ? 68 : 104) : 168,
                   viewBox: '0 0 168 168',
                   role: 'img',
                   style: { flexShrink: 0 },
@@ -344,7 +399,7 @@ export function CategoryDistributionChart({
             ),
             h(
               'div',
-              { style: { minWidth: 0 } },
+              { style: styles.breakdownColumn },
               h(
                 'div',
                 {
@@ -357,6 +412,7 @@ export function CategoryDistributionChart({
                     backgroundColor: CORPORATE_THEME.surfaceMuted,
                     border: `1px solid ${CORPORATE_THEME.border}`,
                     marginBottom: compact ? 6 : 12,
+                    flexShrink: 0,
                   },
                 },
                 ...categoryBreakdown.map((item) =>
@@ -373,11 +429,7 @@ export function CategoryDistributionChart({
                 'ul',
                 {
                   'data-testid': 'category-breakdown-list',
-                  style: {
-                    listStyle: 'none',
-                    margin: 0,
-                    padding: 0,
-                  },
+                  style: styles.breakdownList,
                 },
                 ...categoryBreakdown.map((item) =>
                   h(
