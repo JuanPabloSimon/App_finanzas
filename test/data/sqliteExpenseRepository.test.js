@@ -512,3 +512,69 @@ describe('H1 persistencia de gastos y categorías en SQLite (SqliteCategoryRepos
     assert.equal(updatedExp2.categoryName, 'Ocio');
   });
 });
+
+describe('H11 lectura del historial completo', () => {
+  let db;
+  let categoryRepo;
+  let expenseRepo;
+
+  beforeEach(async () => {
+    db = await AppDatabase.openInMemory();
+    categoryRepo = new SqliteCategoryRepository(db);
+    expenseRepo = new SqliteExpenseRepository(db);
+  });
+
+  afterEach(async () => {
+    if (db) {
+      await db.close();
+    }
+  });
+
+  it('[H11-R1] findAll devuelve los gastos de todos los meses con categoría, subcategoría y nota, por fecha ascendente', async () => {
+    assert.deepEqual(await expenseRepo.findAll(), []);
+
+    const alimentos = await categoryRepo.findByName('Alimentos');
+    const transporte = await categoryRepo.findByName('Transporte');
+    await expenseRepo.save(
+      new Expense({
+        amountCents: 300000,
+        date: '2026-11-02',
+        categoryId: alimentos.id,
+        subcategory: 'Supermercado',
+        note: 'Compra; semanal',
+        createdAt: '2026-11-02T10:00:00',
+      }),
+    );
+    await expenseRepo.save(
+      new Expense({
+        amountCents: 120050,
+        date: '2026-09-15',
+        categoryId: transporte.id,
+        createdAt: '2026-09-15T10:00:00',
+      }),
+    );
+    await expenseRepo.save(
+      new Expense({
+        amountCents: 5,
+        date: '2026-10-20',
+        categoryId: alimentos.id,
+        note: 'Chicle',
+        createdAt: '2026-10-20T10:00:00',
+      }),
+    );
+
+    const all = await expenseRepo.findAll();
+    assert.equal(all.length, 3);
+    assert.deepEqual(
+      all.map((expense) => expense.date),
+      ['2026-09-15', '2026-10-20', '2026-11-02'],
+    );
+    assert.ok(all.every((expense) => expense instanceof Expense));
+    assert.equal(all[0].categoryName, 'Transporte');
+    assert.equal(all[0].subcategory, null);
+    assert.equal(all[0].note, null);
+    assert.equal(all[2].categoryName, 'Alimentos');
+    assert.equal(all[2].subcategory, 'Supermercado');
+    assert.equal(all[2].note, 'Compra; semanal');
+  });
+});

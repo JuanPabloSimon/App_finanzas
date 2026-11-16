@@ -1296,3 +1296,161 @@ describe('H10 recomendaciones del asistente en la pestaña Alertas', () => {
     assert.equal(state.advice.remainingModelRequests, 3);
   });
 });
+
+describe('H11 exportación del historial en la pestaña Gastos', () => {
+  let db;
+  let categoryRepo;
+  let expenseRepo;
+
+  beforeEach(async () => {
+    db = await AppDatabase.openInMemory();
+    categoryRepo = new SqliteCategoryRepository(db);
+    expenseRepo = new SqliteExpenseRepository(db);
+  });
+
+  afterEach(async () => {
+    if (db) {
+      await db.close();
+    }
+  });
+
+  function createFakeDelivery() {
+    const calls = [];
+    return {
+      calls,
+      canShare: () => false,
+      async download(payload) {
+        calls.push({ method: 'download', ...payload });
+      },
+      async share(payload) {
+        calls.push({ method: 'share', ...payload });
+        return 'shared';
+      },
+    };
+  }
+
+  function createController(csvDelivery, viewportWidth = 390) {
+    return MonthlyOverviewScreen.createController({
+      expenseRepository: expenseRepo,
+      categoryRepository: categoryRepo,
+      incomeRepository: new SqliteMonthlyIncomeRepository(db),
+      investmentRepository: new SqliteInvestmentRepository(db),
+      reminderRepository: new SqliteReminderRepository(db),
+      recurrenceRepository: new SqliteRecurrenceRepository(db),
+      csvDelivery,
+      today: () => '2026-11-15',
+      viewportWidth,
+    });
+  }
+
+  async function saveOctoberAndNovemberExpenses() {
+    const categories = await categoryRepo.findAll();
+    const foodId = categories.find((c) => c.name === 'Alimentos').id;
+    const leisureId = categories.find((c) => c.name === 'Ocio').id;
+    await expenseRepo.save(
+      new Expense({
+        amountCents: 650000,
+        date: '2026-10-05',
+        categoryId: leisureId,
+        note: 'Cine',
+        createdAt: '2026-10-05T10:00:00',
+      }),
+    );
+    await expenseRepo.save(
+      new Expense({
+        amountCents: 123456,
+        date: '2026-11-03',
+        categoryId: foodId,
+        createdAt: '2026-11-03T10:00:00',
+      }),
+    );
+  }
+
+  it('[H11-R23] en la pestaña Gastos muestra el panel de exportación al final, después de la comparación mensual', async () => {
+    const controller = createController(createFakeDelivery());
+    await controller.initialize();
+    controller.setActiveTab('expenses');
+
+    const html = renderToStaticMarkup(controller.renderElement());
+    const panelStart = html.indexOf('data-testid="tab-panel-expenses"');
+    const comparisonIndex = html.indexOf('data-testid="monthly-comparison"');
+    const exportIndex = html.indexOf('data-testid="export-history-panel"');
+
+    assert.ok(panelStart >= 0);
+    assert.ok(comparisonIndex > panelStart);
+    assert.ok(exportIndex > comparisonIndex);
+    assert.match(html, /data-testid="export-download-button"/);
+    assert.doesNotMatch(html, /data-testid="export-share-button"/);
+  });
+
+  it('[H11-R24] la pestaña Resumen y el header no muestran el panel ni los botones de exportación', async () => {
+    const controller = createController(createFakeDelivery());
+    await controller.initialize();
+    const overviewHtml = renderToStaticMarkup(controller.renderElement());
+    assert.doesNotMatch(overviewHtml, /data-testid="export-history-panel"/);
+    assert.doesNotMatch(overviewHtml, /data-testid="export-download-button"/);
+
+    const appController = AppShell.createController({
+      consentRepository: new SqliteConsentRepository(db),
+      userAccountRepository: new SqliteUserAccountRepository(db),
+      expenseRepository: expenseRepo,
+      categoryRepository: categoryRepo,
+      incomeRepository: new SqliteMonthlyIncomeRepository(db),
+      investmentRepository: new SqliteInvestmentRepository(db),
+      reminderRepository: new SqliteReminderRepository(db),
+      requireAuth: true,
+      today: () => '2026-11-15',
+      viewportWidth: 390,
+    });
+    await appController.initialize();
+    await appController.acceptPrivacyNotice();
+    await appController.registerAccount({
+      fullName: 'Juan Pablo',
+      username: 'juanpablo',
+      password: '1234',
+    });
+
+    const shellHtml = renderToStaticMarkup(appController.renderElement());
+    const headerStart = shellHtml.indexOf('data-testid="app-header"');
+    assert.ok(headerStart >= 0);
+    const headerHtml = shellHtml.slice(headerStart, shellHtml.indexOf('</header>', headerStart));
+    assert.doesNotMatch(headerHtml, /export-/);
+    assert.doesNotMatch(headerHtml, /Exportar/);
+    assert.doesNotMatch(shellHtml, /data-testid="export-history-panel"/);
+  });
+
+  it('[H11-R1] exporta los gastos de octubre y noviembre aunque el período activo sea noviembre', async () => {
+    await saveOctoberAndNovemberExpenses();
+    const delivery = createFakeDelivery();
+    const controller = createController(delivery);
+    await controller.initialize();
+    assert.equal(controller.getState().expenses.length, 1);
+
+    const state = await controller.exportHistory('download');
+
+    assert.equal(state.exportState.status, 'done');
+    assert.equal(delivery.calls.length, 1);
+    assert.equal(delivery.calls[0].fileName, 'gestix_gastos_2026-11-15.csv');
+    const { content } = delivery.calls[0];
+    assert.match(content, /\r\n2026-10-05;6500,00;Ocio;;Cine\r\n/);
+    assert.match(content, /\r\n2026-11-03;1234,56;Alimentos;;\r\n/);
+
+    controller.setActiveTab('expenses');
+    const html = renderToStaticMarkup(controller.renderElement());
+    assert.match(html, /data-testid="export-message"/);
+  });
+
+  it('[H11-R15] el mensaje renderizado muestra la cantidad de gastos y el total en pesos', async () => {
+    await saveOctoberAndNovemberExpenses();
+    const controller = createController(createFakeDelivery(), 1280);
+    await controller.initialize();
+    await controller.exportHistory();
+    controller.setActiveTab('expenses');
+
+    const html = renderToStaticMarkup(controller.renderElement());
+    assert.match(
+      html,
+      /data-testid="export-message"[^>]*>Se exportaron 2 gastos por un total de \$ 7\.734,56\.</,
+    );
+  });
+});
