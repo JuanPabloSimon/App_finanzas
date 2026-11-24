@@ -1,9 +1,9 @@
 # Implementación — H10 `h10_recomendaciones_ia`
 
 - **Estado:** `done` del implementer (pendiente de `reviewer`; **no** se marcó `done` en `feature_list.json`).
-- **Herramienta / rol:** `claude-code` / `implementer`.
+- **Herramienta / rol:** `antigravity` / `implementer`.
 - **Rama:** `feature/h10-recomendaciones-ia` (sin commits ni push).
-- **Spec:** `specs/h10_recomendaciones_ia/` (R1..R34), aprobado por Francisco el 2026-11-15.
+- **Spec:** `specs/h10_recomendaciones_ia/` (R1..R34), aprobado inicialmente por Francisco el 2026-11-15 y actualizado y aprobado por Juan Pablo el 2026-11-23 (migración a Groq API, cupo de 1 consulta diaria exitosa y no descontar intentos si la consulta falla).
 - **Tareas:** T1..T38 marcadas `[x]` en `specs/h10_recomendaciones_ia/tasks.md`.
 
 ## Tareas
@@ -11,23 +11,23 @@
 | Tarea | Resultado |
 |---|---|
 | T1 | `InvalidAdviceRequest`, `InvalidLlmResponse`, `LlmTimeout`, `LlmRequestFailed` en `src/core/errors.js` |
-| T2–T3 | `AdviceRequest` (+ `ADVICE_SOURCES`, `MONTHLY_MODEL_REQUEST_LIMIT = 4`) y contrato `AdviceRequestRepository` |
+| T2–T3 | `AdviceRequest` (+ `ADVICE_SOURCES`, `DAILY_MODEL_REQUEST_LIMIT = 1`, alias `MONTHLY_MODEL_REQUEST_LIMIT = 1`) y contrato `AdviceRequestRepository` (`countByDate`, `countByYearMonth`, `save`) |
 | T4 | `buildSpendingSummary` por lista blanca: top 8 + «Otros» (máx. 9), `variacion_pct` null, 10 recurrencias, `monto_tipico` a $100 |
 | T5–T6 | Pruebas de dominio (`adviceRequest.test.js`, `spendingSummaryBuilder.test.js`) |
 | T7 | `MIGRATION_V4_SQL` (`advice_requests` con CHECK e índice) + bloque `currentVersion < 4`; v1..v3 intactas |
-| T8–T9 | `SqliteAdviceRequestRepository` y `LocalStorageAdviceRequestRepository` (`fp_advice_requests`, error de escritura propagado) |
+| T8–T9 | `SqliteAdviceRequestRepository` (`countByDate` con `substr(created_at, 1, 10) = ?` y `countByYearMonth`) y `LocalStorageAdviceRequestRepository` (`fp_advice_requests`, `countByDate`, `countByYearMonth`, error de escritura propagado) |
 | T10–T11 | Pruebas de persistencia (SQLite en memoria y `storage` falso sobre `Map`) |
 | T12 | `docs/data_model.md`: CHECK, índice, semántica de `source`, `fp_advice_requests` |
-| T13–T14 | `llmClient.js`, `llmConfig.js` (`gemini-2.5-flash`, `trim`, `''` → `null`), `prompt.js` (`h10-v1`, `RESPONSE_SCHEMA` congelado) |
-| T15 | `HttpLlmClient` (Gemini REST, `x-goog-api-key`, `fetchImpl` inyectable). Único archivo con red |
+| T13–T14 | `llmClient.js`, `llmConfig.js` (`llama-3.3-70b-versatile`, `https://api.groq.com/openai/v1`, `trim`, `''` → `null`), `prompt.js` (`h10-v1`, `RESPONSE_SCHEMA` congelado) |
+| T15 | `HttpLlmClient` (Groq REST `/chat/completions`, `Authorization: Bearer`, `fetchImpl` inyectable). Único archivo con red |
 | T16–T17 | `adviceResponse.js` (bloque markdown único, *code points*, rechazo total) y `fallbackAdvisor.js` (reglas 1..4) |
-| T18 | `AdviceService`: promesa en curso reutilizada; consentimiento → clave → datos → cupo; registro `model` antes de invocar; `AbortController` + temporizador inyectable + `clearTimer` |
+| T18 | `AdviceService`: promesa en curso reutilizada; consentimiento → clave → datos → cupo diario (`1/día` con `countByDate`); invocación con `AbortController` + temporizador inyectable + `clearTimer`; validación y registro `model` **solo ante respuesta válida** (si falla, registra `fallback` y no descuenta el intento diario) |
 | T19 | `test/assistant/fakeLlmClient.js` (`succeeding`, `malformed`, `failing`, `hanging`, `calls`, `onCall`) |
 | T20–T23 | Pruebas de `src/assistant/` (sin red) |
-| T24 | `CURRENT_POLICY_VERSION = '2026-11'` y nuevo `thirdPartyTransfer` (texto literal de `design.md`) |
+| T24 | `CURRENT_POLICY_VERSION = '2026-11'` y `thirdPartyTransfer` actualizado para Groq (texto literal de `design.md`) |
 | T25 | Ajuste de literales de H12 exactamente como indica `design.md` |
-| T26 | `[H10-R30]` (consent) y `[H10-R31]` (bloqueo con solo `2026-10`) |
-| T27–T28 | `adviceSummaryLoader.js` y `RecommendationsPanel.jsx` (Mobile First + Desktop) |
+| T26 | `[H10-R30]` (consent con mención a Groq) y `[H10-R31]` (bloqueo con solo `2026-10`) |
+| T27–T28 | `adviceSummaryLoader.js` y `RecommendationsPanel.jsx` (Mobile First + Desktop, contador diario «Te quedan N de 1 consultas al asistente hoy») |
 | T29 | `MonthlyOverviewScreen.jsx`: props nuevas, repositorio en memoria, `AdviceService`, panel después de `RecurrencesPanel` en «Alertas», controlador con `advice`/`requestAdvice()` |
 | T30 | `AppShell.jsx` (props/opciones `llmClient`, `adviceRequestRepository`; reenvía `isConsentAccepted: () => hasValidConsent`) y `App.jsx` (`LocalStorageAdviceRequestRepository`, `readLlmConfig(import.meta.env ?? {})`, `HttpLlmClient` solo con clave) |
 | T31–T33 | Pruebas del loader, del panel y casos nuevos al final de `MonthlyOverviewScreen.test.jsx` |

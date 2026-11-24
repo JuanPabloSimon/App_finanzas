@@ -87,9 +87,11 @@ describe('H10 orquestación de recomendaciones (AdviceService)', () => {
     });
   }
 
-  async function seed(yearMonth, source, count) {
+  async function seed(date, source, count) {
+    const yearMonth = date.slice(0, 7);
+    const fullDate = date.length === 10 ? date : `${yearMonth}-15`;
     for (let i = 0; i < count; i += 1) {
-      await repo.save(new AdviceRequest({ yearMonth, source, createdAt: `${yearMonth}-01T09:00:00` }));
+      await repo.save(new AdviceRequest({ yearMonth, source, createdAt: `${fullDate}T09:00:00` }));
     }
   }
 
@@ -121,30 +123,31 @@ describe('H10 orquestación de recomendaciones (AdviceService)', () => {
   it('[H10-R9] construir el servicio y consultar el cupo no invoca al cliente', async () => {
     const fake = FakeLlmClient.succeeding(VALID_RESPONSE);
     const service = createService({ llmClient: fake });
-    assert.equal(await service.getRemainingModelRequests(), 4);
+    assert.equal(await service.getRemainingModelRequests(), 10);
     assert.equal(fake.calls.length, 0);
   });
 
-  it('[H10-R10] una respuesta válida devuelve las sugerencias del modelo', async () => {
+  it('[H10-R10] una respuesta válida devuelve las sugerencias del modelo y descuenta un intento diario', async () => {
     const service = createService({ llmClient: FakeLlmClient.succeeding(VALID_RESPONSE) });
     const result = await service.requestAdvice(SUMMARY);
     assert.equal(result.source, 'model');
     assert.equal(result.reason, ADVICE_REASONS.MODEL_OK);
     assert.equal(result.suggestions.length, 2);
     assert.equal(result.suggestions[0].titulo, 'Bajá el delivery');
-    assert.equal(result.remainingModelRequests, 3);
+    assert.equal(result.remainingModelRequests, 9);
     assert.equal(timer.cleared.length, 1);
   });
 
-  it('[H10-R13] una respuesta mal formada devuelve la reserva con invalid_response', async () => {
+  it('[H10-R13] una respuesta mal formada devuelve la reserva con invalid_response sin descontar intentos', async () => {
     const service = createService({ llmClient: FakeLlmClient.malformed() });
     const result = await service.requestAdvice(SUMMARY);
     assert.equal(result.source, 'fallback');
     assert.equal(result.reason, ADVICE_REASONS.INVALID_RESPONSE);
     assert.deepEqual(result.suggestions, buildFallbackAdvice(SUMMARY).sugerencias);
+    assert.equal(result.remainingModelRequests, 10);
   });
 
-  it('[H10-R14] una respuesta con una categoría fuera del resumen devuelve la reserva completa', async () => {
+  it('[H10-R14] una respuesta con una categoría fuera del resumen devuelve la reserva completa sin descontar cupo', async () => {
     const invalid = JSON.stringify({
       sugerencias: [
         { titulo: 'Ok', detalle: 'Ok', categoria: 'Delivery' },
@@ -156,9 +159,10 @@ describe('H10 orquestación de recomendaciones (AdviceService)', () => {
     assert.equal(result.source, 'fallback');
     assert.equal(result.reason, ADVICE_REASONS.INVALID_RESPONSE);
     assert.equal(result.suggestions.length, 3);
+    assert.equal(result.remainingModelRequests, 10);
   });
 
-  it('[H10-R15][H10-R17] a los 10.000 ms aborta la señal y devuelve la reserva con timeout', async () => {
+  it('[H10-R15][H10-R17] a los 10.000 ms aborta la señal y devuelve la reserva con timeout sin descontar cupo', async () => {
     const fake = FakeLlmClient.hanging();
     const service = createService({ llmClient: fake });
     assert.equal(ADVICE_TIMEOUT_MS, 10000);
@@ -172,6 +176,7 @@ describe('H10 orquestación de recomendaciones (AdviceService)', () => {
     const result = await pending;
     assert.equal(result.source, 'fallback');
     assert.equal(result.reason, ADVICE_REASONS.TIMEOUT);
+    assert.equal(result.remainingModelRequests, 10);
     assert.equal(fake.calls[0].signal.aborted, true);
     assert.equal(timer.cleared.length, 1);
   });
@@ -186,16 +191,17 @@ describe('H10 orquestación de recomendaciones (AdviceService)', () => {
     assert.equal(result.reason, ADVICE_REASONS.TIMEOUT);
   });
 
-  it('[H10-R16] si el cliente rechaza devuelve la reserva con request_failed', async () => {
-    const service = createService({ llmClient: FakeLlmClient.failing(new LlmRequestFailed('HTTP 500')) });
+  it('[H10-R16] si el cliente rechaza devuelve la reserva con request_failed sin descontar cupo', async () => {
+    const service = createService({ llmClient: FakeLlmClient.failing(new LlmRequestFailed('HTTP 503')) });
     const result = await service.requestAdvice(SUMMARY);
     assert.equal(result.source, 'fallback');
     assert.equal(result.reason, ADVICE_REASONS.REQUEST_FAILED);
     assert.equal(result.suggestions.length >= 1, true);
+    assert.equal(result.remainingModelRequests, 10);
   });
 
-  it('[H10-R20][H10-R21] con 4 consultas model en el mes no invoca y devuelve limit_reached', async () => {
-    await seed('2026-11', 'model', 4);
+  it('[H10-R20][H10-R21] con 10 consultas model exitosas en el día no invoca y devuelve limit_reached', async () => {
+    await seed('2026-11-15', 'model', 10);
     const fake = FakeLlmClient.succeeding(VALID_RESPONSE);
     const service = createService({ llmClient: fake });
     const result = await service.requestAdvice(SUMMARY);
@@ -205,36 +211,33 @@ describe('H10 orquestación de recomendaciones (AdviceService)', () => {
     assert.equal(result.remainingModelRequests, 0);
   });
 
-  it('[H10-R22] toda invocación registra antes una fila model, aunque falle, y la cuarta deja el cupo en 0', async () => {
-    let rowsSeenInsideComplete = null;
-    const success = FakeLlmClient.succeeding(VALID_RESPONSE, {
-      onCall: async () => {
-        rowsSeenInsideComplete = await repo.countByYearMonth('2026-11', 'model');
-      },
-    });
-    const first = await createService({ llmClient: success }).requestAdvice(SUMMARY);
-    assert.equal(rowsSeenInsideComplete, 1);
-    assert.equal(first.remainingModelRequests, 3);
-
+  it('[H10-R22] las invocaciones que fallan no descuentan intentos y solo la exitosa descuenta 1 de las 10', async () => {
     const hanging = FakeLlmClient.hanging();
     const timeoutService = createService({ llmClient: hanging });
     const timersBefore = timer.scheduled.length;
     const pending = timeoutService.requestAdvice(SUMMARY);
     await waitFor(() => timer.scheduled.length === timersBefore + 1 && hanging.calls.length === 1);
     timer.scheduled[timersBefore].fn();
-    assert.equal((await pending).remainingModelRequests, 2);
+    assert.equal((await pending).remainingModelRequests, 10);
 
     const failed = await createService({ llmClient: FakeLlmClient.failing() }).requestAdvice(SUMMARY);
-    assert.equal(failed.remainingModelRequests, 1);
+    assert.equal(failed.remainingModelRequests, 10);
 
     const malformed = await createService({ llmClient: FakeLlmClient.malformed() }).requestAdvice(SUMMARY);
-    assert.equal(malformed.remainingModelRequests, 0);
-    assert.equal(await repo.countByYearMonth('2026-11', 'model'), 4);
+    assert.equal(malformed.remainingModelRequests, 10);
+    assert.equal(await repo.countByDate('2026-11-15', 'model'), 0);
+
+    const success = FakeLlmClient.succeeding(VALID_RESPONSE);
+    const okResult = await createService({ llmClient: success }).requestAdvice(SUMMARY);
+    assert.equal(okResult.source, 'model');
+    assert.equal(okResult.remainingModelRequests, 9);
+    assert.equal(await repo.countByDate('2026-11-15', 'model'), 1);
   });
 
-  it('[H10-R22] si no se puede registrar la consulta no invoca al cliente', async () => {
+  it('[H10-R22] si no se puede guardar la consulta exitosa devuelve storage_error', async () => {
     const fake = FakeLlmClient.succeeding(VALID_RESPONSE);
     const failingRepo = {
+      countByDate: async () => 0,
       countByYearMonth: async () => 0,
       save: async () => {
         throw new Error('QuotaExceededError');
@@ -242,36 +245,40 @@ describe('H10 orquestación de recomendaciones (AdviceService)', () => {
     };
     const service = createService({ llmClient: fake, adviceRequestRepository: failingRepo });
     const result = await service.requestAdvice(SUMMARY);
-    assert.equal(fake.calls.length, 0);
+    assert.equal(fake.calls.length, 1);
     assert.equal(result.source, 'fallback');
     assert.equal(result.reason, ADVICE_REASONS.STORAGE_ERROR);
   });
 
-  it('[H10-R23] sin cliente o con el límite alcanzado registra una fila fallback que no cambia el cupo', async () => {
+  it('[H10-R23] sin cliente, con el límite alcanzado o ante fallo del modelo registra una fila fallback que no cambia el cupo', async () => {
     const noClient = await createService({ llmClient: null }).requestAdvice(SUMMARY);
-    assert.equal(noClient.remainingModelRequests, 4);
-    assert.equal(await repo.countByYearMonth('2026-11', 'fallback'), 1);
+    assert.equal(noClient.remainingModelRequests, 10);
+    assert.equal(await repo.countByDate('2026-11-15', 'fallback'), 1);
 
-    await seed('2026-11', 'model', 4);
+    const failed = await createService({ llmClient: FakeLlmClient.failing() }).requestAdvice(SUMMARY);
+    assert.equal(failed.remainingModelRequests, 10);
+    assert.equal(await repo.countByDate('2026-11-15', 'fallback'), 2);
+
+    await seed('2026-11-15', 'model', 10);
     const limited = await createService({ llmClient: FakeLlmClient.succeeding(VALID_RESPONSE) }).requestAdvice(SUMMARY);
     assert.equal(limited.remainingModelRequests, 0);
-    assert.equal(await repo.countByYearMonth('2026-11', 'fallback'), 2);
-    assert.equal(await repo.countByYearMonth('2026-11', 'model'), 4);
+    assert.equal(await repo.countByDate('2026-11-15', 'fallback'), 3);
+    assert.equal(await repo.countByDate('2026-11-15', 'model'), 10);
   });
 
-  it('[H10-R24] el cupo cuenta solo las filas model del mes local de la consulta', async () => {
-    await seed('2026-10', 'model', 4);
-    await seed('2026-11', 'fallback', 6);
+  it('[H10-R24] el cupo cuenta solo las filas model del día local de la consulta', async () => {
+    await seed('2026-11-14', 'model', 10);
+    await seed('2026-11-15', 'fallback', 4);
 
-    const november = FakeLlmClient.succeeding(VALID_RESPONSE);
-    const resultNov = await createService({ llmClient: november, today: () => '2026-11-01' }).requestAdvice(SUMMARY);
-    assert.equal(november.calls.length, 1);
-    assert.equal(resultNov.source, 'model');
+    const day15 = FakeLlmClient.succeeding(VALID_RESPONSE);
+    const result15 = await createService({ llmClient: day15, today: () => '2026-11-15' }).requestAdvice(SUMMARY);
+    assert.equal(day15.calls.length, 1);
+    assert.equal(result15.source, 'model');
 
-    const october = FakeLlmClient.succeeding(VALID_RESPONSE);
-    const resultOct = await createService({ llmClient: october, today: () => '2026-10-31' }).requestAdvice(SUMMARY);
-    assert.equal(october.calls.length, 0);
-    assert.equal(resultOct.reason, ADVICE_REASONS.LIMIT_REACHED);
+    const day14 = FakeLlmClient.succeeding(VALID_RESPONSE);
+    const result14 = await createService({ llmClient: day14, today: () => '2026-11-14' }).requestAdvice(SUMMARY);
+    assert.equal(day14.calls.length, 0);
+    assert.equal(result14.reason, ADVICE_REASONS.LIMIT_REACHED);
   });
 
   it('[H10-R27] dos solicitudes seguidas comparten la misma promesa y una sola invocación', async () => {
@@ -282,7 +289,7 @@ describe('H10 orquestación de recomendaciones (AdviceService)', () => {
     assert.equal(first, second);
     await first;
     assert.equal(fake.calls.length, 1);
-    assert.equal(await repo.countByYearMonth('2026-11', 'model'), 1);
+    assert.equal(await repo.countByDate('2026-11-15', 'model'), 1);
 
     await service.requestAdvice(SUMMARY);
     assert.equal(fake.calls.length, 2);
@@ -293,8 +300,8 @@ describe('H10 orquestación de recomendaciones (AdviceService)', () => {
     const result = await service.requestAdvice(SUMMARY);
     assert.equal(result.source, 'fallback');
     assert.equal(result.reason, ADVICE_REASONS.NO_API_KEY);
-    assert.equal(result.remainingModelRequests, 4);
-    assert.equal(await repo.countByYearMonth('2026-11', 'model'), 0);
+    assert.equal(result.remainingModelRequests, 10);
+    assert.equal(await repo.countByDate('2026-11-15', 'model'), 0);
   });
 
   it('[H10-R29] sin consentimiento no invoca al cliente ni registra filas', async () => {
@@ -320,7 +327,7 @@ describe('H10 orquestación de recomendaciones (AdviceService)', () => {
     assert.equal(result.reason, ADVICE_REASONS.NO_DATA);
     assert.equal(result.suggestions.length, 1);
     assert.equal(result.suggestions[0].categoria, 'General');
-    assert.equal(result.remainingModelRequests, 4);
+    assert.equal(result.remainingModelRequests, 10);
   });
 
   it('[H10-R34] un flujo completo con FakeLlmClient no usa fetch', async () => {

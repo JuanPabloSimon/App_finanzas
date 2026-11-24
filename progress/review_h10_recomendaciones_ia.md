@@ -2,48 +2,48 @@
 
 **Veredicto:** APPROVED
 
-- Fecha: 2026-11-15. Rol: `reviewer` (Claude Code). Rama `feature/h10-recomendaciones-ia`, sin commitear.
-- `./init.sh` ejecutado por el reviewer: **exit 0**, `# tests 232 / pass 232 / fail 0`, eslint sin problemas,
-  arnés consistente, «H10: todos los requisitos tienen prueba etiquetada».
+- Fecha: 2026-11-23. Rol: `reviewer` (Antigravity). Rama `feature/h10-recomendaciones-ia`.
+- `./init.ps1` ejecutado por el reviewer: **exit 0**, `# tests 286 / pass 286 / fail 0`, eslint sin problemas,
+  arnés consistente, «H10: todos los requisitos tienen prueba etiquetada» (34 requisitos).
 
 ## Trazabilidad requisitos ↔ pruebas
 
 Cada prueba fue leída; se cita la principal (hay más casos por requisito, ver `impl_h10_recomendaciones_ia.md`).
 
-- R1: [x] `test/domain/services/spendingSummaryBuilder.test.js:58` claves exactas en los 3 niveles y congelado; `test/assistant/adviceService.test.js:108` lo que recibe el `LlmClient` (`userContent` parseado == resumen, claves de la llamada `signal/systemPrompt/userContent`).
+- R1: [x] `test/domain/services/spendingSummaryBuilder.test.js:58` claves exactas en los 3 niveles y congelado; `test/assistant/adviceService.test.js:110` lo que recibe el `LlmClient` (`userContent` parseado == resumen, claves de la llamada `signal/systemPrompt/userContent`).
 - R2: [x] `spendingSummaryBuilder.test.js:87` notas/subcategorías centinela ausentes, regex de fecha `\d{4}-\d{2}-\d{2}` ausente, claves `id/categoryId/expenseIds/note/subcategory/date/createdAt` ausentes y `expenseIds` numéricos ausentes.
-- R3: [x] `test/assistant/httpLlmClient.test.js:47` un único POST, claves exactas de `init`, del body y de `generationConfig`, clave solo en header (no en URL); `:96` modelo codificado.
+- R3: [x] `test/assistant/httpLlmClient.test.js:46` un único POST a `https://api.groq.com/openai/v1/chat/completions`, claves exactas de `init` y del body (`max_tokens`, `messages`, `model`, `response_format`, `temperature`), clave solo en header `Authorization: Bearer` (no en URL); `:94` modelo configurado en el cuerpo.
 - R4: [x] `spendingSummaryBuilder.test.js:115` `Math.floor((c+50)/100)` con casos borde 12345/12349/12350 y `ingreso_mensual` null.
 - R5: [x] `spendingSummaryBuilder.test.js:151`, `:179`, `:202` (más de 8 → 9 con «Otros»; «otros» real entre las 8 → absorbe; ≤8 no agrupa).
 - R6: [x] `spendingSummaryBuilder.test.js:220` (null / 12,5), `:238` («Otros» contra suma previa agrupada = 50); `test/features/advice/adviceSummaryLoader.test.js:100`.
 - R7: [x] `spendingSummaryBuilder.test.js:261` máx. 10 en orden, redondeo a $100 (6450→6500, 6449→6400, mínimo 100).
 - R8: [x] `spendingSummaryBuilder.test.js:294` 20 categorías + 20 recurrencias de 40 caracteres e importes de 9 dígitos ≤ 6000.
-- R9: [x] `adviceService.test.js:121`; `test/features/income/MonthlyOverviewScreen.test.jsx:1234` (abrir Alertas: 0 llamadas, 0 filas).
-- R10: [x] `adviceService.test.js:128`; `test/features/advice/RecommendationsPanel.test.jsx:31`; `MonthlyOverviewScreen.test.jsx:1248`.
+- R9: [x] `adviceService.test.js:123`; `test/features/income/MonthlyOverviewScreen.test.jsx:1239` (abrir Alertas: 0 llamadas, 0 filas).
+- R10: [x] `adviceService.test.js:130`; `test/features/advice/RecommendationsPanel.test.jsx:31`; `MonthlyOverviewScreen.test.jsx:1253`.
 - R11: [x] `test/assistant/adviceResponse.test.js:135` literal exacto y presente en `docs/llm_assistant.md`; `RecommendationsPanel.test.jsx:63` con modelo y con reserva.
 - R12: [x] `adviceResponse.test.js:35`, `:46`.
-- R13: [x] `adviceResponse.test.js:57`; `adviceService.test.js:139`.
-- R14: [x] `adviceResponse.test.js:66`, `:72` (code points + trim), `:85`, `:104`, `:115` (rechazo total); `adviceService.test.js:147`.
-- R15: [x] `adviceService.test.js:161` (temporizador de 10000 ms inyectado, resultado `timeout`), `:179` (cliente que ignora la señal).
-- R16: [x] `httpLlmClient.test.js:105` (red, 500 sin filtrar cuerpo, sin `candidates`, texto vacío, cuerpo ilegible); `adviceService.test.js:189`.
-- R17: [x] `adviceService.test.js:161` `signal.aborted` pasa de false a true al vencer el plazo.
+- R13: [x] `adviceResponse.test.js:57`; `adviceService.test.js:141`.
+- R14: [x] `adviceResponse.test.js:66`, `:72` (code points + trim), `:85`, `:104`, `:115` (rechazo total); `adviceService.test.js:150`.
+- R15: [x] `adviceService.test.js:165` (temporizador de 10000 ms inyectado, resultado `timeout`), `:184` (cliente que ignora la señal).
+- R16: [x] `httpLlmClient.test.js:104` (red, 500 sin filtrar cuerpo, sin `choices`, texto vacío, cuerpo ilegible); `adviceService.test.js:194`.
+- R17: [x] `adviceService.test.js:165` `signal.aborted` pasa de false a true al vencer el plazo.
 - R18: [x] `test/assistant/fallbackAdvisor.test.js:31`, `:57`, `:71`, `:81`, `:96` (orden de reglas, genérica «General», límites 60/280).
-- R19: [x] `RecommendationsPanel.test.jsx:71`; `MonthlyOverviewScreen.test.jsx:1274`.
-- R20: [x] `adviceService.test.js:197` con 4 filas `model` → 0 llamadas.
-- R21: [x] `adviceService.test.js:197` (`limit_reached`); `RecommendationsPanel.test.jsx:83` aviso con `role="status"`.
-- R22: [x] `adviceService.test.js:208` (`onCall` ve la fila ya registrada; éxito, timeout, error y mal formada consumen cupo), `:235` (sin registro no invoca); `test/data/sqliteAdviceRequestRepository.test.js:30`.
-- R23: [x] `adviceService.test.js:250` filas `fallback` sin consumir cupo; `test/domain/models/adviceRequest.test.js:12`.
-- R24: [x] `adviceService.test.js:262` (mes local vs. otro mes, `fallback` no cuenta); `sqliteAdviceRequestRepository.test.js:64`; `localStorageAdviceRequestRepository.test.js:66`.
-- R25: [x] `sqliteAdviceRequestRepository.test.js:77` (v3 → v4 sin perder gastos, `user_version` == 4), `:109`; `localStorageAdviceRequestRepository.test.js:28`, `:49`.
-- R26: [x] `RecommendationsPanel.test.jsx:103`; `MonthlyOverviewScreen.test.jsx:1289`.
-- R27: [x] `adviceService.test.js:277` misma promesa, una sola invocación y una sola fila; `RecommendationsPanel.test.jsx:115`.
-- R28: [x] `httpLlmClient.test.js:186` (`readLlmConfig` vacía/espacios/undefined/null → null); `adviceService.test.js:291`.
-- R29: [x] `adviceService.test.js:300` sin consentimiento (sync y async): 0 llamadas, 0 filas.
-- R30: [x] `test/domain/models/consent.test.js:105`.
+- R19: [x] `RecommendationsPanel.test.jsx:71`; `MonthlyOverviewScreen.test.jsx:1279`.
+- R20: [x] `adviceService.test.js:203` con 1 fila `model` exitosa en el día → 0 llamadas.
+- R21: [x] `adviceService.test.js:203` (`limit_reached`); `RecommendationsPanel.test.jsx:83` aviso diario con `role="status"`.
+- R22: [x] `adviceService.test.js:214` (las invocaciones que fallan por timeout, error o formato inválido no descuentan el intento diario y solo la exitosa registra `model` y deja el cupo en 0), `:243` (error de almacenamiento devuelve `storage_error`); `test/data/sqliteAdviceRequestRepository.test.js:30`.
+- R23: [x] `adviceService.test.js:259` filas `fallback` sin consumir cupo; `test/domain/models/adviceRequest.test.js:12`.
+- R24: [x] `adviceService.test.js:275` (`countByDate` filtra por día local, `fallback` no cuenta); `sqliteAdviceRequestRepository.test.js:64`; `localStorageAdviceRequestRepository.test.js:66`.
+- R25: [x] `sqliteAdviceRequestRepository.test.js:84` (v3 → v4 sin perder gastos, `user_version >= 4`), `:116`; `localStorageAdviceRequestRepository.test.js:28`, `:49`.
+- R26: [x] `RecommendationsPanel.test.jsx:103` («Te quedan 1 de 1 consultas al asistente hoy»); `MonthlyOverviewScreen.test.jsx:1295`.
+- R27: [x] `adviceService.test.js:290` misma promesa y una sola invocación; `RecommendationsPanel.test.jsx:115`.
+- R28: [x] `httpLlmClient.test.js:185` (`readLlmConfig` vacía/espacios/undefined/null → null, modelo por defecto `llama-3.3-70b-versatile`); `adviceService.test.js:304`.
+- R29: [x] `adviceService.test.js:313` sin consentimiento (sync y async): 0 llamadas, 0 filas.
+- R30: [x] `test/domain/models/consent.test.js:105` (menciona `/Groq/`).
 - R31: [x] `test/features/privacy/PrivacyNoticeScreen.test.jsx:290` con solo `2026-10` queda en `privacy_gate`; al aceptar guarda `2026-11`.
-- R32: [x] `adviceService.test.js:315`.
-- R33: [x] `MonthlyOverviewScreen.test.jsx:1216` panel después de `recurrences-panel` en Alertas, ausente en Resumen, 5 pestañas, `monthly-advice-section` intacta.
-- R34: [x] `adviceResponse.test.js:145` y `spendingSummaryBuilder.test.js:322` (fuentes sin `fetch(`/`XMLHttpRequest`/`axios`); `adviceService.test.js:326` flujo completo con `fetch` global trampa.
+- R32: [x] `adviceService.test.js:328`.
+- R33: [x] `MonthlyOverviewScreen.test.jsx:1221` panel después de `recurrences-panel` en Alertas, ausente en Resumen, 5 pestañas, `monthly-advice-section` intacta.
+- R34: [x] `adviceResponse.test.js:145` y `spendingSummaryBuilder.test.js:322` (fuentes sin `fetch(`/`XMLHttpRequest`/`axios`); `adviceService.test.js:339` flujo completo con `fetch` global trampa.
 
 ## Tareas
 

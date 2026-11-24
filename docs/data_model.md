@@ -85,11 +85,8 @@ sin duplicados.
 Índice: `idx_advice_requests_year_month (year_month)`.
 
 Semántica de `source`:
-- `model`: se invocó al proveedor del modelo de lenguaje. Consume cupo (4 por mes y por
-  navegador) con cualquier resultado: éxito, timeout, error o respuesta inválida. La fila se
-  registra **antes** de invocar.
-- `fallback`: la solicitud se resolvió con la respuesta de reserva sin invocar al modelo (sin
-  clave, sin datos o con el cupo agotado). No cuenta para el cupo.
+- `model`: consulta exitosa al proveedor del modelo de lenguaje. Consume el cupo diario (1 por día local y por navegador, contado mediante `substr(created_at, 1, 10) = ? AND source = 'model'`). La fila se registra solo cuando la respuesta del modelo supera la validación; si la consulta falla (timeout, error HTTP/red o formato inválido), no descuenta el intento diario.
+- `fallback`: la solicitud se resolvió con la respuesta de reserva (ya sea sin invocar al modelo o tras un fallo del proveedor). No cuenta para el cupo diario.
 
 Ninguna columna guarda el resumen enviado, la respuesta del modelo ni identificadores del usuario
 o del dispositivo.

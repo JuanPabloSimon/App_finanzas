@@ -5,14 +5,14 @@
 
 ## Proveedor
 
-- **Google Gemini (modelo Flash) por REST**, con `fetch` nativo y sin SDK (decisión D7 de
+- **Groq API (OpenAI-compatible Chat Completions) por REST**, con `fetch` nativo y sin SDK (decisión D7 de
   `docs/architecture.md`).
-- Modelo configurable con `VITE_LLM_MODEL` (por defecto `gemini-2.5-flash`). La clave va en
-  `VITE_LLM_API_KEY` (ver `docs/tools_setup.md`) y viaja en el encabezado `x-goog-api-key`,
+- Modelo configurable con `VITE_LLM_MODEL` (por defecto `llama-3.3-70b-versatile`). La clave va en
+  `VITE_LLM_API_KEY` (ver `docs/tools_setup.md`) y viaja en el encabezado `Authorization: Bearer <clave>`,
   nunca en la URL.
-- Endpoint: `POST https://generativelanguage.googleapis.com/v1beta/models/<modelo>:generateContent`.
-  El cuerpo lleva solo `systemInstruction` (el prompt), `contents` (el resumen serializado)
-  y `generationConfig` (JSON estructurado, temperatura 0,4, 1.024 tokens de salida).
+- Endpoint: `POST https://api.groq.com/openai/v1/chat/completions`.
+  El cuerpo lleva solo `model`, `messages` (`system` con el prompt y `user` con el resumen serializado),
+  `response_format: { type: 'json_object' }`, `temperature: 0.4` y `max_tokens: 1024`.
 - `src/assistant/httpLlmClient.js` es el **único** archivo con red; `fetch` se inyecta para
   que las pruebas usen una función falsa y `FakeLlmClient`.
 - Sin clave configurada no se crea el cliente HTTP: se muestra la respuesta de reserva sin
@@ -87,7 +87,7 @@ El texto definitivo de las instrucciones (actividad A8) se guarda en
 | Sin consentimiento aceptado | No se llama a la API |
 | Sin clave de API configurada | `FallbackAdvisor` y aviso de configuración, sin consumir cupo |
 | Período sin gastos ni recurrencias visibles | `FallbackAdvisor`, sin llamar a la API |
-| Límite mensual alcanzado | `FallbackAdvisor` y aviso del límite |
+| Límite diario alcanzado | `FallbackAdvisor` y aviso del límite |
 
 Reglas de validación (`src/assistant/adviceResponse.js`):
 - Se tolera **un único** bloque de código markdown envolvente, con o sin la etiqueta
@@ -111,12 +111,9 @@ el detalle. El panel indica si las sugerencias vienen del asistente o de reglas.
 
 ## Límite de consultas y costos
 
-- Plan gratuito: **4 consultas al modelo por mes** (`advice_requests`).
-- **Qué consume cupo:** cada invocación al modelo, con cualquier resultado (éxito, timeout,
-  error o respuesta inválida). La fila `source = 'model'` se registra **antes** de invocar;
-  si no se puede registrar, no se invoca. Las solicitudes resueltas por reglas sin invocar se
-  registran con `source = 'fallback'` y no cuentan.
-- **Mes de la consulta:** el mes calendario local del navegador al pedir las
+- Plan gratuito: **1 consulta exitosa al modelo por día** (`advice_requests`, `DAILY_MODEL_REQUEST_LIMIT = 1`).
+- **Qué consume cupo:** solo la consulta al modelo que devuelve una respuesta válida. La fila `source = 'model'` se registra **después** de validar la respuesta; si la solicitud falla por timeout, error de red/HTTP o formato inválido, se registra `source = 'fallback'` y **no descuenta el intento diario**.
+- **Día de la consulta:** la fecha calendario local del navegador (`YYYY-MM-DD`) al pedir las
   recomendaciones (no el período navegado ni UTC).
 - **«Por usuario» = por navegador:** el conteo vive en `localStorage` (`fp_advice_requests`)
   y no se comparte entre dispositivos; borrar los datos del sitio lo reinicia (limitación

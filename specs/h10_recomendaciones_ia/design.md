@@ -5,27 +5,27 @@
 > - `docs/llm_assistant.md` (contrato), `docs/privacy.md` y `docs/data_model.md`;
 > - el código vigente tras H9 y las investigaciones `progress/explore_h10_*.md`.
 >
-> Proveedor y alcance del aviso: decisiones de Francisco del 2026-11-15.
+> Proveedor y alcance del aviso: decisiones de Francisco del 2026-11-15 y actualización de Juan Pablo del 2026-11-23 (migración a Groq API, cupo de 1 consulta diaria exitosa y no descontar intentos fallidos).
 
 ## Archivos
 
 | Capa | Archivo | Cambio |
 |---|---|---|
 | core | `src/core/errors.js` | Nuevas `InvalidAdviceRequest`, `InvalidLlmResponse`, `LlmTimeout`, `LlmRequestFailed` (extienden `DomainException`) |
-| domain | `src/domain/models/adviceRequest.js` | Modelo inmutable `AdviceRequest` + `ADVICE_SOURCES`, `MONTHLY_MODEL_REQUEST_LIMIT = 4` |
-| domain | `src/domain/repositories/adviceRequestRepository.js` | Contrato `AdviceRequestRepository` (`countByYearMonth`, `save`) |
+| domain | `src/domain/models/adviceRequest.js` | Modelo inmutable `AdviceRequest` + `ADVICE_SOURCES`, `DAILY_MODEL_REQUEST_LIMIT = 1` (y alias `MONTHLY_MODEL_REQUEST_LIMIT = 1`) |
+| domain | `src/domain/repositories/adviceRequestRepository.js` | Contrato `AdviceRequestRepository` (`countByDate`, `countByYearMonth`, `save`) |
 | domain | `src/domain/services/spendingSummaryBuilder.js` | `buildSpendingSummary(...)`, función pura + constantes del resumen |
-| domain | `src/domain/models/consent.js` | `CURRENT_POLICY_VERSION = '2026-11'` y nuevo texto de `thirdPartyTransfer` (R30) |
+| domain | `src/domain/models/consent.js` | `CURRENT_POLICY_VERSION = '2026-11'` y texto de `thirdPartyTransfer` informando transferencia a Groq (R30) |
 | data | `src/data/db/appDatabase.js` | `MIGRATION_V4_SQL` + bloque `if (currentVersion < 4)` → `PRAGMA user_version = 4` |
-| data | `src/data/repositories/sqliteAdviceRequestRepository.js` | `SqliteAdviceRequestRepository` |
-| data | `src/data/repositories/localStorageAdviceRequestRepository.js` | `LocalStorageAdviceRequestRepository` (clave `fp_advice_requests`) |
+| data | `src/data/repositories/sqliteAdviceRequestRepository.js` | `SqliteAdviceRequestRepository` (`countByDate` con `substr(created_at, 1, 10) = ?` y `countByYearMonth`) |
+| data | `src/data/repositories/localStorageAdviceRequestRepository.js` | `LocalStorageAdviceRequestRepository` (clave `fp_advice_requests`, `countByDate` y `countByYearMonth`) |
 | assistant | `src/assistant/llmClient.js` | Contrato `LlmClient` |
-| assistant | `src/assistant/llmConfig.js` | `readLlmConfig(env)`: clave, modelo y URL base desde `import.meta.env` |
-| assistant | `src/assistant/httpLlmClient.js` | `HttpLlmClient extends LlmClient` (Gemini REST, `fetch` inyectable). **Único** archivo con red |
+| assistant | `src/assistant/llmConfig.js` | `readLlmConfig(env)`: clave, modelo (`llama-3.3-70b-versatile`) y URL base (`https://api.groq.com/openai/v1`) desde `import.meta.env` |
+| assistant | `src/assistant/httpLlmClient.js` | `HttpLlmClient extends LlmClient` (Groq REST OpenAI-compatible `/chat/completions`, `fetch` inyectable). **Único** archivo con red |
 | assistant | `src/assistant/prompt.js` | `PROMPT_VERSION`, `SYSTEM_PROMPT`, `RESPONSE_SCHEMA` |
 | assistant | `src/assistant/adviceResponse.js` | `parseAdviceResponse(rawText, summary)`, `validateAdvice(advice, summary)`, `ADVICE_DISCLAIMER`, límites |
 | assistant | `src/assistant/fallbackAdvisor.js` | `buildFallbackAdvice(summary)` |
-| assistant | `src/assistant/adviceService.js` | `AdviceService`: consentimiento, clave, datos, cupo, registro, timeout, validación y reserva |
+| assistant | `src/assistant/adviceService.js` | `AdviceService`: consentimiento, clave, datos, cupo diario (1/día), timeout, validación, registro `model` solo ante éxito (sin descontar si falla) y reserva |
 | presentation | `src/features/advice/adviceSummaryLoader.js` | `loadSpendingSummary(...)`: lee el mes, el mes anterior y el ingreso, y delega en el builder |
 | presentation | `src/features/advice/RecommendationsPanel.jsx` | Componente presentacional Mobile First + Desktop |
 | presentation | `src/features/income/MonthlyOverviewScreen.jsx` | Props `llmClient`, `adviceRequestRepository`, `isConsentAccepted`, `initialAdvice`; repositorio en memoria de reserva; panel al final de `tab-panel-reminders`; controlador con `advice` y `requestAdvice()` |
@@ -68,7 +68,8 @@ export class LlmRequestFailed extends DomainException { /* 'No se pudo consultar
 
 // src/domain/models/adviceRequest.js
 export const ADVICE_SOURCES = Object.freeze(['model', 'fallback']);
-export const MONTHLY_MODEL_REQUEST_LIMIT = 4;
+export const DAILY_MODEL_REQUEST_LIMIT = 1;
+export const MONTHLY_MODEL_REQUEST_LIMIT = DAILY_MODEL_REQUEST_LIMIT;
 export class AdviceRequest {
   constructor({ id = null, yearMonth, source, createdAt }) {
     // id: null o entero > 0; yearMonth: isValidYearMonth; source ∈ ADVICE_SOURCES;
@@ -80,6 +81,8 @@ export class AdviceRequest {
 
 // src/domain/repositories/adviceRequestRepository.js
 export class AdviceRequestRepository {
+  /** @returns {Promise<number>} filas con esa fecha local YYYY-MM-DD (substr(created_at, 1, 10)) y ese source */
+  async countByDate(_date, _source = 'model') { throw new Error('Not implemented'); }
   /** @returns {Promise<number>} filas con ese year_month y ese source */
   async countByYearMonth(_yearMonth, _source = 'model') { throw new Error('Not implemented'); }
   /** @returns {Promise<AdviceRequest>} con id asignado */
@@ -114,8 +117,8 @@ export class LlmClient {
 }
 
 // src/assistant/llmConfig.js
-export const DEFAULT_LLM_MODEL = 'gemini-2.5-flash';
-export const DEFAULT_LLM_BASE_URL = 'https://generativelanguage.googleapis.com/v1beta';
+export const DEFAULT_LLM_MODEL = 'llama-3.3-70b-versatile';
+export const DEFAULT_LLM_BASE_URL = 'https://api.groq.com/openai/v1';
 /** @returns {Readonly<{ apiKey: string|null, model: string, baseUrl: string }>} */
 export function readLlmConfig(env = {}) {}  // VITE_LLM_API_KEY (trim, '' → null), VITE_LLM_MODEL
 
@@ -167,9 +170,10 @@ export class AdviceService {
     timeoutMs = ADVICE_TIMEOUT_MS,
     setTimer = (fn, ms) => setTimeout(fn, ms),
     clearTimer = (id) => clearTimeout(id),
-    monthlyLimit = MONTHLY_MODEL_REQUEST_LIMIT,
+    dailyLimit = DAILY_MODEL_REQUEST_LIMIT,
+    monthlyLimit,                     // alias opcional compatible con dailyLimit
   }) {}
-  /** @returns {Promise<number>} max(0, limit − count(mes de la consulta, 'model')) */
+  /** @returns {Promise<number>} max(0, limit − countByDate(día de la consulta, 'model')) */
   async getRemainingModelRequests() {}
   /**
    * @param {Readonly<SpendingSummary>} summary
@@ -187,13 +191,13 @@ export async function loadSpendingSummary({
 export const RECOMMENDATIONS_SOURCE_FALLBACK_TEXT = 'Sugerencias generadas por reglas (respuesta de reserva).';
 export const RECOMMENDATIONS_SOURCE_MODEL_TEXT = 'Sugerencias generadas por el asistente.';
 export const RECOMMENDATIONS_LIMIT_TEXT =
-  'Alcanzaste el límite de 4 consultas al asistente de este mes. Te mostramos sugerencias generadas por reglas.';
+  'Ya utilizaste tu consulta diaria al asistente de hoy. Te mostramos sugerencias generadas por reglas.';
 export const RECOMMENDATIONS_NO_API_KEY_TEXT =
   'El asistente no está configurado en este entorno. Te mostramos sugerencias generadas por reglas.';
 export function RecommendationsPanel({
   status = 'idle',            // 'idle' | 'loading' | 'ready'
   suggestions = [], source = null, reason = null,
-  remainingModelRequests = 4, monthlyLimit = 4,
+  remainingModelRequests = 1, dailyLimit = 1, monthlyLimit,
   onRequest = null, viewportWidth = 390,
 }) {}
 RecommendationsPanel.buildStyles = buildRecommendationsPanelStyles;
@@ -257,44 +261,41 @@ export class FakeLlmClient extends LlmClient {
 `pesos = centsToRoundedPesos(cents)` → `Math.max(100, Math.floor((pesos + 50) / 100) * 100)`.
 Ejemplos: 650000 centavos ($6.500) → 6500; 645000 ($6.450) → 6500; 4000 ($40) → 100.
 
-## Proveedor: Google Gemini (Flash) por REST
+## Proveedor: Groq API (OpenAI-compatible Chat Completions) por REST
 
 Configuración (`llmConfig.js`), sin valores secretos en el código:
 
 | Variable | Uso | Valor por defecto |
 |---|---|---|
-| `VITE_LLM_API_KEY` | Clave de Google AI Studio. Vacía o ausente = sin asistente (R28) | ninguna |
-| `VITE_LLM_MODEL` | Nombre del modelo | `gemini-2.5-flash` (`DEFAULT_LLM_MODEL`) |
+| `VITE_LLM_API_KEY` | Clave de Groq Cloud (`gsk_...`). Vacía o ausente = sin asistente (R28) | ninguna |
+| `VITE_LLM_MODEL` | Nombre del modelo | `llama-3.3-70b-versatile` (`DEFAULT_LLM_MODEL`) |
 
-- **Endpoint:** `POST ${baseUrl}/models/${model}:generateContent`, con `baseUrl` =
-  `https://generativelanguage.googleapis.com/v1beta` (`DEFAULT_LLM_BASE_URL`).
-  - El nombre del modelo se codifica con `encodeURIComponent`.
-- **Encabezados:** solo `Content-Type: application/json` y `x-goog-api-key: <clave>`.
+- **Endpoint:** `POST ${baseUrl}/chat/completions`, con `baseUrl` =
+  `https://api.groq.com/openai/v1` (`DEFAULT_LLM_BASE_URL`).
+- **Encabezados:** solo `Content-Type: application/json` y `Authorization: Bearer <clave>`.
   - La clave va en el encabezado y **no** en la URL, para que no quede en historiales ni
     registros.
   - No se envían encabezados con datos del usuario. El navegador agrega por su cuenta
     `User-Agent` y `Origin`, que la app no controla y que no se pueden quitar desde `fetch`.
-- **Cuerpo (R3).** Tiene exactamente estas tres claves de primer nivel:
+- **Cuerpo (R3).** Tiene exactamente estas cinco claves de primer nivel:
   ```json
   {
-    "systemInstruction": { "parts": [{ "text": "<SYSTEM_PROMPT>" }] },
-    "contents": [{ "role": "user", "parts": [{ "text": "<JSON.stringify(summary)>" }] }],
-    "generationConfig": {
-      "responseMimeType": "application/json",
-      "responseSchema": "<RESPONSE_SCHEMA>",
-      "temperature": 0.4,
-      "maxOutputTokens": 1024
-    }
+    "model": "<this.model>",
+    "messages": [
+      { "role": "system", "content": "<SYSTEM_PROMPT>" },
+      { "role": "user", "content": "<JSON.stringify(summary)>" }
+    ],
+    "response_format": { "type": "json_object" },
+    "temperature": 0.4,
+    "max_tokens": 1024
   }
   ```
-  - `RESPONSE_SCHEMA` pide JSON estructurado (la API lo permite):
-    `{ type: 'OBJECT', properties: { sugerencias: { type: 'ARRAY', minItems: 1, maxItems: 3,
-    items: { type: 'OBJECT', properties: { titulo: {type:'STRING'}, detalle:
-    {type:'STRING'}, categoria: {type:'STRING'} }, required: ['titulo','detalle','categoria'] } } },
-    required: ['sugerencias'] }`.
+  - `response_format: { type: 'json_object' }` pide salida JSON estructurada compatible con
+    Groq/OpenAI. `RESPONSE_SCHEMA` se mantiene exportado en `src/assistant/prompt.js` como
+    referencia del contrato.
   - Aun así, la respuesta **siempre** pasa por `parseAdviceResponse`: el esquema del
     proveedor no se toma como garantía.
-- **Respuesta.** Se lee `candidates[0].content.parts[0].text`.
+- **Respuesta.** Se lee `choices[0].message.content`.
   - Si `fetch` rechaza (red) → `LlmRequestFailed`.
   - Si `!response.ok` → `LlmRequestFailed`, con el estado HTTP en el mensaje y sin el
     cuerpo.
@@ -381,7 +382,8 @@ No se reutiliza `buildAdviceItems` de `MonthlyOverviewScreen` (ver alternativas)
 
 ## Orquestación (`AdviceService.requestAdvice(summary)`)
 
-`yearMonth = extractYearMonth(today())` es el mes local de la consulta (R24). Pasos:
+`date = formatIsoDate(today())` es el día local de la consulta (`YYYY-MM-DD`, R24) y
+`yearMonth = extractYearMonth(date)`. Pasos:
 
 0. Si hay una solicitud en curso, devuelve **la misma promesa** (R27).
 1. Sin consentimiento (`await isConsentAccepted()` falso) → reserva, `reason: no_consent`.
@@ -389,21 +391,22 @@ No se reutiliza `buildAdviceItems` de `MonthlyOverviewScreen` (ver alternativas)
 2. `llmClient === null` → reserva, `no_api_key`. Registra `fallback` (R28, R23).
 3. `categorias` y `recurrencias` vacíos → reserva, `no_data`. Registra `fallback` (R32,
    R23).
-4. `countByYearMonth(yearMonth, 'model') >= monthlyLimit` → reserva, `limit_reached`.
+4. `countByDate(date, 'model') >= dailyLimit` → reserva, `limit_reached`.
    Registra `fallback` (R20, R21, R23).
-5. `save(new AdviceRequest({ yearMonth, source: 'model', createdAt:
-   formatIsoDateTime(now()) }))` **antes** de invocar (R22).
-   - Si `save` lanza → reserva, `storage_error`, sin invocar.
-   - Sin registro no hay garantía de cupo.
-6. Se crea un `AbortController` y se arma una carrera entre
+5. Se crea un `AbortController` y se arma una carrera entre
    `llmClient.complete({ systemPrompt: SYSTEM_PROMPT, userContent: JSON.stringify(summary), signal })`
    y un temporizador `setTimer(..., timeoutMs)`.
-   - Si el temporizador vence, se hace `controller.abort()` (R17) y se devuelve reserva con
-     `timeout` (R15), aunque el cliente ignore la señal.
+   - Si el temporizador vence, se hace `controller.abort()` (R17), se registra `fallback`
+     (R23) y se devuelve reserva con `timeout` (R15) **sin descontar el cupo diario** (R22).
    - Al terminar, siempre se ejecuta `clearTimer`.
-7. Si el cliente rechaza → reserva, `request_failed` (R16).
-8. `parseAdviceResponse(text, summary)`. Si es válida → `source: 'model'`, `model_ok`
-   (R10). Si lanza `InvalidLlmResponse` → reserva, `invalid_response` (R13, R14).
+6. Si el cliente rechaza → registra `fallback` (R23) y devuelve reserva con `request_failed`
+   (R16), **sin descontar el cupo diario** (R22).
+7. `parseAdviceResponse(text, summary)`. Si lanza `InvalidLlmResponse` → registra `fallback`
+   (R23) y devuelve reserva con `invalid_response` (R13, R14), **sin descontar el cupo
+   diario** (R22).
+8. Si la respuesta es válida, registra `save(new AdviceRequest({ yearMonth, source: 'model',
+   createdAt: formatIsoDateTime(now()) }))` (R22) y devuelve `source: 'model'`, `model_ok`
+   (R10). Si `save` lanza error de almacenamiento, devuelve reserva con `storage_error`.
 9. `remainingModelRequests` se recalcula al final.
 
 Los registros `fallback` que fallen al guardarse se ignoran: no cambian el cupo y la
@@ -414,12 +417,12 @@ reserva igual se muestra. El `AbortController` y el temporizador viven en
 
 | # | Hueco | Decisión |
 |---|---|---|
-| 1 | Proveedor | Gemini Flash por REST, configurable (`VITE_LLM_MODEL`); sin SDK |
+| 1 | Proveedor | Groq API (`llama-3.3-70b-versatile`) por REST (`/openai/v1/chat/completions`), configurable (`VITE_LLM_MODEL`); sin SDK |
 | 2 | Firma de `LlmClient` y fake | `complete({systemPrompt, userContent, signal}) → Promise<string>`. `FakeLlmClient` con modos de éxito, respuesta mal formada, error y espera indefinida |
 | 3 | Regla 15 y «nombres» | «Nombres» = nombres de personas (cuenta local). Las categorías viajan. Se actualiza `rules.md` con el contrato completo (`periodo`, `total_mes`, `ingreso_mensual`) |
 | 4 | Aviso de H12 | Versión `2026-11`, con texto nuevo y nueva aceptación (R30, R31) |
 | 5 | `monto_tipico` frente a `privacy.md:27` | Es una mediana de al menos 3 gastos, sin fecha, nota ni id, así que no es «un gasto concreto». Además se redondea a $100 (R7). Se documenta en `privacy.md` |
-| 6 | Qué consume cupo, mes y «por usuario» | Consume solo la invocación al cliente, registrada antes de invocar y aunque falle (R22). Mes local de `today()` (R24). «Por usuario» = por navegador |
+| 6 | Qué consume cupo, día y «por usuario» | Consume **solo la consulta exitosa al modelo** (si falla no descuenta el intento, R22). Límite de **1 consulta por día** local de `today()` (R20, R24). «Por usuario» = por navegador |
 | 7 | `advice_requests` en el navegador | `fp_advice_requests`: `[{ id, yearMonth, source, createdAt }]` |
 | 8 | Huecos del resumen | Redondeo a pesos con medios hacia arriba (R4). `variacion_pct` null sin mes anterior (R6). `porcentaje` con 1 decimal (H6). «Otros» fuera de las 8, máximo 9 (R5). `ingreso_mensual` null. Ventana de H9. 6.000 caracteres (R8) |
 | 9 | Validación | Rechazo total, sin recorte (R14). Tolera un único bloque markdown (R12). Largos en *code points*. `categoria` tiene que existir en el resumen o ser «General» |
@@ -435,7 +438,7 @@ reserva igual se muestra. El `AbortController` y el temporizador viven en
 
 - **Mobile (`< 768px`):**
   - Tarjeta a ancho completo, con título «Recomendaciones del asistente».
-  - Contador «Te quedan N de 4 consultas al asistente este mes» (`recommendations-remaining`).
+  - Contador «Te quedan N de 1 consultas al asistente hoy» (`recommendations-remaining`).
   - Botón «Pedir recomendaciones» (`recommendations-request-button`) a ancho completo, con
     `minHeight: 44`.
   - Lista de una columna (`data-columns="1"`). Cada elemento muestra título, detalle y una
@@ -481,11 +484,11 @@ Dentro de `tab-panel-reminders`, **después** de `h(RecurrencesPanel, ...)`, se 
     pasa el valor real);
   - `initialAdvice = undefined`.
 - **Reserva en memoria:** `createInMemoryAdviceRequestRepository()`, un arreglo con la
-  misma interfaz.
+  misma interfaz (`countByDate`, `countByYearMonth`, `save`).
   - `useState(() => new AdviceService({ llmClient, adviceRequestRepository: repo,
     isConsentAccepted, today, now }))`.
 - **Estado:** `advice = initialAdvice ?? { status: 'idle', suggestions: [], source: null,
-  reason: null, remainingModelRequests: 4 }`.
+  reason: null, remainingModelRequests: 1 }`.
   - Un `useEffect` propio carga `getRemainingModelRequests()` al montar.
   - Al cambiar el período navegado, `advice` vuelve a `idle` y conserva el contador.
 - **`handleRequestAdvice`:**
@@ -536,17 +539,17 @@ Se ejecuta dentro de `if (currentVersion < 4)`, seguido de `PRAGMA user_version 
 base en versión 3 se actualiza sin perder datos.
 
 **Semántica de `source`:**
-- `model`: se invocó al proveedor y consume cupo, con cualquier resultado.
-- `fallback`: se resolvió por reglas sin invocar.
+- `model`: consulta exitosa al proveedor que consume el cupo diario.
+- `fallback`: se resolvió por reglas (sin invocar o tras fallo del proveedor), no consume cupo.
 
-`created_at` usa ISO 8601 local (`YYYY-MM-DDTHH:MM:SS`). Ninguna columna guarda el
+`created_at` usa ISO 8601 local (`YYYY-MM-DDTHH:MM:SS`). El conteo diario (`countByDate(date, source)`) filtra por `substr(created_at, 1, 10) = ? AND source = ?`. Ninguna columna guarda el
 resumen, la respuesta ni identificadores.
 
 **Navegador:** `LocalStorageAdviceRequestRepository` usa la clave `fp_advice_requests`, con
 un arreglo JSON `[{ id, yearMonth, source, createdAt }]` e `id = max(id) + 1`.
+- `countByDate(date, source)` cuenta las entradas cuyo `createdAt.slice(0, 10) === date` y `entry.source === source`.
 - Un JSON inválido se lee como vacío.
-- Un error de escritura (cuota) se propaga desde `save`, para que `AdviceService` no
-  invoque sin registro (paso 5).
+- Un error de escritura (cuota) se propaga desde `save`.
 
 ## Ajuste de pruebas de H12 (justificado)
 
@@ -566,7 +569,7 @@ vigente.
 
 **Texto nuevo de `thirdPartyTransfer` (R30):**
 
-> «Transferencia al proveedor del modelo de lenguaje (Google, modelo Gemini): solo cuando
+> «Transferencia al proveedor del modelo de lenguaje (Groq, modelo Llama): solo cuando
 > tocás «Pedir recomendaciones» se envía un resumen agregado del mes con el período, el
 > total del mes y del mes anterior, tu ingreso mensual registrado, los nombres de tus
 > categorías (incluidas las propias) con sus totales, porcentajes y variaciones

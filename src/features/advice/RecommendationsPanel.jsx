@@ -14,12 +14,12 @@ export const RECOMMENDATIONS_SOURCE_FALLBACK_TEXT =
   'Sugerencias generadas por reglas (respuesta de reserva).';
 export const RECOMMENDATIONS_SOURCE_MODEL_TEXT = 'Sugerencias generadas por el asistente.';
 export const RECOMMENDATIONS_LIMIT_TEXT =
-  'Alcanzaste el límite de 4 consultas al asistente de este mes. Te mostramos sugerencias generadas por reglas.';
+  'Alcanzaste el límite de 10 consultas diarias al asistente de hoy. Te mostramos sugerencias generadas por reglas.';
 export const RECOMMENDATIONS_NO_API_KEY_TEXT =
   'El asistente no está configurado en este entorno. Te mostramos sugerencias generadas por reglas.';
 
 function formatRemainingRequests(remaining, limit) {
-  return `Te quedan ${remaining} de ${limit} consultas al asistente este mes`;
+  return `Te quedan ${remaining} de ${limit} consultas al asistente hoy`;
 }
 
 function resolveLayoutMode(layout) {
@@ -169,8 +169,9 @@ export function RecommendationsPanel({
   suggestions = [],
   source = null,
   reason = null,
-  remainingModelRequests = 4,
-  monthlyLimit = 4,
+  remainingModelRequests = 10,
+  dailyLimit = 10,
+  monthlyLimit,
   onRequest = null,
   viewportWidth = 390,
 } = {}) {
@@ -179,6 +180,7 @@ export function RecommendationsPanel({
   const isReady = status === 'ready';
   const safeSuggestions = Array.isArray(suggestions) ? suggestions : [];
   const resolvedSource = source === 'model' ? 'model' : 'fallback';
+  const effectiveLimit = monthlyLimit !== undefined ? monthlyLimit : dailyLimit;
 
   return h(
     'section',
@@ -193,7 +195,7 @@ export function RecommendationsPanel({
     h(
       'p',
       { 'data-testid': 'recommendations-remaining', style: styles.remaining },
-      formatRemainingRequests(remainingModelRequests, monthlyLimit),
+      formatRemainingRequests(remainingModelRequests, effectiveLimit),
     ),
     status === 'idle'
       ? h('p', { 'data-testid': 'recommendations-idle', style: styles.helper }, RECOMMENDATIONS_IDLE_TEXT)

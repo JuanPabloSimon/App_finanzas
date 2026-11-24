@@ -311,7 +311,16 @@ function createInMemoryRecurrenceRepository() {
 
 function createInMemoryAdviceRequestRepository() {
   const rows = [];
+  let lastSnapshot = null;
   return {
+    async countByDate(date, source = 'model') {
+      return rows.filter(
+        (row) =>
+          typeof row.createdAt === 'string' &&
+          row.createdAt.slice(0, 10) === date &&
+          row.source === source,
+      ).length;
+    },
     async countByYearMonth(yearMonth, source = 'model') {
       return rows.filter((row) => row.yearMonth === yearMonth && row.source === source).length;
     },
@@ -319,6 +328,30 @@ function createInMemoryAdviceRequestRepository() {
       const saved = adviceRequest.copyWith({ id: rows.length + 1 });
       rows.push(saved);
       return saved;
+    },
+    async saveDailyAdviceSnapshot(snapshot) {
+      if (!snapshot || typeof snapshot.date !== 'string') {
+        return null;
+      }
+      lastSnapshot = Object.freeze({
+        date: snapshot.date,
+        yearMonth: snapshot.yearMonth ?? snapshot.date.slice(0, 7),
+        suggestions: Object.freeze(
+          Array.isArray(snapshot.suggestions) ? [...snapshot.suggestions] : [],
+        ),
+        source: snapshot.source ?? 'fallback',
+        reason: snapshot.reason ?? null,
+      });
+      return lastSnapshot;
+    },
+    async findDailyAdviceSnapshot(date, yearMonth = undefined) {
+      if (!lastSnapshot || lastSnapshot.date !== date) {
+        return null;
+      }
+      if (yearMonth !== undefined && lastSnapshot.yearMonth !== yearMonth) {
+        return null;
+      }
+      return lastSnapshot;
     },
   };
 }
@@ -708,6 +741,71 @@ function buildOverviewStyles(viewportWidth = 390) {
       fontSize: 14,
       cursor: 'pointer',
     }),
+    agentAdviceButton: Object.freeze({
+      minHeight: layout.isMobile ? 38 : 42,
+      width: '100%',
+      padding: layout.isMobile ? '7px 14px' : '9px 18px',
+      borderRadius: 6,
+      border: `1px solid ${CORPORATE_THEME.brownPrimary}`,
+      backgroundColor: CORPORATE_THEME.navyPrimary,
+      color: '#FFFFFF',
+      fontWeight: 700,
+      fontSize: layout.isMobile ? 13 : 14,
+      fontFamily: CORPORATE_THEME.fontSans,
+      display: 'flex',
+      alignItems: 'center',
+      justifyContent: 'center',
+      gap: 8,
+      cursor: 'pointer',
+      flexShrink: 0,
+      boxShadow: '0 2px 8px rgba(11, 25, 44, 0.14)',
+    }),
+    agentAdviceModalOverlay: Object.freeze({
+      position: 'fixed',
+      inset: 0,
+      zIndex: 80,
+      backgroundColor: 'rgba(11, 25, 44, 0.62)',
+      display: 'flex',
+      alignItems: 'center',
+      justifyContent: 'center',
+      padding: layout.isMobile ? 12 : 24,
+      boxSizing: 'border-box',
+    }),
+    agentAdviceModalDialog: Object.freeze({
+      width: '100%',
+      maxWidth: layout.isMobile ? '100%' : 680,
+      maxHeight: '88dvh',
+      overflowY: 'auto',
+      backgroundColor: CORPORATE_THEME.surface,
+      border: `1px solid ${CORPORATE_THEME.borderStrong}`,
+      borderTop: `3px solid ${CORPORATE_THEME.brownPrimary}`,
+      borderRadius: 8,
+      padding: layout.isMobile ? 14 : 20,
+      boxSizing: 'border-box',
+      boxShadow: '0 16px 40px rgba(11, 25, 44, 0.28)',
+      display: 'flex',
+      flexDirection: 'column',
+      gap: 12,
+    }),
+    agentAdviceModalHeader: Object.freeze({
+      display: 'flex',
+      justifyContent: 'space-between',
+      alignItems: 'center',
+      gap: 10,
+      paddingBottom: 8,
+      borderBottom: `1px solid ${CORPORATE_THEME.border}`,
+    }),
+    agentAdviceModalCloseButton: Object.freeze({
+      minHeight: 36,
+      padding: '6px 12px',
+      borderRadius: 4,
+      border: `1px solid ${CORPORATE_THEME.borderStrong}`,
+      backgroundColor: CORPORATE_THEME.surfaceMuted,
+      color: CORPORATE_THEME.textPrimary,
+      fontWeight: 600,
+      fontSize: 13,
+      cursor: 'pointer',
+    }),
   });
 }
 
@@ -768,6 +866,7 @@ class MonthlyOverviewController {
     this.recurrences = [];
     this.recurrenceError = null;
     this.advice = buildIdleAdviceState();
+    this.isAdviceModalOpen = false;
     this.csvDelivery = csvDelivery ?? createBrowserCsvDelivery();
     this.exportState = buildIdleExportState();
 
@@ -834,12 +933,47 @@ class MonthlyOverviewController {
   }
 
   async reloadRemainingModelRequests() {
+    let remaining = this.advice.remainingModelRequests;
     try {
-      const remaining = await this.adviceService.getRemainingModelRequests();
+      remaining = await this.adviceService.getRemainingModelRequests();
       this.advice = Object.freeze({ ...this.advice, remainingModelRequests: remaining });
     } catch {
       // Si no se puede leer el cupo se conserva el último valor mostrado.
     }
+    if (
+      this.advice.status === 'idle' &&
+      this.activeYearMonth === this.currentYearMonth &&
+      typeof this.adviceRequestRepository?.findDailyAdviceSnapshot === 'function'
+    ) {
+      try {
+        const todayStr = formatIsoDate(this.today());
+        const snapshot = await this.adviceRequestRepository.findDailyAdviceSnapshot(
+          todayStr,
+          this.activeYearMonth,
+        );
+        if (snapshot && Array.isArray(snapshot.suggestions) && snapshot.suggestions.length > 0) {
+          this.advice = Object.freeze({
+            status: 'ready',
+            suggestions: snapshot.suggestions,
+            source: snapshot.source,
+            reason: snapshot.reason,
+            remainingModelRequests: remaining,
+          });
+        }
+      } catch {
+        // Ignorar si no hay snapshot diario disponible.
+      }
+    }
+  }
+
+  openAdviceModal() {
+    this.isAdviceModalOpen = true;
+    return this.getState();
+  }
+
+  closeAdviceModal() {
+    this.isAdviceModalOpen = false;
+    return this.getState();
   }
 
   async requestAdvice() {
@@ -857,6 +991,22 @@ class MonthlyOverviewController {
       recurrences: this.recurrences,
       remainingModelRequests: remainingBefore,
     });
+    if (
+      this.advice.status === 'ready' &&
+      typeof this.adviceRequestRepository?.saveDailyAdviceSnapshot === 'function'
+    ) {
+      try {
+        await this.adviceRequestRepository.saveDailyAdviceSnapshot({
+          date: formatIsoDate(this.today()),
+          yearMonth: this.activeYearMonth,
+          suggestions: this.advice.suggestions,
+          source: this.advice.source,
+          reason: this.advice.reason,
+        });
+      } catch {
+        // Ignorar errores de almacenamiento del snapshot diario.
+      }
+    }
     return this.getState();
   }
 
@@ -1197,6 +1347,7 @@ class MonthlyOverviewController {
       recurrences: [...this.recurrences],
       recurrenceError: this.recurrenceError,
       advice: this.advice,
+      isAdviceModalOpen: this.isAdviceModalOpen,
       exportState: this.exportState,
       totalExpensesCents,
       totalInvestmentsCents,
@@ -1239,6 +1390,7 @@ class MonthlyOverviewController {
       csvDelivery: this.csvDelivery,
       isConsentAccepted: this.isConsentAccepted,
       initialAdvice: state.advice,
+      initialIsAdviceModalOpen: state.isAdviceModalOpen,
       initialExportState: state.exportState,
       initialCategories: state.categories,
       initialExpenses: state.expenses,
@@ -1276,6 +1428,7 @@ export function MonthlyOverviewScreen({
   csvDelivery = null,
   isConsentAccepted = () => true,
   initialAdvice = undefined,
+  initialIsAdviceModalOpen = false,
   initialExportState = undefined,
   initialCategories = undefined,
   initialExpenses = undefined,
@@ -1324,12 +1477,14 @@ export function MonthlyOverviewScreen({
   const [recRepo] = useState(
     () => recurrenceRepository ?? createInMemoryRecurrenceRepository(),
   );
+  const [advRepo] = useState(
+    () => adviceRequestRepository ?? createInMemoryAdviceRequestRepository(),
+  );
   const [adviceService] = useState(
     () =>
       new AdviceService({
         llmClient,
-        adviceRequestRepository:
-          adviceRequestRepository ?? createInMemoryAdviceRequestRepository(),
+        adviceRequestRepository: advRepo,
         isConsentAccepted,
         today,
         now,
@@ -1362,6 +1517,7 @@ export function MonthlyOverviewScreen({
   const [recurrences, setRecurrences] = useState(initialRecurrences ?? []);
   const [recurrenceError, setRecurrenceError] = useState(initialRecurrenceError);
   const [advice, setAdvice] = useState(() => initialAdvice ?? buildIdleAdviceState());
+  const [isAdviceModalOpen, setIsAdviceModalOpen] = useState(Boolean(initialIsAdviceModalOpen));
   const [delivery] = useState(() => csvDelivery ?? createBrowserCsvDelivery());
   const [canShare] = useState(() => delivery.canShare());
   const [exportState, setExportState] = useState(
@@ -1453,18 +1609,32 @@ export function MonthlyOverviewScreen({
     if (initialAdvice !== undefined) {
       return undefined;
     }
-    adviceService
-      .getRemainingModelRequests()
-      .then((remaining) => {
-        if (active) {
-          setAdvice((prev) => Object.freeze({ ...prev, remainingModelRequests: remaining }));
-        }
-      })
-      .catch(() => {});
+    Promise.all([
+      adviceService.getRemainingModelRequests().catch(() => MONTHLY_MODEL_REQUEST_LIMIT),
+      activeYearMonth === currentYearMonth &&
+      typeof advRepo?.findDailyAdviceSnapshot === 'function'
+        ? advRepo.findDailyAdviceSnapshot(defaultToday, activeYearMonth).catch(() => null)
+        : Promise.resolve(null),
+    ]).then(([remaining, snapshot]) => {
+      if (!active) return;
+      if (snapshot && Array.isArray(snapshot.suggestions) && snapshot.suggestions.length > 0) {
+        setAdvice(
+          Object.freeze({
+            status: 'ready',
+            suggestions: snapshot.suggestions,
+            source: snapshot.source,
+            reason: snapshot.reason,
+            remainingModelRequests: remaining,
+          }),
+        );
+      } else {
+        setAdvice((prev) => Object.freeze({ ...prev, remainingModelRequests: remaining }));
+      }
+    });
     return () => {
       active = false;
     };
-  }, [adviceService, initialAdvice]);
+  }, [adviceService, advRepo, activeYearMonth, currentYearMonth, defaultToday, initialAdvice]);
 
   const handleRequestAdvice = async () => {
     if (advice.status === 'loading') {
@@ -1481,6 +1651,22 @@ export function MonthlyOverviewScreen({
       recurrences,
       remainingModelRequests: remainingBefore,
     });
+    if (
+      next.status === 'ready' &&
+      typeof advRepo?.saveDailyAdviceSnapshot === 'function'
+    ) {
+      try {
+        await advRepo.saveDailyAdviceSnapshot({
+          date: defaultToday,
+          yearMonth: activeYearMonth,
+          suggestions: next.suggestions,
+          source: next.source,
+          reason: next.reason,
+        });
+      } catch {
+        // Ignorar errores de almacenamiento del snapshot diario.
+      }
+    }
     setAdvice(next);
   };
 
@@ -2406,6 +2592,94 @@ export function MonthlyOverviewScreen({
             desktopInsightsNode,
           )
         : h(React.Fragment, null, chartNode, allocationStripNode),
+      h(
+        'button',
+        {
+          type: 'button',
+          'data-testid': 'open-agent-advice-modal-button',
+          tabIndex: 0,
+          style: styles.agentAdviceButton,
+          onClick: () => setIsAdviceModalOpen(true),
+        },
+        'Consejos Agente',
+      ),
+      isAdviceModalOpen
+        ? h(
+            'div',
+            {
+              'data-testid': 'agent-advice-modal',
+              role: 'dialog',
+              'aria-modal': 'true',
+              'aria-label': 'Consejos Agente',
+              style: styles.agentAdviceModalOverlay,
+              onClick: (e) => {
+                if (e && e.target === e.currentTarget) {
+                  setIsAdviceModalOpen(false);
+                }
+              },
+            },
+            h(
+              'div',
+              { style: styles.agentAdviceModalDialog },
+              h(
+                'div',
+                { style: styles.agentAdviceModalHeader },
+                h(
+                  'h3',
+                  {
+                    style: {
+                      margin: 0,
+                      color: CORPORATE_THEME.navyPrimary,
+                      fontFamily: CORPORATE_THEME.fontSerif,
+                      fontSize: layout.isMobile ? 17 : 19,
+                      fontWeight: 600,
+                    },
+                  },
+                  'Consejos Agente',
+                ),
+                h(
+                  'button',
+                  {
+                    type: 'button',
+                    'data-testid': 'close-agent-advice-modal-button',
+                    tabIndex: 0,
+                    style: styles.agentAdviceModalCloseButton,
+                    onClick: () => setIsAdviceModalOpen(false),
+                  },
+                  'Cerrar',
+                ),
+              ),
+              advice.status === 'ready'
+                ? h(
+                    'div',
+                    {
+                      'data-testid': 'agent-advice-last-requested-badge',
+                      style: {
+                        padding: '6px 10px',
+                        borderRadius: 4,
+                        backgroundColor: CORPORATE_THEME.navySoft,
+                        border: `1px solid ${CORPORATE_THEME.border}`,
+                        color: CORPORATE_THEME.navyPrimary,
+                        fontSize: 12.5,
+                        fontWeight: 600,
+                      },
+                    },
+                    'Últimos consejos solicitados hoy',
+                  )
+                : null,
+              h(RecommendationsPanel, {
+                status: advice.status,
+                suggestions: advice.suggestions,
+                source: advice.source,
+                reason: advice.reason,
+                remainingModelRequests: advice.remainingModelRequests,
+                monthlyLimit: MONTHLY_MODEL_REQUEST_LIMIT,
+                onRequest: handleRequestAdvice,
+                viewportWidth,
+              }),
+            ),
+          )
+        : null,
     );
   } else if (activeTab === 'expenses') {
     activeTabContent = h(
@@ -3433,16 +3707,6 @@ export function MonthlyOverviewScreen({
         recurrences,
         onDismiss: handleDismissRecurrence,
         errorMessage: recurrenceError,
-        viewportWidth,
-      }),
-      h(RecommendationsPanel, {
-        status: advice.status,
-        suggestions: advice.suggestions,
-        source: advice.source,
-        reason: advice.reason,
-        remainingModelRequests: advice.remainingModelRequests,
-        monthlyLimit: MONTHLY_MODEL_REQUEST_LIMIT,
-        onRequest: handleRequestAdvice,
         viewportWidth,
       }),
     );

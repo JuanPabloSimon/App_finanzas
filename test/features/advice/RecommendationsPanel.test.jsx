@@ -100,16 +100,16 @@ describe('H10 panel de recomendaciones en la pestaña Alertas', () => {
     assert.doesNotMatch(noKey, /recommendations-limit-notice/);
   });
 
-  it('[H10-R26] muestra cuántas consultas quedan en el mes sobre un total de 4', () => {
-    const idle = render({ status: 'idle', remainingModelRequests: 3 });
-    assert.match(idle, /data-testid="recommendations-remaining"[^>]*>Te quedan 3 de 4 consultas al asistente este mes</);
+  it('[H10-R26] muestra cuántas consultas quedan en el día sobre un total de 10', () => {
+    const idle = render({ status: 'idle', remainingModelRequests: 9 });
+    assert.match(idle, /data-testid="recommendations-remaining"[^>]*>Te quedan 9 de 10 consultas al asistente hoy</);
     assert.match(idle, /data-testid="recommendations-request-button"/);
     assert.match(idle, /Pedir recomendaciones/);
     assert.doesNotMatch(idle, /recommendations-list/);
     assert.doesNotMatch(idle, /recommendations-disclaimer/);
 
     const exhausted = render({ status: 'ready', suggestions: SUGGESTIONS, source: 'fallback', remainingModelRequests: 0 });
-    assert.match(exhausted, /Te quedan 0 de 4 consultas al asistente este mes/);
+    assert.match(exhausted, /Te quedan 0 de 10 consultas al asistente hoy/);
   });
 
   it('[H10-R27] en loading el botón queda deshabilitado con aria-busy y no dispara onRequest', () => {

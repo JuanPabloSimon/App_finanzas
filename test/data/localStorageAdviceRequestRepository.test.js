@@ -63,13 +63,18 @@ describe('H10 persistencia de consultas al asistente en el navegador', () => {
     assert.throws(() => new LocalStorageAdviceRequestRepository(null));
   });
 
-  it('[H10-R24] el conteo separa el mes y el source', async () => {
+  it('[H10-R24] el conteo separa el día, el mes y el source', async () => {
     const storage = createFakeStorage();
     const repo = new LocalStorageAdviceRequestRepository(storage);
-    await repo.save(request('2026-11', 'model'));
-    await repo.save(request('2026-11', 'fallback'));
-    await repo.save(request('2026-11', 'fallback'));
-    await repo.save(request('2026-10', 'model'));
+    await repo.save(request('2026-11', 'model', '2026-11-15T10:00:00'));
+    await repo.save(request('2026-11', 'fallback', '2026-11-15T11:00:00'));
+    await repo.save(request('2026-11', 'fallback', '2026-11-16T11:00:00'));
+    await repo.save(request('2026-10', 'model', '2026-10-15T10:00:00'));
+
+    assert.equal(await repo.countByDate('2026-11-15', 'model'), 1);
+    assert.equal(await repo.countByDate('2026-11-15', 'fallback'), 1);
+    assert.equal(await repo.countByDate('2026-11-16', 'model'), 0);
+    assert.equal(await repo.countByDate('2026-11-16', 'fallback'), 1);
 
     assert.equal(await repo.countByYearMonth('2026-11', 'model'), 1);
     assert.equal(await repo.countByYearMonth('2026-11', 'fallback'), 2);

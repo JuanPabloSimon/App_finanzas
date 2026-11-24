@@ -3,15 +3,17 @@ import assert from 'node:assert/strict';
 import {
   AdviceRequest,
   ADVICE_SOURCES,
+  DAILY_MODEL_REQUEST_LIMIT,
   MONTHLY_MODEL_REQUEST_LIMIT,
 } from '../../../src/domain/models/adviceRequest.js';
 import { AdviceRequestRepository } from '../../../src/domain/repositories/adviceRequestRepository.js';
 import { InvalidAdviceRequest } from '../../../src/core/errors.js';
 
 describe('H10 registro de consultas al asistente', () => {
-  it('[H10-R22][H10-R23] acepta source model y fallback, es inmutable y el límite mensual es 4', () => {
+  it('[H10-R22][H10-R23] acepta source model y fallback, es inmutable y el límite diario es 10', () => {
     assert.deepEqual([...ADVICE_SOURCES], ['model', 'fallback']);
-    assert.equal(MONTHLY_MODEL_REQUEST_LIMIT, 4);
+    assert.equal(DAILY_MODEL_REQUEST_LIMIT, 10);
+    assert.equal(MONTHLY_MODEL_REQUEST_LIMIT, 10);
 
     const model = new AdviceRequest({
       yearMonth: '2026-11',
@@ -56,6 +58,7 @@ describe('H10 registro de consultas al asistente', () => {
 
   it('[H10-R22] el contrato AdviceRequestRepository no está implementado', async () => {
     const repo = new AdviceRequestRepository();
+    await assert.rejects(() => repo.countByDate('2026-11-15', 'model'), /Not implemented/);
     await assert.rejects(() => repo.countByYearMonth('2026-11', 'model'), /Not implemented/);
     await assert.rejects(() => repo.save(null), /Not implemented/);
   });
