@@ -474,6 +474,12 @@ describe('H5 panel de resumen general del mes, ingreso mensual, inversiones, rec
     const overviewStyles = MonthlyOverviewScreen.buildStyles(390);
     assert.equal(overviewStyles.overviewViewportBox.overflowY, 'hidden');
 
+    const compactMobileChartStyles = CategoryDistributionChart.buildStyles(390, true);
+    assert.equal(compactMobileChartStyles.card.height, 330);
+    assert.equal(compactMobileChartStyles.card.maxHeight, 330);
+    assert.equal(compactMobileChartStyles.breakdownList.overflowY, 'auto');
+    assert.equal(compactMobileChartStyles.breakdownList.maxHeight, 190);
+
     const html = renderToStaticMarkup(controller.renderElement());
     assert.match(html, /data-testid="overview-viewport-box"/);
     assert.match(html, /data-testid="overview-period-header"/);
@@ -1218,36 +1224,42 @@ describe('H10 recomendaciones del asistente en la pestaña Alertas', () => {
     ],
   });
 
-  it('[H10-R33] el panel de recomendaciones va después de recurrencias en Alertas y no aparece en Resumen', async () => {
+  it('[H10-R33] el panel de recomendaciones se abre desde el botón Consejos Agente en Resumen y no se renderiza en Alertas', async () => {
     const controller = createController(FakeLlmClient.succeeding(TWO_SUGGESTIONS));
     await controller.initialize();
 
     const overviewHtml = renderToStaticMarkup(controller.renderElement());
     assert.doesNotMatch(overviewHtml, /data-testid="recommendations-panel"/);
+    assert.match(overviewHtml, /data-testid="open-agent-advice-modal-button"[^>]*>Consejos Agente</);
     assert.equal((overviewHtml.match(/data-testid="tab-[a-z]+"/g) ?? []).length, 5);
+
+    controller.openAdviceModal();
+    const modalHtml = renderToStaticMarkup(controller.renderElement());
+    assert.match(modalHtml, /data-testid="agent-advice-modal"/);
+    assert.match(modalHtml, /data-testid="recommendations-panel"/);
+    controller.closeAdviceModal();
 
     controller.setActiveTab('reminders');
     const html = renderToStaticMarkup(controller.renderElement());
     const recurrencesIndex = html.indexOf('data-testid="recurrences-panel"');
-    const recommendationsIndex = html.indexOf('data-testid="recommendations-panel"');
     assert.equal(recurrencesIndex > -1, true);
-    assert.equal(recommendationsIndex > recurrencesIndex, true);
+    assert.doesNotMatch(html, /data-testid="recommendations-panel"/);
     assert.match(html, /data-testid="monthly-advice-section"/);
     assert.equal((html.match(/data-testid="tab-[a-z]+"/g) ?? []).length, 5);
   });
 
-  it('[H10-R9] abrir la pantalla y la pestaña Alertas no invoca al asistente', async () => {
+  it('[H10-R9] abrir la pantalla y el modal Consejos Agente no invoca al asistente', async () => {
     await saveNovemberExpenses();
     const fake = FakeLlmClient.succeeding(TWO_SUGGESTIONS);
     const controller = createController(fake);
     await controller.initialize();
-    controller.setActiveTab('reminders');
+    controller.openAdviceModal();
     const html = renderToStaticMarkup(controller.renderElement());
     assert.equal(fake.calls.length, 0);
     assert.equal(controller.getState().advice.status, 'idle');
-    assert.match(html, /Te quedan 4 de 4 consultas al asistente este mes/);
+    assert.match(html, /Te quedan 10 de 10 consultas al asistente hoy/);
     assert.match(html, /data-testid="recommendations-request-button"/);
-    assert.equal(await adviceRequestRepo.countByYearMonth('2026-11', 'model'), 0);
+    assert.equal(await adviceRequestRepo.countByDate('2026-11-15', 'model'), 0);
   });
 
   it('[H10-R10] al pedir recomendaciones con gastos muestra las 2 sugerencias del modelo con la advertencia', async () => {
@@ -1255,36 +1267,37 @@ describe('H10 recomendaciones del asistente en la pestaña Alertas', () => {
     const fake = FakeLlmClient.succeeding(TWO_SUGGESTIONS);
     const controller = createController(fake, 1280);
     await controller.initialize();
+    controller.openAdviceModal();
 
     const state = await controller.requestAdvice();
     assert.equal(fake.calls.length, 1);
     assert.equal(state.advice.status, 'ready');
     assert.equal(state.advice.source, 'model');
     assert.equal(state.advice.suggestions.length, 2);
-    assert.equal(state.advice.remainingModelRequests, 3);
+    assert.equal(state.advice.remainingModelRequests, 9);
     const sent = JSON.parse(fake.calls[0].userContent);
     assert.equal(sent.periodo, '2026-11');
     assert.equal(sent.total_mes, 14300);
 
-    controller.setActiveTab('reminders');
     const html = renderToStaticMarkup(controller.renderElement());
     assert.equal((html.match(/data-testid="recommendation-item"/g) ?? []).length, 2);
     assert.match(html, /data-testid="recommendations-source" data-source="model"/);
     assert.match(html, /data-testid="recommendations-disclaimer"/);
     assert.equal(html.includes(ADVICE_DISCLAIMER), true);
     assert.match(html, /data-testid="recommendations-list" data-columns="2"/);
-    assert.match(html, /Te quedan 3 de 4 consultas al asistente este mes/);
+    assert.match(html, /Te quedan 9 de 10 consultas al asistente hoy/);
   });
 
-  it('[H10-R19] con una respuesta mal formada la pestaña muestra la reserva marcada como generada por reglas', async () => {
+  it('[H10-R19] con una respuesta mal formada el modal muestra la reserva marcada como generada por reglas sin descontar el intento diario', async () => {
     await saveNovemberExpenses();
     const controller = createController(FakeLlmClient.malformed());
     await controller.initialize();
+    controller.openAdviceModal();
     const state = await controller.requestAdvice();
     assert.equal(state.advice.source, 'fallback');
     assert.equal(state.advice.reason, 'invalid_response');
+    assert.equal(state.advice.remainingModelRequests, 10);
 
-    controller.setActiveTab('reminders');
     const html = renderToStaticMarkup(controller.renderElement());
     assert.match(html, /data-testid="recommendations-source" data-source="fallback"/);
     assert.match(html, /Sugerencias generadas por reglas/);
@@ -1298,7 +1311,7 @@ describe('H10 recomendaciones del asistente en la pestaña Alertas', () => {
     await controller.requestAdvice();
     const state = await controller.goToPreviousMonth();
     assert.equal(state.advice.status, 'idle');
-    assert.equal(state.advice.remainingModelRequests, 3);
+    assert.equal(state.advice.remainingModelRequests, 9);
   });
 });
 
@@ -1808,5 +1821,168 @@ describe('H15 múltiples ingresos en cualquier momento con suma acumulada mensua
     const afterDelete = await controller.deleteIncomeEntry(firstEntryId);
     assert.equal(afterDelete.incomeEntries.length, 1);
     assert.equal(afterDelete.monthlyIncome.amountCents, 20000000);
+  });
+});
+
+describe('H16 botón Consejos Agente al pie del Resumen y modal con persistencia del último consejo del día', () => {
+  let db;
+  let categoryRepo;
+  let expenseRepo;
+  let incomeRepo;
+  let recurrenceRepo;
+  let adviceRequestRepo;
+
+  beforeEach(async () => {
+    db = await AppDatabase.openInMemory();
+    categoryRepo = new SqliteCategoryRepository(db);
+    expenseRepo = new SqliteExpenseRepository(db);
+    incomeRepo = new SqliteMonthlyIncomeRepository(db);
+    recurrenceRepo = new SqliteRecurrenceRepository(db);
+    adviceRequestRepo = new SqliteAdviceRequestRepository(db);
+  });
+
+  afterEach(async () => {
+    if (db) {
+      await db.close();
+    }
+  });
+
+  const SAMPLE_SUGGESTIONS = JSON.stringify({
+    sugerencias: [
+      {
+        titulo: 'Controlá compras semanales',
+        detalle: 'Concentrá el supermercado en una sola compra mayorista.',
+        categoria: 'Alimentos',
+      },
+    ],
+  });
+
+  it('[H16-R1][H16-R2][H16-R7] muestra el botón Consejos Agente debajo de todo en Resumen sin scroll vertical, quita el panel de Alertas y abre/cierra el modal en Mobile y Desktop', async () => {
+    const mobileStyles = MonthlyOverviewScreen.buildStyles(390);
+    assert.equal(mobileStyles.overviewViewportBox.overflowY, 'hidden');
+    assert.equal(mobileStyles.agentAdviceButton.minHeight >= 38, true);
+
+    const desktopStyles = MonthlyOverviewScreen.buildStyles(1280);
+    assert.equal(desktopStyles.overviewViewportBox.overflowY, 'hidden');
+    assert.equal(desktopStyles.agentAdviceButton.minHeight >= 42, true);
+
+    const controller = MonthlyOverviewScreen.createController({
+      expenseRepository: expenseRepo,
+      categoryRepository: categoryRepo,
+      incomeRepository: incomeRepo,
+      recurrenceRepository: recurrenceRepo,
+      adviceRequestRepository: adviceRequestRepo,
+      llmClient: FakeLlmClient.succeeding(SAMPLE_SUGGESTIONS),
+      today: () => '2026-11-24',
+      viewportWidth: 390,
+    });
+
+    const initial = await controller.initialize();
+    assert.equal(initial.isAdviceModalOpen, false);
+
+    const overviewHtml = renderToStaticMarkup(controller.renderElement());
+    const chartIdx = overviewHtml.indexOf('data-testid="category-income-breakdown"');
+    const buttonIdx = overviewHtml.indexOf('data-testid="open-agent-advice-modal-button"');
+    assert.equal(chartIdx > -1 && buttonIdx > chartIdx, true);
+    assert.match(overviewHtml, /data-testid="open-agent-advice-modal-button"[^>]*>Consejos Agente</);
+    assert.doesNotMatch(overviewHtml, /data-testid="agent-advice-modal"/);
+
+    const openedState = controller.openAdviceModal();
+    assert.equal(openedState.isAdviceModalOpen, true);
+    const modalHtml = renderToStaticMarkup(controller.renderElement());
+    assert.match(modalHtml, /data-testid="agent-advice-modal"/);
+    assert.match(modalHtml, /data-testid="close-agent-advice-modal-button"/);
+    assert.match(modalHtml, /data-testid="recommendations-panel"/);
+
+    const closedState = controller.closeAdviceModal();
+    assert.equal(closedState.isAdviceModalOpen, false);
+    assert.doesNotMatch(
+      renderToStaticMarkup(controller.renderElement()),
+      /data-testid="agent-advice-modal"/,
+    );
+
+    controller.setActiveTab('reminders');
+    const remindersHtml = renderToStaticMarkup(controller.renderElement());
+    assert.doesNotMatch(remindersHtml, /data-testid="recommendations-panel"/);
+  });
+
+  it('[H16-R3][H16-R4][H16-R5][H16-R6] al abrir el modal sin consulta previa muestra el botón para pedir consejos y, si ya se pidió ese día, muestra directamente el último consejo solicitado hasta que cambie el día', async () => {
+    await expenseRepo.save(
+      new Expense({
+        amountCents: 25000000,
+        date: '2026-11-10',
+        categoryId: 1,
+        createdAt: '2026-11-10T10:00:00',
+      }),
+    );
+
+    const fake = FakeLlmClient.succeeding(SAMPLE_SUGGESTIONS);
+    const controller = MonthlyOverviewScreen.createController({
+      expenseRepository: expenseRepo,
+      categoryRepository: categoryRepo,
+      incomeRepository: incomeRepo,
+      recurrenceRepository: recurrenceRepo,
+      adviceRequestRepository: adviceRequestRepo,
+      llmClient: fake,
+      today: () => '2026-11-24',
+      now: () => new Date(2026, 10, 24, 10, 0, 0),
+      viewportWidth: 390,
+    });
+
+    await controller.initialize();
+    controller.openAdviceModal();
+    assert.equal(fake.calls.length, 0);
+    assert.equal(controller.getState().advice.status, 'idle');
+
+    const idleModalHtml = renderToStaticMarkup(controller.renderElement());
+    assert.match(idleModalHtml, /data-testid="recommendations-request-button"/);
+    assert.doesNotMatch(idleModalHtml, /data-testid="agent-advice-last-requested-badge"/);
+
+    await controller.requestAdvice();
+    assert.equal(fake.calls.length, 1);
+    assert.equal(controller.getState().advice.status, 'ready');
+
+    controller.closeAdviceModal();
+    controller.openAdviceModal();
+    const reopenedHtml = renderToStaticMarkup(controller.renderElement());
+    assert.match(reopenedHtml, /data-testid="agent-advice-last-requested-badge"/);
+    assert.match(reopenedHtml, /Últimos consejos solicitados hoy/);
+    assert.match(reopenedHtml, /Controlá compras semanales/);
+
+    const sameDayNewController = MonthlyOverviewScreen.createController({
+      expenseRepository: expenseRepo,
+      categoryRepository: categoryRepo,
+      incomeRepository: incomeRepo,
+      recurrenceRepository: recurrenceRepo,
+      adviceRequestRepository: new SqliteAdviceRequestRepository(db),
+      llmClient: fake,
+      today: () => '2026-11-24',
+      now: () => new Date(2026, 10, 24, 15, 0, 0),
+      viewportWidth: 390,
+    });
+    const restoredState = await sameDayNewController.initialize();
+    assert.equal(fake.calls.length, 1);
+    assert.equal(restoredState.advice.status, 'ready');
+    assert.equal(restoredState.advice.suggestions[0].titulo, 'Controlá compras semanales');
+
+    sameDayNewController.openAdviceModal();
+    const restoredModalHtml = renderToStaticMarkup(sameDayNewController.renderElement());
+    assert.match(restoredModalHtml, /data-testid="agent-advice-last-requested-badge"/);
+    assert.match(restoredModalHtml, /Controlá compras semanales/);
+
+    const nextDayController = MonthlyOverviewScreen.createController({
+      expenseRepository: expenseRepo,
+      categoryRepository: categoryRepo,
+      incomeRepository: incomeRepo,
+      recurrenceRepository: recurrenceRepo,
+      adviceRequestRepository: new SqliteAdviceRequestRepository(db),
+      llmClient: fake,
+      today: () => '2026-11-25',
+      now: () => new Date(2026, 10, 25, 9, 0, 0),
+      viewportWidth: 390,
+    });
+    const nextDayState = await nextDayController.initialize();
+    assert.equal(nextDayState.advice.status, 'idle');
+    assert.equal(nextDayState.advice.suggestions.length, 0);
   });
 });

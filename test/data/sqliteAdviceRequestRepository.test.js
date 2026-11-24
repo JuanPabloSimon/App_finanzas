@@ -61,11 +61,18 @@ describe('H10 persistencia de consultas al asistente en SQLite', () => {
     assert.throws(() => new SqliteAdviceRequestRepository(null));
   });
 
-  it('[H10-R24] countByYearMonth cuenta solo el mes y el source pedidos', async () => {
-    await repo.save(request('2026-11', 'model'));
-    await repo.save(request('2026-11', 'model'));
-    await repo.save(request('2026-11', 'fallback'));
-    await repo.save(request('2026-10', 'model'));
+  it('[H10-R24] countByDate y countByYearMonth cuentan solo el día o mes y el source pedidos', async () => {
+    await repo.save(request('2026-11', 'model', '2026-11-15T10:00:00'));
+    await repo.save(request('2026-11', 'model', '2026-11-16T10:00:00'));
+    await repo.save(request('2026-11', 'fallback', '2026-11-15T12:00:00'));
+    await repo.save(request('2026-10', 'model', '2026-10-15T10:00:00'));
+
+    assert.equal(await repo.countByDate('2026-11-15', 'model'), 1);
+    assert.equal(await repo.countByDate('2026-11-15'), 1);
+    assert.equal(await repo.countByDate('2026-11-15', 'fallback'), 1);
+    assert.equal(await repo.countByDate('2026-11-16', 'model'), 1);
+    assert.equal(await repo.countByDate('2026-11-17', 'model'), 0);
+    await assert.rejects(() => repo.countByDate('2026-11-15', 'otro'), InvalidAdviceRequest);
 
     assert.equal(await repo.countByYearMonth('2026-11', 'model'), 2);
     assert.equal(await repo.countByYearMonth('2026-11'), 2);

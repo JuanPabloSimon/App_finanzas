@@ -186,7 +186,7 @@
         "CA1. La consulta al modelo envía solo un resumen agregado, con totales por categoría y recurrencias, sin notas, nombres ni identificadores del usuario.",
         "CA2. Se muestran entre una y tres sugerencias en lenguaje natural, acompañadas de la advertencia sobre su carácter orientativo.",
         "CA3. Si el servicio no responde en diez segundos o la respuesta no respeta el formato esperado, se muestra la respuesta de reserva basada en reglas.",
-        "CA4. Se respeta el límite mensual de consultas por usuario."
+        "CA4. El usuario puede solicitar recomendaciones sin límite de consultas (mientras una solicitud está en curso no se inicia otra)."
       ],
       "sdd": true,
       "status": "done",
@@ -282,6 +282,24 @@
       "sdd": true,
       "status": "done",
       "orden": 15
+    },
+    {
+      "id": 16,
+      "historia": "H16",
+      "name": "h16_modal_consejos_agente",
+      "title": "Mudar recomendaciones al Resumen con botón Consejos Agente y modal con persistencia diaria",
+      "epic": "Asistente",
+      "priority": "alta",
+      "points": 3,
+      "iteration": 3,
+      "acceptance": [
+        "CA1. El módulo de recomendaciones se traslada desde la pestaña Alertas a la pestaña Resumen, mostrando debajo de todo un botón «Consejos Agente» sin perder el bloqueo de scroll vertical del Resumen.",
+        "CA2. Al presionar «Consejos Agente» se abre un modal con el panel del asistente que muestra el botón para pedir los consejos si aún no se solicitaron en el día.",
+        "CA3. Si el usuario ya solicitó consejos en ese día, al abrir el modal se muestran directamente los últimos consejos solicitados en el día junto con la opción de volver a consultar o cerrar el modal."
+      ],
+      "sdd": true,
+      "status": "done",
+      "orden": 16
     }
   ]
 }

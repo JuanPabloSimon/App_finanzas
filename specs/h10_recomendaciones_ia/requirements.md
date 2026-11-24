@@ -8,9 +8,10 @@
 > etiqueta `[H10-R<n>]`. Las pruebas no usan red: el modelo se reemplaza por
 > `FakeLlmClient` y `fetch` por una función falsa inyectada.
 >
-> Decisiones del humano (Francisco, 2026-11-15) que este spec toma como dadas: proveedor
-> **Google Gemini (modelo Flash)** vía REST con `fetch` nativo y sin SDK; la actualización
-> del aviso de privacidad de H12 (nueva `policy_version`) entra en H10.
+> Decisiones del humano (Francisco, 2026-11-15 y Juan Pablo, 2026-11-23) que este spec toma como dadas: proveedor
+> **Groq API (modelo `llama-3.3-70b-versatile`)** vía REST con `fetch` nativo y sin SDK (reemplazando a Gemini ante errores 503);
+> cupo de **1 consulta diaria al modelo** que solo se descuenta cuando la consulta es exitosa (si falla no descuenta el intento);
+> la actualización del aviso de privacidad de H12 (nueva `policy_version`) entra en H10.
 
 ## Definiciones
 
@@ -22,13 +23,13 @@
   `veces_en_60_dias`.
 - **Período del resumen (`periodo`):** el mes `YYYY-MM` que la pestaña «Alertas» tiene
   seleccionado al pedir las recomendaciones.
-- **Mes de la consulta:** el mes calendario **local** del navegador (`YYYY-MM`) de la fecha
+- **Día de la consulta:** la fecha calendario **local** del navegador (`YYYY-MM-DD`) de la fecha
   `today()` en el momento de la solicitud. No se usa UTC ni el período navegado.
 - **Pesos enteros:** conversión de centavos a pesos con redondeo al peso más cercano y
   los medios hacia arriba: `Math.floor((cents + 50) / 100)`.
-- **Consulta al modelo:** invocación de `LlmClient.complete(...)` por parte de
-  `AdviceService`. Es lo único que consume cupo.
-- **Cupo mensual:** 4 consultas al modelo por mes de la consulta y por almacenamiento
+- **Consulta exitosa al modelo:** invocación de `LlmClient.complete(...)` por parte de
+  `AdviceService` cuya respuesta supera la validación de R12, R13 y R14. Es lo único que consume cupo diario.
+- **Cupo diario:** 1 consulta exitosa al modelo por día de la consulta y por almacenamiento
   local. «Por usuario» se interpreta como **por navegador** (un perfil de navegador sobre el
   mismo origen, que comparte `localStorage`) o, en las pruebas, por base SQLite. La app no
   tiene cuentas en servidor, así que no hay un conteo entre dispositivos.
@@ -121,7 +122,7 @@ mostrar la respuesta de reserva.
 
 ## R16
 SI el `LlmClient` rechaza la consulta por un error de red, una respuesta HTTP que no es 2xx
-o un cuerpo sin texto en `candidates[0].content.parts[0].text` ENTONCES el sistema DEBE
+o un cuerpo sin texto en `choices[0].message.content` ENTONCES el sistema DEBE
 mostrar la respuesta de reserva.
 
 ## R17
@@ -143,27 +144,29 @@ CUANDO el sistema muestra la respuesta de reserva, el sistema DEBE indicar en el
 se trata de sugerencias generadas por reglas.
 
 ## R20
-MIENTRAS haya 4 o más consultas al modelo registradas para el mes de la consulta, el
-sistema NO DEBE invocar al `LlmClient`.
+CUANDO el usuario realiza múltiples consultas sucesivas al asistente en el mismo día o mes,
+el sistema DEBE invocar al `LlmClient` en cada solicitud sin aplicar límite de cantidad de
+consultas.
 
 ## R21
-SI el usuario pide recomendaciones con el cupo mensual agotado ENTONCES el sistema DEBE
-mostrar, junto con la respuesta de reserva, un aviso de que alcanzó el límite de 4
-consultas al asistente del mes.
+SI una consulta previa falló o fue exitosa ENTONCES el sistema DEBE mantener habilitada la
+posibilidad de volver a consultar al `LlmClient` sin bloquear por límite alcanzado.
 
 ## R22
-CUANDO el sistema va a invocar al `LlmClient`, el sistema DEBE registrar antes en
-`advice_requests` una fila con `source = 'model'` y el mes de la consulta. La fila cuenta
-para el cupo aunque después haya timeout, error o respuesta inválida.
+CUANDO el `LlmClient` devuelve una respuesta válida que supera R12, R13 y R14, el sistema
+DEBE registrar en `advice_requests` una fila con `source = 'model'` y la fecha/hora de la
+consulta (`createdAt`), sin registrar `source = 'model'` si la consulta falla por timeout,
+error de red/HTTP o respuesta mal formada.
 
 ## R23
-CUANDO el sistema resuelve con consentimiento vigente una solicitud de recomendaciones sin
-invocar al `LlmClient`, el sistema DEBE registrar en `advice_requests` una fila con
-`source = 'fallback'`, que no cuenta para el cupo.
+CUANDO el sistema resuelve con consentimiento vigente una solicitud de recomendaciones
+mediante la respuesta de reserva (ya sea sin invocar al `LlmClient` o tras un fallo del
+modelo), el sistema DEBE registrar en `advice_requests` una fila con `source = 'fallback'`.
 
 ## R24
-CUANDO el sistema cuenta el cupo, el sistema DEBE considerar solo las filas `source =
-'model'` cuyo `year_month` coincide con el mes de la consulta.
+CUANDO se consulta el repositorio de consultas (`AdviceRequestRepository`), el sistema DEBE
+contar solo las filas cuyo día (`countByDate`) o mes (`countByYearMonth`) y `source`
+coinciden con los solicitados.
 
 ## R25
 CUANDO se crea una nueva instancia del repositorio de consultas sobre el mismo
@@ -171,8 +174,9 @@ almacenamiento (`localStorage` del navegador bajo `fp_advice_requests`, o la mis
 SQLite migrada a la versión 4), el sistema DEBE conservar las filas registradas antes.
 
 ## R26
-CUANDO el sistema muestra el panel de recomendaciones, el sistema DEBE mostrar cuántas
-consultas al asistente quedan en el mes de la consulta, sobre un total de 4.
+CUANDO el sistema muestra el panel de recomendaciones y el usuario cambia de período, el
+sistema DEBE restablecer el estado del panel a `idle` manteniendo el botón de consulta
+disponible sin límite de intentos.
 
 ## R27
 MIENTRAS una solicitud de recomendaciones está en curso, el sistema NO DEBE iniciar otra
@@ -188,8 +192,8 @@ ENTONCES el sistema NO DEBE invocar al `LlmClient`.
 
 ## R30
 El sistema DEBE informar en la sección de transferencia del aviso de privacidad de la
-versión `2026-11` que se envían el ingreso mensual y los nombres de las categorías, junto
-con las demás partes del resumen agregado.
+versión `2026-11` que se envían el ingreso mensual y los nombres de las categorías al
+proveedor del modelo de lenguaje (Groq), junto con las demás partes del resumen agregado.
 
 ## R31
 MIENTRAS el usuario solo tenga aceptada una versión del aviso anterior a `2026-11`, el
@@ -216,7 +220,7 @@ validación de respuestas y `AdviceService` no usan `fetch`, `XMLHttpRequest` ni
 | CA1. La consulta al modelo envía solo un resumen agregado, con totales por categoría y recurrencias, sin notas, nombres ni identificadores del usuario. | R1, R2, R3, R4, R5, R6, R7, R8, R29, R30, R31, R34 |
 | CA2. Se muestran entre una y tres sugerencias en lenguaje natural, acompañadas de la advertencia sobre su carácter orientativo. | R10, R11, R33 |
 | CA3. Si el servicio no responde en diez segundos o la respuesta no respeta el formato esperado, se muestra la respuesta de reserva basada en reglas. | R12, R13, R14, R15, R16, R17, R18, R19, R28 |
-| CA4. Se respeta el límite mensual de consultas por usuario. | R9, R20, R21, R22, R23, R24, R25, R26, R27, R32 |
+| CA4. Se respeta el límite diario de una consulta exitosa al modelo por usuario (si la consulta falla, no descuenta el intento). | R9, R20, R21, R22, R23, R24, R25, R26, R27, R32 |
 | Regla 16 (sin consentimiento no se llama a la API) | R29, R31 |
 | Regla 13 (solo `src/assistant/` usa la red) | R34 |
 | Regla 18 (advertencia orientativa siempre visible) | R11 |

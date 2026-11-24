@@ -109,7 +109,7 @@ describe('H10 actualización del aviso de privacidad (versión 2026-11)', () => 
     assert.match(transfer, /ingreso mensual/i);
     assert.match(transfer, /nombres de tus categorías/i);
     assert.match(transfer, /resumen agregado/i);
-    assert.match(transfer, /Gemini/);
+    assert.match(transfer, /Groq/);
     const section = PRIVACY_NOTICE_SECTIONS.find((item) => item.id === 'thirdPartyTransfer');
     assert.equal(section.body, transfer);
   });

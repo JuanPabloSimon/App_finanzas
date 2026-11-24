@@ -1,6 +1,6 @@
 import { extractYearMonth, formatIsoDate, formatIsoDateTime } from '../core/dates.js';
 import { InvalidLlmResponse, LlmTimeout } from '../core/errors.js';
-import { AdviceRequest, MONTHLY_MODEL_REQUEST_LIMIT } from '../domain/models/adviceRequest.js';
+import { AdviceRequest, DAILY_MODEL_REQUEST_LIMIT } from '../domain/models/adviceRequest.js';
 import { parseAdviceResponse } from './adviceResponse.js';
 import { buildFallbackAdvice } from './fallbackAdvisor.js';
 import { SYSTEM_PROMPT } from './prompt.js';
@@ -28,8 +28,8 @@ function hasNoData(summary) {
 }
 
 /**
- * Orquesta una solicitud de recomendaciones: consentimiento, clave, datos, cupo mensual,
- * registro previo, timeout con AbortController, validación y respuesta de reserva.
+ * Orquesta una solicitud de recomendaciones: consentimiento, clave, datos, cupo diario (10/día),
+ * timeout con AbortController, validación, registro solo ante respuesta exitosa y respuesta de reserva.
  * No hace llamadas de red por sí mismo: delega en el LlmClient inyectado.
  */
 export class AdviceService {
@@ -42,7 +42,8 @@ export class AdviceService {
     timeoutMs = ADVICE_TIMEOUT_MS,
     setTimer = (fn, ms) => setTimeout(fn, ms),
     clearTimer = (id) => clearTimeout(id),
-    monthlyLimit = MONTHLY_MODEL_REQUEST_LIMIT,
+    dailyLimit = DAILY_MODEL_REQUEST_LIMIT,
+    monthlyLimit,
   } = {}) {
     if (!adviceRequestRepository) {
       throw new Error('Se requiere adviceRequestRepository');
@@ -55,21 +56,30 @@ export class AdviceService {
     this.timeoutMs = timeoutMs;
     this.setTimer = setTimer;
     this.clearTimer = clearTimer;
-    this.monthlyLimit = monthlyLimit;
+    this.dailyLimit = monthlyLimit !== undefined ? monthlyLimit : dailyLimit;
+    this.monthlyLimit = this.dailyLimit;
     this.inFlight = null;
   }
 
-  currentYearMonth() {
-    return extractYearMonth(formatIsoDate(this.today()));
+  currentDate() {
+    return formatIsoDate(this.today());
   }
 
-  /** @returns {Promise<number>} max(0, límite − consultas al modelo del mes local) */
+  currentYearMonth() {
+    return extractYearMonth(this.currentDate());
+  }
+
+  async countUsedModelRequests() {
+    if (typeof this.adviceRequestRepository.countByDate === 'function') {
+      return this.adviceRequestRepository.countByDate(this.currentDate(), 'model');
+    }
+    return this.adviceRequestRepository.countByYearMonth(this.currentYearMonth(), 'model');
+  }
+
+  /** @returns {Promise<number>} max(0, límite − consultas exitosas al modelo del día local) */
   async getRemainingModelRequests() {
-    const used = await this.adviceRequestRepository.countByYearMonth(
-      this.currentYearMonth(),
-      'model',
-    );
-    return Math.max(0, this.monthlyLimit - used);
+    const used = await this.countUsedModelRequests();
+    return Math.max(0, this.dailyLimit - used);
   }
 
   /**
@@ -105,13 +115,36 @@ export class AdviceService {
 
     let used;
     try {
-      used = await this.adviceRequestRepository.countByYearMonth(yearMonth, 'model');
+      used = await this.countUsedModelRequests();
     } catch {
       return this.fallbackResult(summary, ADVICE_REASONS.STORAGE_ERROR);
     }
-    if (used >= this.monthlyLimit) {
+    if (used >= this.dailyLimit) {
       await this.recordFallback(yearMonth);
       return this.fallbackResult(summary, ADVICE_REASONS.LIMIT_REACHED);
+    }
+
+    let rawText;
+    try {
+      rawText = await this.invokeWithTimeout(summary);
+    } catch (error) {
+      const reason =
+        error === TIMEOUT_SIGNAL || error instanceof LlmTimeout
+          ? ADVICE_REASONS.TIMEOUT
+          : ADVICE_REASONS.REQUEST_FAILED;
+      await this.recordFallback(yearMonth);
+      return this.fallbackResult(summary, reason);
+    }
+
+    let advice;
+    try {
+      advice = parseAdviceResponse(rawText, summary);
+    } catch (error) {
+      if (error instanceof InvalidLlmResponse) {
+        await this.recordFallback(yearMonth);
+        return this.fallbackResult(summary, ADVICE_REASONS.INVALID_RESPONSE);
+      }
+      throw error;
     }
 
     try {
@@ -127,26 +160,7 @@ export class AdviceService {
       return this.fallbackResult(summary, ADVICE_REASONS.STORAGE_ERROR);
     }
 
-    let rawText;
-    try {
-      rawText = await this.invokeWithTimeout(summary);
-    } catch (error) {
-      const reason =
-        error === TIMEOUT_SIGNAL || error instanceof LlmTimeout
-          ? ADVICE_REASONS.TIMEOUT
-          : ADVICE_REASONS.REQUEST_FAILED;
-      return this.fallbackResult(summary, reason);
-    }
-
-    try {
-      const advice = parseAdviceResponse(rawText, summary);
-      return this.buildResult(advice, 'model', ADVICE_REASONS.MODEL_OK);
-    } catch (error) {
-      if (error instanceof InvalidLlmResponse) {
-        return this.fallbackResult(summary, ADVICE_REASONS.INVALID_RESPONSE);
-      }
-      throw error;
-    }
+    return this.buildResult(advice, 'model', ADVICE_REASONS.MODEL_OK);
   }
 
   invokeWithTimeout(summary) {

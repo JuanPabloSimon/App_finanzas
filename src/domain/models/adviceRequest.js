@@ -3,7 +3,8 @@ import { isValidIsoDateTime, isValidYearMonth } from '../../core/dates.js';
 
 export const ADVICE_SOURCES = Object.freeze(['model', 'fallback']);
 
-export const MONTHLY_MODEL_REQUEST_LIMIT = 4;
+export const DAILY_MODEL_REQUEST_LIMIT = 10;
+export const MONTHLY_MODEL_REQUEST_LIMIT = DAILY_MODEL_REQUEST_LIMIT;
 
 export class AdviceRequest {
   constructor({ id = null, yearMonth, source, createdAt } = {}) {

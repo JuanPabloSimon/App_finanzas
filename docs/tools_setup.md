@@ -36,20 +36,20 @@ Hooks incluidos:
 
 ## Variables del asistente (H10)
 
-El asistente de recomendaciones usa Google Gemini. Para probarlo en local, crear un `.env`
+El asistente de recomendaciones usa Groq API (compatible con OpenAI Chat Completions). Para probarlo en local, crear un `.env`
 en la raíz (ignorado por git; el hook `protect_secrets.sh` impide que los agentes lo
 editen) con:
 
 | Variable | Uso | Valor por defecto |
 |---|---|---|
-| `VITE_LLM_API_KEY` | Clave de Google AI Studio. Vacía o ausente = sin asistente: se muestran sugerencias por reglas | ninguna |
-| `VITE_LLM_MODEL` | Nombre del modelo de Gemini | `gemini-2.5-flash` |
+| `VITE_LLM_API_KEY` | Clave de Groq Cloud (`gsk_...`). Vacía o ausente = sin asistente: se muestran sugerencias por reglas | ninguna |
+| `VITE_LLM_MODEL` | Nombre del modelo en Groq | `llama-3.3-70b-versatile` |
 
 - La clave queda dentro del bundle del navegador (toda variable `VITE_*`): usarla solo en
-  local o en demos, con **cuota y límite de gasto** configurados en Google AI Studio.
+  local o en demos, con **cuota y límite de gasto** configurados en Groq Cloud.
 - Nunca escribir la clave en el código, en `docs/` ni en archivos versionados. Las pruebas
   no la necesitan: usan `FakeLlmClient` y un `fetch` falso.
-- Si Google retira el modelo por defecto, se cambia `VITE_LLM_MODEL` sin tocar código.
+- Si Groq retira el modelo por defecto, se cambia `VITE_LLM_MODEL` sin tocar código.
 
 ## Antigravity
 

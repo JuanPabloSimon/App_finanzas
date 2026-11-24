@@ -21,8 +21,8 @@ El texto del aviso tiene una versión (`policy_version`). Si el texto cambia de 
 sustancial, se incrementa la versión y se vuelve a pedir la aceptación.
 
 - `2026-10`: versión inicial (H12).
-- `2026-11` (vigente, H10): la sección de transferencia nombra al proveedor (Google, modelo
-  Gemini) y declara que viajan el período, los totales del mes y del mes anterior, el
+- `2026-11` (vigente, H10): la sección de transferencia nombra al proveedor (Groq, modelo
+  Llama) y declara que viajan el período, los totales del mes y del mes anterior, el
   **ingreso mensual** y los **nombres de las categorías** (incluidas las propias), además de
   porcentajes, variaciones y recurrencias con su monto típico redondeado. Quien solo aceptó
   la `2026-10` debe aceptar la nueva versión para seguir usando la app.

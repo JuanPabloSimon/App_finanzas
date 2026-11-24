@@ -29,14 +29,14 @@ function buildCategoryChartStyles(viewportWidth = 390, compact = false) {
         ? layout.isDesktop
           ? 310
           : layout.isMobile
-            ? 250
+            ? 330
             : 280
         : 'auto',
       maxHeight: compact
         ? layout.isDesktop
           ? 310
           : layout.isMobile
-            ? 250
+            ? 330
             : 280
         : 'none',
       boxSizing: 'border-box',
@@ -67,6 +67,8 @@ function buildCategoryChartStyles(viewportWidth = 390, compact = false) {
         : layout.isMobile
           ? '1fr'
           : '188px minmax(0, 1fr)',
+      gridTemplateRows:
+        compact && layout.isMobile ? 'auto minmax(0, 1fr)' : undefined,
       gap: compact ? (layout.isMobile ? 4 : layout.isDesktop ? 20 : 10) : layout.isMobile ? 16 : 22,
       alignItems: compact ? 'stretch' : 'center',
       flex: compact ? 1 : 'initial',
@@ -101,7 +103,7 @@ function buildCategoryChartStyles(viewportWidth = 390, compact = false) {
         ? layout.isDesktop
           ? 186
           : layout.isMobile
-            ? 112
+            ? 190
             : 150
         : 'none',
       overflowY: compact ? 'auto' : 'visible',

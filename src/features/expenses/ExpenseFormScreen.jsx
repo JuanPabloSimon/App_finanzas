@@ -1,6 +1,6 @@
-import React, { useState, useEffect } from 'react';
-import { Category } from '../../domain/models/category.js';
-import { Expense } from '../../domain/models/expense.js';
+import React, { useState, useEffect } from 'react'
+import { Category } from '../../domain/models/category.js'
+import { Expense } from '../../domain/models/expense.js'
 import {
   DomainException,
   InvalidAmount,
@@ -11,7 +11,7 @@ import {
   PredefinedCategoryDeletionNotAllowed,
   CategoryInUse,
   ExpenseNotFound,
-} from '../../core/errors.js';
+} from '../../core/errors.js'
 import {
   formatIsoDate,
   formatIsoDateTime,
@@ -19,17 +19,17 @@ import {
   isValidYearMonth,
   shiftYearMonth,
   formatYearMonthLabel,
-} from '../../core/dates.js';
+} from '../../core/dates.js'
 import {
   parseAmountToCents,
   formatCentsToArs,
   formatCentsToInput,
-} from '../../core/formatters.js';
-import { getViewportLayout } from '../../core/responsive.js';
-import { CORPORATE_THEME } from '../../core/theme.js';
-import { PREDEFINED_CATEGORIES } from '../../data/db/appDatabase.js';
+} from '../../core/formatters.js'
+import { getViewportLayout } from '../../core/responsive.js'
+import { CORPORATE_THEME } from '../../core/theme.js'
+import { PREDEFINED_CATEGORIES } from '../../data/db/appDatabase.js'
 
-const h = React.createElement;
+const h = React.createElement
 
 function buildDefaultCategories(createdAt = '2026-10-01T00:00:00') {
   return PREDEFINED_CATEGORIES.map(
@@ -40,34 +40,36 @@ function buildDefaultCategories(createdAt = '2026-10-01T00:00:00') {
         isPredefined: true,
         createdAt,
       }),
-  );
+  )
 }
 
-function createInMemoryCategoryRepository(seedCategories = buildDefaultCategories()) {
-  const categories = [...seedCategories];
+function createInMemoryCategoryRepository(
+  seedCategories = buildDefaultCategories(),
+) {
+  const categories = [...seedCategories]
   let nextId =
-    categories.reduce((max, cat) => Math.max(max, Number(cat.id) || 0), 0) + 1;
-  let linkedExpensesRef = null;
+    categories.reduce((max, cat) => Math.max(max, Number(cat.id) || 0), 0) + 1
+  let linkedExpensesRef = null
 
   return {
     _linkExpenses(expensesArray) {
-      linkedExpensesRef = expensesArray;
+      linkedExpensesRef = expensesArray
     },
     async findAll() {
-      return [...categories];
+      return [...categories]
     },
     async findById(id) {
-      const numericId = Number(id);
-      return categories.find((cat) => cat.id === numericId) ?? null;
+      const numericId = Number(id)
+      return categories.find((cat) => cat.id === numericId) ?? null
     },
     async findByName(name) {
       if (typeof name !== 'string' || name.trim().length === 0) {
-        return null;
+        return null
       }
-      const normalized = name.trim().toLowerCase();
+      const normalized = name.trim().toLowerCase()
       return (
         categories.find((cat) => cat.name.toLowerCase() === normalized) ?? null
-      );
+      )
     },
     async save(category) {
       const draft =
@@ -78,44 +80,47 @@ function createInMemoryCategoryRepository(seedCategories = buildDefaultCategorie
               name: typeof category === 'string' ? category : category?.name,
               isPredefined: Boolean(category?.isPredefined),
               createdAt: category?.createdAt,
-            });
-      const existing = await this.findByName(draft.name);
+            })
+      const existing = await this.findByName(draft.name)
       if (existing) {
-        throw new DuplicateCategory(draft.name);
+        throw new DuplicateCategory(draft.name)
       }
       const saved = new Category({
         id: nextId++,
         name: draft.name,
         isPredefined: draft.isPredefined,
         createdAt: draft.createdAt ?? formatIsoDateTime(new Date()),
-      });
-      categories.push(saved);
-      return saved;
+      })
+      categories.push(saved)
+      return saved
     },
     async countExpenses(categoryId) {
-      const numericId = Number(categoryId);
+      const numericId = Number(categoryId)
       if (!linkedExpensesRef) {
-        return 0;
+        return 0
       }
-      return linkedExpensesRef.filter((e) => e.categoryId === numericId).length;
+      return linkedExpensesRef.filter((e) => e.categoryId === numericId).length
     },
     async deleteById(id, options = {}) {
-      const numericId = Number(id);
-      const idx = categories.findIndex((cat) => cat.id === numericId);
+      const numericId = Number(id)
+      const idx = categories.findIndex((cat) => cat.id === numericId)
       if (idx === -1) {
-        throw new CategoryNotFound(numericId);
+        throw new CategoryNotFound(numericId)
       }
-      const target = categories[idx];
+      const target = categories[idx]
       if (target.isPredefined) {
-        throw new PredefinedCategoryDeletionNotAllowed(target.name);
+        throw new PredefinedCategoryDeletionNotAllowed(target.name)
       }
-      const count = await this.countExpenses(numericId);
+      const count = await this.countExpenses(numericId)
       if (count > 0) {
-        const reassignToCategoryId = options?.reassignToCategoryId;
-        if (reassignToCategoryId === undefined || reassignToCategoryId === null) {
-          throw new CategoryInUse(numericId, count);
+        const reassignToCategoryId = options?.reassignToCategoryId
+        if (
+          reassignToCategoryId === undefined ||
+          reassignToCategoryId === null
+        ) {
+          throw new CategoryInUse(numericId, count)
         }
-        const targetReassignId = Number(reassignToCategoryId);
+        const targetReassignId = Number(reassignToCategoryId)
         if (
           !Number.isInteger(targetReassignId) ||
           targetReassignId <= 0 ||
@@ -123,49 +128,52 @@ function createInMemoryCategoryRepository(seedCategories = buildDefaultCategorie
         ) {
           throw new InvalidCategory(
             'Seleccioná una categoría de destino válida y distinta a la que vas a eliminar',
-          );
+          )
         }
-        const dest = await this.findById(targetReassignId);
+        const dest = await this.findById(targetReassignId)
         if (!dest) {
-          throw new CategoryNotFound(targetReassignId);
+          throw new CategoryNotFound(targetReassignId)
         }
         if (linkedExpensesRef) {
-          const updatedAt = formatIsoDateTime(new Date());
+          const updatedAt = formatIsoDateTime(new Date())
           for (let i = 0; i < linkedExpensesRef.length; i += 1) {
             if (linkedExpensesRef[i].categoryId === numericId) {
               linkedExpensesRef[i] = linkedExpensesRef[i].copyWith({
                 categoryId: dest.id,
                 categoryName: dest.name,
                 updatedAt,
-              });
+              })
             }
           }
         }
       }
-      categories.splice(idx, 1);
-      return true;
+      categories.splice(idx, 1)
+      return true
     },
-  };
+  }
 }
 
 function createInMemoryExpenseRepository(categoryRepository) {
-  const expenses = [];
-  if (categoryRepository && typeof categoryRepository._linkExpenses === 'function') {
-    categoryRepository._linkExpenses(expenses);
+  const expenses = []
+  if (
+    categoryRepository &&
+    typeof categoryRepository._linkExpenses === 'function'
+  ) {
+    categoryRepository._linkExpenses(expenses)
   }
-  let nextId = 1;
+  let nextId = 1
   return {
     async save(expense) {
-      const record = expense instanceof Expense ? expense : new Expense(expense);
+      const record = expense instanceof Expense ? expense : new Expense(expense)
       const category = categoryRepository
         ? await categoryRepository.findById(record.categoryId)
-        : null;
+        : null
       if (!category) {
-        throw new InvalidCategory('Seleccioná una categoría válida');
+        throw new InvalidCategory('Seleccioná una categoría válida')
       }
-      const nowIso = formatIsoDateTime(new Date());
-      const createdAt = record.createdAt ?? nowIso;
-      const updatedAt = record.updatedAt ?? createdAt;
+      const nowIso = formatIsoDateTime(new Date())
+      const createdAt = record.createdAt ?? nowIso
+      const updatedAt = record.updatedAt ?? createdAt
       const saved = new Expense({
         id: nextId++,
         amountCents: record.amountCents,
@@ -176,47 +184,47 @@ function createInMemoryExpenseRepository(categoryRepository) {
         note: record.note,
         createdAt,
         updatedAt,
-      });
-      expenses.push(saved);
-      return saved;
+      })
+      expenses.push(saved)
+      return saved
     },
     async findById(id) {
       if (!Number.isInteger(id) || id <= 0) {
-        return null;
+        return null
       }
-      return expenses.find((item) => item.id === id) ?? null;
+      return expenses.find((item) => item.id === id) ?? null
     },
     async findByYearMonth(yearMonth) {
       return expenses
         .filter((item) => item.date.slice(0, 7) === yearMonth)
         .sort((a, b) => {
           if (a.date !== b.date) {
-            return b.date.localeCompare(a.date);
+            return b.date.localeCompare(a.date)
           }
-          return (b.id ?? 0) - (a.id ?? 0);
-        });
+          return (b.id ?? 0) - (a.id ?? 0)
+        })
     },
     async update(expense) {
       if (!expense || !Number.isInteger(expense.id) || expense.id <= 0) {
-        throw new ExpenseNotFound(expense?.id ?? null);
+        throw new ExpenseNotFound(expense?.id ?? null)
       }
-      const record = expense instanceof Expense ? expense : new Expense(expense);
-      const idx = expenses.findIndex((item) => item.id === record.id);
+      const record = expense instanceof Expense ? expense : new Expense(expense)
+      const idx = expenses.findIndex((item) => item.id === record.id)
       if (idx === -1) {
-        throw new ExpenseNotFound(record.id);
+        throw new ExpenseNotFound(record.id)
       }
       const category = categoryRepository
         ? await categoryRepository.findById(record.categoryId)
-        : null;
+        : null
       if (!category) {
-        throw new InvalidCategory('Seleccioná una categoría válida');
+        throw new InvalidCategory('Seleccioná una categoría válida')
       }
-      const existing = expenses[idx];
-      const nowIso = formatIsoDateTime(new Date());
+      const existing = expenses[idx]
+      const nowIso = formatIsoDateTime(new Date())
       const updatedAt =
         record.updatedAt && record.updatedAt !== existing.updatedAt
           ? record.updatedAt
-          : nowIso;
+          : nowIso
       const updated = new Expense({
         id: existing.id,
         amountCents: record.amountCents,
@@ -227,61 +235,63 @@ function createInMemoryExpenseRepository(categoryRepository) {
         note: record.note,
         createdAt: existing.createdAt,
         updatedAt,
-      });
-      expenses[idx] = updated;
-      return updated;
+      })
+      expenses[idx] = updated
+      return updated
     },
     async deleteById(id) {
       if (!Number.isInteger(id) || id <= 0) {
-        throw new ExpenseNotFound(id);
+        throw new ExpenseNotFound(id)
       }
-      const idx = expenses.findIndex((item) => item.id === id);
+      const idx = expenses.findIndex((item) => item.id === id)
       if (idx === -1) {
-        throw new ExpenseNotFound(id);
+        throw new ExpenseNotFound(id)
       }
-      expenses.splice(idx, 1);
-      return true;
+      expenses.splice(idx, 1)
+      return true
     },
     async countByCategoryId(categoryId) {
-      const numericId = Number(categoryId);
-      return expenses.filter((item) => item.categoryId === numericId).length;
+      const numericId = Number(categoryId)
+      return expenses.filter((item) => item.categoryId === numericId).length
     },
     async reassignCategory(fromCategoryId, toCategoryId) {
-      const fromId = Number(fromCategoryId);
-      const toId = Number(toCategoryId);
+      const fromId = Number(fromCategoryId)
+      const toId = Number(toCategoryId)
       if (!Number.isInteger(toId) || toId <= 0 || toId === fromId) {
         throw new InvalidCategory(
           'Seleccioná una categoría de destino válida y distinta',
-        );
+        )
       }
-      const dest = categoryRepository ? await categoryRepository.findById(toId) : null;
+      const dest = categoryRepository
+        ? await categoryRepository.findById(toId)
+        : null
       if (!dest) {
-        throw new CategoryNotFound(toId);
+        throw new CategoryNotFound(toId)
       }
-      let moved = 0;
-      const updatedAt = formatIsoDateTime(new Date());
+      let moved = 0
+      const updatedAt = formatIsoDateTime(new Date())
       for (let i = 0; i < expenses.length; i += 1) {
         if (expenses[i].categoryId === fromId) {
           expenses[i] = expenses[i].copyWith({
             categoryId: dest.id,
             categoryName: dest.name,
             updatedAt,
-          });
-          moved += 1;
+          })
+          moved += 1
         }
       }
-      return moved;
+      return moved
     },
-  };
+  }
 }
 
 function calculateMonthlyTotalCents(expenses = []) {
-  return expenses.reduce((sum, item) => sum + (item?.amountCents ?? 0), 0);
+  return expenses.reduce((sum, item) => sum + (item?.amountCents ?? 0), 0)
 }
 
 function buildExpenseFormStyles(viewportWidth = 390) {
-  const layout = getViewportLayout(viewportWidth);
-  const gridColumns = layout.columns;
+  const layout = getViewportLayout(viewportWidth)
+  const gridColumns = layout.columns
 
   return Object.freeze({
     layout,
@@ -541,7 +551,7 @@ function buildExpenseFormStyles(viewportWidth = 390) {
       backgroundColor: CORPORATE_THEME.surfaceMuted,
       border: `1px solid ${CORPORATE_THEME.borderStrong}`,
     }),
-  });
+  })
 }
 
 class ExpenseFormController {
@@ -552,386 +562,405 @@ class ExpenseFormController {
     now = () => new Date(),
     viewportWidth = 390,
   } = {}) {
-    const fallbackCatRepo = categoryRepository ?? createInMemoryCategoryRepository();
-    this.categoryRepository = fallbackCatRepo;
+    const fallbackCatRepo =
+      categoryRepository ?? createInMemoryCategoryRepository()
+    this.categoryRepository = fallbackCatRepo
     this.expenseRepository =
-      expenseRepository ?? createInMemoryExpenseRepository(fallbackCatRepo);
-    this.today = today;
-    this.now = now;
-    this.viewportWidth = viewportWidth;
+      expenseRepository ?? createInMemoryExpenseRepository(fallbackCatRepo)
+    this.today = today
+    this.now = now
+    this.viewportWidth = viewportWidth
 
-    const initialDate = formatIsoDate(this.today());
-    this.categories = [];
-    this.expenses = [];
-    this.categoryExpenseCounts = {};
-    this.currentYearMonth = extractYearMonth(initialDate);
-    this.activeYearMonth = this.currentYearMonth;
-    this.editingExpenseId = null;
-    this.confirmingDeleteId = null;
-    this.focusRequestedOnAmount = false;
-    this.amountInput = '';
-    this.dateInput = initialDate;
-    this.categoryId = null;
-    this.subcategoryInput = '';
-    this.noteInput = '';
-    this.amountError = null;
-    this.formError = null;
-    this.newCategoryNameInput = '';
-    this.categoryError = null;
-    this.deletingCategoryId = null;
-    this.deletingCategoryExpenseCount = 0;
-    this.reassignTargetCategoryId = null;
-    this.initialized = false;
+    const initialDate = formatIsoDate(this.today())
+    this.categories = []
+    this.expenses = []
+    this.categoryExpenseCounts = {}
+    this.currentYearMonth = extractYearMonth(initialDate)
+    this.activeYearMonth = this.currentYearMonth
+    this.editingExpenseId = null
+    this.confirmingDeleteId = null
+    this.focusRequestedOnAmount = false
+    this.amountInput = ''
+    this.dateInput = initialDate
+    this.categoryId = null
+    this.subcategoryInput = ''
+    this.noteInput = ''
+    this.amountError = null
+    this.formError = null
+    this.newCategoryNameInput = ''
+    this.categoryError = null
+    this.deletingCategoryId = null
+    this.deletingCategoryExpenseCount = 0
+    this.reassignTargetCategoryId = null
+    this.initialized = false
   }
 
   async refreshCategoryExpenseCounts(cats = this.categories) {
-    const counts = {};
+    const counts = {}
     for (const cat of cats) {
       if (typeof this.categoryRepository.countExpenses === 'function') {
-        counts[cat.id] = await this.categoryRepository.countExpenses(cat.id);
-      } else if (typeof this.expenseRepository.countByCategoryId === 'function') {
-        counts[cat.id] = await this.expenseRepository.countByCategoryId(cat.id);
+        counts[cat.id] = await this.categoryRepository.countExpenses(cat.id)
+      } else if (
+        typeof this.expenseRepository.countByCategoryId === 'function'
+      ) {
+        counts[cat.id] = await this.expenseRepository.countByCategoryId(cat.id)
       } else {
-        counts[cat.id] = this.expenses.filter((e) => e.categoryId === cat.id).length;
+        counts[cat.id] = this.expenses.filter(
+          (e) => e.categoryId === cat.id,
+        ).length
       }
     }
-    this.categoryExpenseCounts = counts;
-    return counts;
+    this.categoryExpenseCounts = counts
+    return counts
   }
 
   async initialize() {
-    const loadedCategories = await this.categoryRepository.findAll();
-    this.categories = loadedCategories;
+    const loadedCategories = await this.categoryRepository.findAll()
+    this.categories = loadedCategories
     if (this.categoryId === null && loadedCategories.length > 0) {
-      this.categoryId = loadedCategories[0].id;
+      this.categoryId = loadedCategories[0].id
     }
-    const defaultDate = formatIsoDate(this.today());
-    this.dateInput = defaultDate;
-    this.currentYearMonth = extractYearMonth(defaultDate);
-    this.activeYearMonth = this.currentYearMonth;
-    this.expenses = await this.expenseRepository.findByYearMonth(this.activeYearMonth);
-    await this.refreshCategoryExpenseCounts(loadedCategories);
-    this.initialized = true;
-    return this.getState();
+    const defaultDate = formatIsoDate(this.today())
+    this.dateInput = defaultDate
+    this.currentYearMonth = extractYearMonth(defaultDate)
+    this.activeYearMonth = this.currentYearMonth
+    this.expenses = await this.expenseRepository.findByYearMonth(
+      this.activeYearMonth,
+    )
+    await this.refreshCategoryExpenseCounts(loadedCategories)
+    this.initialized = true
+    return this.getState()
   }
 
   setAmountInput(value) {
-    this.amountInput = value === null || value === undefined ? '' : String(value);
-    this.focusRequestedOnAmount = false;
+    this.amountInput =
+      value === null || value === undefined ? '' : String(value)
+    this.focusRequestedOnAmount = false
     if (this.amountError) {
-      this.amountError = null;
+      this.amountError = null
     }
-    return this.getState();
+    return this.getState()
   }
 
   setDateInput(value) {
-    this.dateInput = value === null || value === undefined ? '' : String(value);
+    this.dateInput = value === null || value === undefined ? '' : String(value)
     if (this.formError) {
-      this.formError = null;
+      this.formError = null
     }
-    return this.getState();
+    return this.getState()
   }
 
   setCategoryId(value) {
-    this.categoryId = Number(value);
+    this.categoryId = Number(value)
     if (this.formError) {
-      this.formError = null;
+      this.formError = null
     }
-    return this.getState();
+    return this.getState()
   }
 
   setSubcategoryInput(value) {
-    this.subcategoryInput = value === null || value === undefined ? '' : String(value);
-    return this.getState();
+    this.subcategoryInput =
+      value === null || value === undefined ? '' : String(value)
+    return this.getState()
   }
 
   setNoteInput(value) {
-    this.noteInput = value === null || value === undefined ? '' : String(value);
-    return this.getState();
+    this.noteInput = value === null || value === undefined ? '' : String(value)
+    return this.getState()
   }
 
   setViewportWidth(width) {
-    this.viewportWidth = width;
-    return this.getState();
+    this.viewportWidth = width
+    return this.getState()
   }
 
   setNewCategoryNameInput(value) {
     this.newCategoryNameInput =
-      value === null || value === undefined ? '' : String(value);
+      value === null || value === undefined ? '' : String(value)
     if (this.categoryError) {
-      this.categoryError = null;
+      this.categoryError = null
     }
-    return this.getState();
+    return this.getState()
   }
 
   async createCustomCategory(nameOverride) {
     const rawName =
-      nameOverride !== undefined ? nameOverride : this.newCategoryNameInput;
-    this.categoryError = null;
+      nameOverride !== undefined ? nameOverride : this.newCategoryNameInput
+    this.categoryError = null
     try {
       const draft = new Category({
         name: rawName,
         isPredefined: false,
         createdAt: formatIsoDateTime(this.now()),
-      });
-      const saved = await this.categoryRepository.save(draft);
-      this.categories = await this.categoryRepository.findAll();
-      await this.refreshCategoryExpenseCounts(this.categories);
-      this.categoryId = saved.id;
-      this.newCategoryNameInput = '';
-      return this.getState();
+      })
+      const saved = await this.categoryRepository.save(draft)
+      this.categories = await this.categoryRepository.findAll()
+      await this.refreshCategoryExpenseCounts(this.categories)
+      this.categoryId = saved.id
+      this.newCategoryNameInput = ''
+      return this.getState()
     } catch (err) {
       if (err instanceof DomainException) {
-        this.categoryError = err.message;
-        return this.getState();
+        this.categoryError = err.message
+        return this.getState()
       }
-      throw err;
+      throw err
     }
   }
 
   requestDeleteCategory(categoryId) {
-    const numericId = Number(categoryId);
-    this.categoryError = null;
-    const target = this.categories.find((cat) => cat.id === numericId);
+    const numericId = Number(categoryId)
+    this.categoryError = null
+    const target = this.categories.find((cat) => cat.id === numericId)
     if (!target) {
-      this.categoryError = new CategoryNotFound(numericId).message;
-      return this.getState();
+      this.categoryError = new CategoryNotFound(numericId).message
+      return this.getState()
     }
     if (target.isPredefined) {
       this.categoryError = new PredefinedCategoryDeletionNotAllowed(
         target.name,
-      ).message;
-      return this.getState();
+      ).message
+      return this.getState()
     }
 
-    const expenseCount = this.categoryExpenseCounts[numericId] ?? 0;
-    this.deletingCategoryId = numericId;
-    this.deletingCategoryExpenseCount = expenseCount;
+    const expenseCount = this.categoryExpenseCounts[numericId] ?? 0
+    this.deletingCategoryId = numericId
+    this.deletingCategoryExpenseCount = expenseCount
     if (expenseCount > 0) {
-      const fallbackTarget = this.categories.find((cat) => cat.id !== numericId);
-      this.reassignTargetCategoryId = fallbackTarget ? fallbackTarget.id : null;
+      const fallbackTarget = this.categories.find((cat) => cat.id !== numericId)
+      this.reassignTargetCategoryId = fallbackTarget ? fallbackTarget.id : null
     } else {
-      this.reassignTargetCategoryId = null;
+      this.reassignTargetCategoryId = null
     }
-    return this.getState();
+    return this.getState()
   }
 
   setReassignTargetCategoryId(categoryId) {
     this.reassignTargetCategoryId =
       categoryId !== null && categoryId !== undefined && categoryId !== ''
         ? Number(categoryId)
-        : null;
+        : null
     if (this.categoryError) {
-      this.categoryError = null;
+      this.categoryError = null
     }
-    return this.getState();
+    return this.getState()
   }
 
   cancelDeleteCategory() {
-    this.deletingCategoryId = null;
-    this.deletingCategoryExpenseCount = 0;
-    this.reassignTargetCategoryId = null;
-    this.categoryError = null;
-    return this.getState();
+    this.deletingCategoryId = null
+    this.deletingCategoryExpenseCount = 0
+    this.reassignTargetCategoryId = null
+    this.categoryError = null
+    return this.getState()
   }
 
   async confirmDeleteCategory(categoryId, reassignToCategoryId) {
     const targetId =
       categoryId !== undefined && categoryId !== null
         ? Number(categoryId)
-        : this.deletingCategoryId;
+        : this.deletingCategoryId
     const resolvedReassignId =
       reassignToCategoryId !== undefined
         ? reassignToCategoryId
-        : this.reassignTargetCategoryId;
+        : this.reassignTargetCategoryId
 
-    this.categoryError = null;
+    this.categoryError = null
     try {
       const options =
         resolvedReassignId !== null && resolvedReassignId !== undefined
           ? { reassignToCategoryId: Number(resolvedReassignId) }
-          : {};
-      await this.categoryRepository.deleteById(targetId, options);
-      this.deletingCategoryId = null;
-      this.deletingCategoryExpenseCount = 0;
-      this.reassignTargetCategoryId = null;
+          : {}
+      await this.categoryRepository.deleteById(targetId, options)
+      this.deletingCategoryId = null
+      this.deletingCategoryExpenseCount = 0
+      this.reassignTargetCategoryId = null
 
-      this.categories = await this.categoryRepository.findAll();
+      this.categories = await this.categoryRepository.findAll()
       this.expenses = await this.expenseRepository.findByYearMonth(
         this.activeYearMonth,
-      );
-      await this.refreshCategoryExpenseCounts(this.categories);
+      )
+      await this.refreshCategoryExpenseCounts(this.categories)
 
       if (this.categoryId === targetId) {
         const reassignedExists =
           resolvedReassignId !== null &&
           resolvedReassignId !== undefined &&
-          this.categories.some((c) => c.id === Number(resolvedReassignId));
+          this.categories.some((c) => c.id === Number(resolvedReassignId))
         this.categoryId = reassignedExists
           ? Number(resolvedReassignId)
-          : (this.categories[0]?.id ?? null);
+          : (this.categories[0]?.id ?? null)
       }
-      return this.getState();
+      return this.getState()
     } catch (err) {
       if (err instanceof DomainException) {
-        this.categoryError = err.message;
-        return this.getState();
+        this.categoryError = err.message
+        return this.getState()
       }
-      throw err;
+      throw err
     }
   }
 
   async goToYearMonth(targetYearMonth) {
     if (!isValidYearMonth(targetYearMonth)) {
-      throw new InvalidExpenseDate('Período mensual inválido (AAAA-MM)');
+      throw new InvalidExpenseDate('Período mensual inválido (AAAA-MM)')
     }
     const boundedMonth =
-      targetYearMonth > this.currentYearMonth ? this.currentYearMonth : targetYearMonth;
-    this.activeYearMonth = boundedMonth;
-    this.confirmingDeleteId = null;
-    this.expenses = await this.expenseRepository.findByYearMonth(this.activeYearMonth);
-    return this.getState();
+      targetYearMonth > this.currentYearMonth
+        ? this.currentYearMonth
+        : targetYearMonth
+    this.activeYearMonth = boundedMonth
+    this.confirmingDeleteId = null
+    this.expenses = await this.expenseRepository.findByYearMonth(
+      this.activeYearMonth,
+    )
+    return this.getState()
   }
 
   async goToPreviousMonth() {
-    const previousMonth = shiftYearMonth(this.activeYearMonth, -1);
-    return this.goToYearMonth(previousMonth);
+    const previousMonth = shiftYearMonth(this.activeYearMonth, -1)
+    return this.goToYearMonth(previousMonth)
   }
 
   async goToNextMonth() {
     if (this.activeYearMonth >= this.currentYearMonth) {
-      return this.getState();
+      return this.getState()
     }
-    const nextMonth = shiftYearMonth(this.activeYearMonth, 1);
-    return this.goToYearMonth(nextMonth);
+    const nextMonth = shiftYearMonth(this.activeYearMonth, 1)
+    return this.goToYearMonth(nextMonth)
   }
 
   activateEmptyStateCta() {
-    this.editingExpenseId = null;
-    this.confirmingDeleteId = null;
-    this.amountError = null;
-    this.formError = null;
-    const defaultDate = formatIsoDate(this.today());
+    this.editingExpenseId = null
+    this.confirmingDeleteId = null
+    this.amountError = null
+    this.formError = null
+    const defaultDate = formatIsoDate(this.today())
     this.dateInput =
       extractYearMonth(defaultDate) === this.activeYearMonth
         ? defaultDate
-        : `${this.activeYearMonth}-01`;
-    this.focusRequestedOnAmount = true;
-    return this.getState();
+        : `${this.activeYearMonth}-01`
+    this.focusRequestedOnAmount = true
+    return this.getState()
   }
 
   startEditExpense(expenseId) {
-    const numericId = Number(expenseId);
-    const target = this.expenses.find((item) => item.id === numericId);
+    const numericId = Number(expenseId)
+    const target = this.expenses.find((item) => item.id === numericId)
     if (!target) {
-      const notFoundError = new ExpenseNotFound(numericId);
-      this.formError = notFoundError.message;
-      return this.getState();
+      const notFoundError = new ExpenseNotFound(numericId)
+      this.formError = notFoundError.message
+      return this.getState()
     }
 
-    this.editingExpenseId = target.id;
-    this.confirmingDeleteId = null;
-    this.focusRequestedOnAmount = false;
-    this.amountInput = formatCentsToInput(target.amountCents);
-    this.dateInput = target.date;
-    this.categoryId = target.categoryId;
-    this.subcategoryInput = target.subcategory ?? '';
-    this.noteInput = target.note ?? '';
-    this.amountError = null;
-    this.formError = null;
-    return this.getState();
+    this.editingExpenseId = target.id
+    this.confirmingDeleteId = null
+    this.focusRequestedOnAmount = false
+    this.amountInput = formatCentsToInput(target.amountCents)
+    this.dateInput = target.date
+    this.categoryId = target.categoryId
+    this.subcategoryInput = target.subcategory ?? ''
+    this.noteInput = target.note ?? ''
+    this.amountError = null
+    this.formError = null
+    return this.getState()
   }
 
   cancelEditExpense() {
-    this.editingExpenseId = null;
-    this.amountInput = '';
-    this.dateInput = formatIsoDate(this.today());
-    this.subcategoryInput = '';
-    this.noteInput = '';
-    this.amountError = null;
-    this.formError = null;
-    return this.getState();
+    this.editingExpenseId = null
+    this.amountInput = ''
+    this.dateInput = formatIsoDate(this.today())
+    this.subcategoryInput = ''
+    this.noteInput = ''
+    this.amountError = null
+    this.formError = null
+    return this.getState()
   }
 
   requestDeleteExpense(expenseId) {
-    const numericId = Number(expenseId);
-    this.confirmingDeleteId = numericId;
-    this.formError = null;
-    return this.getState();
+    const numericId = Number(expenseId)
+    this.confirmingDeleteId = numericId
+    this.formError = null
+    return this.getState()
   }
 
   cancelDeleteExpense() {
-    this.confirmingDeleteId = null;
-    return this.getState();
+    this.confirmingDeleteId = null
+    return this.getState()
   }
 
   async confirmDeleteExpense(expenseId) {
     const targetId =
       expenseId !== undefined && expenseId !== null
         ? Number(expenseId)
-        : this.confirmingDeleteId;
+        : this.confirmingDeleteId
 
-    this.formError = null;
+    this.formError = null
     try {
-      await this.expenseRepository.deleteById(targetId);
-      this.confirmingDeleteId = null;
+      await this.expenseRepository.deleteById(targetId)
+      this.confirmingDeleteId = null
       if (this.editingExpenseId === targetId) {
-        this.cancelEditExpense();
+        this.cancelEditExpense()
       }
-      this.expenses = await this.expenseRepository.findByYearMonth(this.activeYearMonth);
-      this.categories = await this.categoryRepository.findAll();
-      await this.refreshCategoryExpenseCounts(this.categories);
-      return this.getState();
+      this.expenses = await this.expenseRepository.findByYearMonth(
+        this.activeYearMonth,
+      )
+      this.categories = await this.categoryRepository.findAll()
+      await this.refreshCategoryExpenseCounts(this.categories)
+      return this.getState()
     } catch (err) {
-      this.confirmingDeleteId = null;
+      this.confirmingDeleteId = null
       if (err instanceof DomainException) {
-        this.formError = err.message;
-        return this.getState();
+        this.formError = err.message
+        return this.getState()
       }
-      throw err;
+      throw err
     }
   }
 
   async submitExpense(overrides = {}) {
     const rawAmount =
-      overrides.amountInput !== undefined ? overrides.amountInput : this.amountInput;
+      overrides.amountInput !== undefined
+        ? overrides.amountInput
+        : this.amountInput
     const rawDate =
-      overrides.date !== undefined ? overrides.date : this.dateInput;
+      overrides.date !== undefined ? overrides.date : this.dateInput
     const rawCategoryId =
       overrides.categoryId !== undefined
         ? Number(overrides.categoryId)
-        : Number(this.categoryId);
+        : Number(this.categoryId)
     const rawSubcategory =
       overrides.subcategory !== undefined
         ? overrides.subcategory
-        : this.subcategoryInput;
+        : this.subcategoryInput
     const rawNote =
-      overrides.note !== undefined ? overrides.note : this.noteInput;
+      overrides.note !== undefined ? overrides.note : this.noteInput
     const targetEditId =
       overrides.editingExpenseId !== undefined
         ? overrides.editingExpenseId
-        : this.editingExpenseId;
+        : this.editingExpenseId
 
-    this.amountError = null;
-    this.formError = null;
-    this.focusRequestedOnAmount = false;
+    this.amountError = null
+    this.formError = null
+    this.focusRequestedOnAmount = false
 
-    let amountCents;
+    let amountCents
     try {
-      amountCents = parseAmountToCents(rawAmount);
+      amountCents = parseAmountToCents(rawAmount)
     } catch (err) {
       if (err instanceof InvalidAmount) {
-        this.amountError = err.message;
-        return this.getState();
+        this.amountError = err.message
+        return this.getState()
       }
-      throw err;
+      throw err
     }
 
     try {
-      const timestamp = formatIsoDateTime(this.now());
+      const timestamp = formatIsoDateTime(this.now())
 
       if (targetEditId !== null && targetEditId !== undefined) {
-        const existingInList = this.expenses.find((item) => item.id === targetEditId);
+        const existingInList = this.expenses.find(
+          (item) => item.id === targetEditId,
+        )
         const draftToUpdate = new Expense({
           id: Number(targetEditId),
           amountCents,
@@ -941,20 +970,20 @@ class ExpenseFormController {
           note: rawNote,
           createdAt: existingInList?.createdAt ?? timestamp,
           updatedAt: timestamp,
-        });
+        })
 
-        await this.expenseRepository.update(draftToUpdate);
+        await this.expenseRepository.update(draftToUpdate)
         this.expenses = await this.expenseRepository.findByYearMonth(
           this.activeYearMonth,
-        );
-        this.categories = await this.categoryRepository.findAll();
-        await this.refreshCategoryExpenseCounts(this.categories);
-        this.editingExpenseId = null;
-        this.amountInput = '';
-        this.subcategoryInput = '';
-        this.noteInput = '';
-        this.dateInput = formatIsoDate(this.today());
-        return this.getState();
+        )
+        this.categories = await this.categoryRepository.findAll()
+        await this.refreshCategoryExpenseCounts(this.categories)
+        this.editingExpenseId = null
+        this.amountInput = ''
+        this.subcategoryInput = ''
+        this.noteInput = ''
+        this.dateInput = formatIsoDate(this.today())
+        return this.getState()
       }
 
       const draft = new Expense({
@@ -965,35 +994,36 @@ class ExpenseFormController {
         note: rawNote,
         createdAt: timestamp,
         updatedAt: timestamp,
-      });
+      })
 
-      const saved = await this.expenseRepository.save(draft);
-      const targetYearMonth = extractYearMonth(saved.date);
-      this.activeYearMonth = targetYearMonth;
-      this.expenses = await this.expenseRepository.findByYearMonth(targetYearMonth);
-      this.categories = await this.categoryRepository.findAll();
-      await this.refreshCategoryExpenseCounts(this.categories);
+      const saved = await this.expenseRepository.save(draft)
+      const targetYearMonth = extractYearMonth(saved.date)
+      this.activeYearMonth = targetYearMonth
+      this.expenses =
+        await this.expenseRepository.findByYearMonth(targetYearMonth)
+      this.categories = await this.categoryRepository.findAll()
+      await this.refreshCategoryExpenseCounts(this.categories)
 
-      this.amountInput = '';
-      this.subcategoryInput = '';
-      this.noteInput = '';
-      this.dateInput = saved.date;
-      return this.getState();
+      this.amountInput = ''
+      this.subcategoryInput = ''
+      this.noteInput = ''
+      this.dateInput = saved.date
+      return this.getState()
     } catch (err) {
       if (err instanceof InvalidAmount) {
-        this.amountError = err.message;
-        return this.getState();
+        this.amountError = err.message
+        return this.getState()
       }
       if (err instanceof DomainException) {
-        this.formError = err.message;
-        return this.getState();
+        this.formError = err.message
+        return this.getState()
       }
-      throw err;
+      throw err
     }
   }
 
   getState() {
-    const monthlyTotalCents = calculateMonthlyTotalCents(this.expenses);
+    const monthlyTotalCents = calculateMonthlyTotalCents(this.expenses)
     return Object.freeze({
       initialized: this.initialized,
       categories: [...this.categories],
@@ -1019,11 +1049,11 @@ class ExpenseFormController {
       deletingCategoryExpenseCount: this.deletingCategoryExpenseCount,
       reassignTargetCategoryId: this.reassignTargetCategoryId,
       viewportWidth: this.viewportWidth,
-    });
+    })
   }
 
   renderElement() {
-    const state = this.getState();
+    const state = this.getState()
     return h(ExpenseFormScreen, {
       expenseRepository: this.expenseRepository,
       categoryRepository: this.categoryRepository,
@@ -1049,7 +1079,7 @@ class ExpenseFormController {
       today: this.today,
       now: this.now,
       viewportWidth: state.viewportWidth,
-    });
+    })
   }
 }
 
@@ -1082,336 +1112,363 @@ export function ExpenseFormScreen({
   onExpenseDeleted = undefined,
   onCategoriesChanged = undefined,
 } = {}) {
-  const defaultToday = formatIsoDate(today());
-  const currentYearMonth = extractYearMonth(defaultToday);
+  const defaultToday = formatIsoDate(today())
+  const currentYearMonth = extractYearMonth(defaultToday)
   const resolvedCategories =
-    initialCategories !== undefined ? initialCategories : buildDefaultCategories();
+    initialCategories !== undefined
+      ? initialCategories
+      : buildDefaultCategories()
   const defaultCategoryId =
     initialCategoryId !== undefined && initialCategoryId !== null
       ? Number(initialCategoryId)
-      : resolvedCategories[0]?.id ?? 1;
+      : (resolvedCategories[0]?.id ?? 1)
 
   const [catRepo] = useState(
-    () => categoryRepository ?? createInMemoryCategoryRepository(resolvedCategories),
-  );
+    () =>
+      categoryRepository ??
+      createInMemoryCategoryRepository(resolvedCategories),
+  )
   const [expRepo] = useState(
     () => expenseRepository ?? createInMemoryExpenseRepository(catRepo),
-  );
+  )
 
-  const [categories, setCategories] = useState(resolvedCategories);
-  const [expenses, setExpenses] = useState(initialExpenses ?? []);
+  const [categories, setCategories] = useState(resolvedCategories)
+  const [expenses, setExpenses] = useState(initialExpenses ?? [])
   const [categoryExpenseCounts, setCategoryExpenseCounts] = useState(
     () => initialCategoryExpenseCounts ?? {},
-  );
+  )
   const [activeYearMonth, setActiveYearMonth] = useState(
     initialActiveYearMonth && isValidYearMonth(initialActiveYearMonth)
       ? initialActiveYearMonth
       : currentYearMonth,
-  );
-  const [editingExpenseId, setEditingExpenseId] = useState(initialEditingExpenseId);
+  )
+  const [editingExpenseId, setEditingExpenseId] = useState(
+    initialEditingExpenseId,
+  )
   const [confirmingDeleteId, setConfirmingDeleteId] = useState(
     initialConfirmingDeleteId,
-  );
+  )
   const [focusRequestedOnAmount, setFocusRequestedOnAmount] = useState(
     initialFocusRequested,
-  );
-  const [amountInput, setAmountInput] = useState(initialAmount);
-  const [dateInput, setDateInput] = useState(initialDate ?? defaultToday);
-  const [categoryId, setCategoryId] = useState(defaultCategoryId);
-  const [subcategoryInput, setSubcategoryInput] = useState(initialSubcategory);
-  const [noteInput, setNoteInput] = useState(initialNote);
-  const [amountError, setAmountError] = useState(initialAmountError);
-  const [formError, setFormError] = useState(initialFormError);
+  )
+  const [amountInput, setAmountInput] = useState(initialAmount)
+  const [dateInput, setDateInput] = useState(initialDate ?? defaultToday)
+  const [categoryId, setCategoryId] = useState(defaultCategoryId)
+  const [subcategoryInput, setSubcategoryInput] = useState(initialSubcategory)
+  const [noteInput, setNoteInput] = useState(initialNote)
+  const [amountError, setAmountError] = useState(initialAmountError)
+  const [formError, setFormError] = useState(initialFormError)
   const [newCategoryNameInput, setNewCategoryNameInput] = useState(
     initialNewCategoryName,
-  );
-  const [categoryError, setCategoryError] = useState(initialCategoryError);
+  )
+  const [categoryError, setCategoryError] = useState(initialCategoryError)
   const [deletingCategoryId, setDeletingCategoryId] = useState(
     initialDeletingCategoryId,
-  );
-  const [deletingCategoryExpenseCount, setDeletingCategoryExpenseCount] = useState(
-    initialDeletingCategoryExpenseCount,
-  );
+  )
+  const [deletingCategoryExpenseCount, setDeletingCategoryExpenseCount] =
+    useState(initialDeletingCategoryExpenseCount)
   const [reassignTargetCategoryId, setReassignTargetCategoryId] = useState(
     initialReassignTargetCategoryId,
-  );
+  )
 
   const loadCountsForCategories = async (cats, currentExpenses = expenses) => {
-    const counts = {};
+    const counts = {}
     for (const cat of cats) {
       if (typeof catRepo.countExpenses === 'function') {
-        counts[cat.id] = await catRepo.countExpenses(cat.id);
+        counts[cat.id] = await catRepo.countExpenses(cat.id)
       } else if (typeof expRepo.countByCategoryId === 'function') {
-        counts[cat.id] = await expRepo.countByCategoryId(cat.id);
+        counts[cat.id] = await expRepo.countByCategoryId(cat.id)
       } else {
-        counts[cat.id] = currentExpenses.filter((e) => e.categoryId === cat.id).length;
+        counts[cat.id] = currentExpenses.filter(
+          (e) => e.categoryId === cat.id,
+        ).length
       }
     }
-    setCategoryExpenseCounts(counts);
-    return counts;
-  };
+    setCategoryExpenseCounts(counts)
+    return counts
+  }
 
   useEffect(() => {
-    let active = true;
+    let active = true
     if (initialCategories !== undefined && initialExpenses !== undefined) {
-      return undefined;
+      return undefined
     }
     Promise.all([
       catRepo.findAll(),
       expRepo.findByYearMonth(activeYearMonth),
     ]).then(async ([loadedCats, loadedExpenses]) => {
       if (!active) {
-        return;
+        return
       }
-      setCategories(loadedCats);
-      if (loadedCats.length > 0 && !loadedCats.some((c) => c.id === categoryId)) {
-        setCategoryId(loadedCats[0].id);
+      setCategories(loadedCats)
+      if (
+        loadedCats.length > 0 &&
+        !loadedCats.some((c) => c.id === categoryId)
+      ) {
+        setCategoryId(loadedCats[0].id)
       }
-      setExpenses(loadedExpenses);
-      const counts = {};
+      setExpenses(loadedExpenses)
+      const counts = {}
       for (const cat of loadedCats) {
         if (typeof catRepo.countExpenses === 'function') {
-          counts[cat.id] = await catRepo.countExpenses(cat.id);
+          counts[cat.id] = await catRepo.countExpenses(cat.id)
         } else {
-          counts[cat.id] = loadedExpenses.filter((e) => e.categoryId === cat.id).length;
+          counts[cat.id] = loadedExpenses.filter(
+            (e) => e.categoryId === cat.id,
+          ).length
         }
       }
       if (active) {
-        setCategoryExpenseCounts(counts);
+        setCategoryExpenseCounts(counts)
       }
-    });
+    })
     return () => {
-      active = false;
-    };
-  }, [catRepo, expRepo, activeYearMonth, categoryId, initialCategories, initialExpenses]);
+      active = false
+    }
+  }, [
+    catRepo,
+    expRepo,
+    activeYearMonth,
+    categoryId,
+    initialCategories,
+    initialExpenses,
+  ])
 
-  const styles = buildExpenseFormStyles(viewportWidth);
-  const { layout, gridColumns } = styles;
+  const styles = buildExpenseFormStyles(viewportWidth)
+  const { layout, gridColumns } = styles
   const layoutMode = layout.isDesktop
     ? 'desktop'
     : layout.isTablet
       ? 'tablet'
-      : 'mobile';
+      : 'mobile'
 
-  const monthlyTotalCents = calculateMonthlyTotalCents(expenses);
-  const isEditing = editingExpenseId !== null && editingExpenseId !== undefined;
-  const canGoNextMonth = activeYearMonth < currentYearMonth;
+  const monthlyTotalCents = calculateMonthlyTotalCents(expenses)
+  const isEditing = editingExpenseId !== null && editingExpenseId !== undefined
+  const canGoNextMonth = activeYearMonth < currentYearMonth
 
   const handlePreviousMonth = async () => {
-    const previousMonth = shiftYearMonth(activeYearMonth, -1);
-    setActiveYearMonth(previousMonth);
-    setConfirmingDeleteId(null);
-    const updatedList = await expRepo.findByYearMonth(previousMonth);
-    setExpenses(updatedList);
-  };
+    const previousMonth = shiftYearMonth(activeYearMonth, -1)
+    setActiveYearMonth(previousMonth)
+    setConfirmingDeleteId(null)
+    const updatedList = await expRepo.findByYearMonth(previousMonth)
+    setExpenses(updatedList)
+  }
 
   const handleNextMonth = async () => {
     if (!canGoNextMonth) {
-      return;
+      return
     }
-    const nextMonth = shiftYearMonth(activeYearMonth, 1);
-    const boundedMonth = nextMonth > currentYearMonth ? currentYearMonth : nextMonth;
-    setActiveYearMonth(boundedMonth);
-    setConfirmingDeleteId(null);
-    const updatedList = await expRepo.findByYearMonth(boundedMonth);
-    setExpenses(updatedList);
-  };
+    const nextMonth = shiftYearMonth(activeYearMonth, 1)
+    const boundedMonth =
+      nextMonth > currentYearMonth ? currentYearMonth : nextMonth
+    setActiveYearMonth(boundedMonth)
+    setConfirmingDeleteId(null)
+    const updatedList = await expRepo.findByYearMonth(boundedMonth)
+    setExpenses(updatedList)
+  }
 
   const handleEmptyStateCta = () => {
-    setEditingExpenseId(null);
-    setConfirmingDeleteId(null);
-    setAmountError(null);
-    setFormError(null);
+    setEditingExpenseId(null)
+    setConfirmingDeleteId(null)
+    setAmountError(null)
+    setFormError(null)
     setDateInput(
-      activeYearMonth === currentYearMonth ? defaultToday : `${activeYearMonth}-01`,
-    );
-    setFocusRequestedOnAmount(true);
+      activeYearMonth === currentYearMonth
+        ? defaultToday
+        : `${activeYearMonth}-01`,
+    )
+    setFocusRequestedOnAmount(true)
     if (typeof document !== 'undefined') {
-      const amountEl = document.getElementById('expense-amount-input');
+      const amountEl = document.getElementById('expense-amount-input')
       if (amountEl && typeof amountEl.focus === 'function') {
-        amountEl.focus();
+        amountEl.focus()
       }
     }
-  };
+  }
 
   const handleStartEdit = (item) => {
-    setEditingExpenseId(item.id);
-    setConfirmingDeleteId(null);
-    setFocusRequestedOnAmount(false);
-    setAmountInput(formatCentsToInput(item.amountCents));
-    setDateInput(item.date);
-    setCategoryId(item.categoryId);
-    setSubcategoryInput(item.subcategory ?? '');
-    setNoteInput(item.note ?? '');
-    setAmountError(null);
-    setFormError(null);
-  };
+    setEditingExpenseId(item.id)
+    setConfirmingDeleteId(null)
+    setFocusRequestedOnAmount(false)
+    setAmountInput(formatCentsToInput(item.amountCents))
+    setDateInput(item.date)
+    setCategoryId(item.categoryId)
+    setSubcategoryInput(item.subcategory ?? '')
+    setNoteInput(item.note ?? '')
+    setAmountError(null)
+    setFormError(null)
+  }
 
   const handleCancelEdit = () => {
-    setEditingExpenseId(null);
-    setAmountInput('');
-    setDateInput(defaultToday);
-    setSubcategoryInput('');
-    setNoteInput('');
-    setAmountError(null);
-    setFormError(null);
-  };
+    setEditingExpenseId(null)
+    setAmountInput('')
+    setDateInput(defaultToday)
+    setSubcategoryInput('')
+    setNoteInput('')
+    setAmountError(null)
+    setFormError(null)
+  }
 
   const handleRequestDelete = (itemId) => {
-    setConfirmingDeleteId(itemId);
-    setFormError(null);
-  };
+    setConfirmingDeleteId(itemId)
+    setFormError(null)
+  }
 
   const handleCancelDelete = () => {
-    setConfirmingDeleteId(null);
-  };
+    setConfirmingDeleteId(null)
+  }
 
   const handleConfirmDelete = async (itemId) => {
-    setFormError(null);
+    setFormError(null)
     try {
-      await expRepo.deleteById(itemId);
-      setConfirmingDeleteId(null);
+      await expRepo.deleteById(itemId)
+      setConfirmingDeleteId(null)
       if (editingExpenseId === itemId) {
-        handleCancelEdit();
+        handleCancelEdit()
       }
-      const updatedList = await expRepo.findByYearMonth(activeYearMonth);
-      const updatedCategories = await catRepo.findAll();
-      setExpenses(updatedList);
-      setCategories(updatedCategories);
-      await loadCountsForCategories(updatedCategories, updatedList);
+      const updatedList = await expRepo.findByYearMonth(activeYearMonth)
+      const updatedCategories = await catRepo.findAll()
+      setExpenses(updatedList)
+      setCategories(updatedCategories)
+      await loadCountsForCategories(updatedCategories, updatedList)
       if (typeof onExpenseDeleted === 'function') {
-        onExpenseDeleted(itemId);
+        onExpenseDeleted(itemId)
       }
     } catch (err) {
-      setConfirmingDeleteId(null);
+      setConfirmingDeleteId(null)
       if (err instanceof DomainException) {
-        setFormError(err.message);
-        return;
+        setFormError(err.message)
+        return
       }
-      throw err;
+      throw err
     }
-  };
+  }
 
   const handleCreateCategory = async (event) => {
     if (event && typeof event.preventDefault === 'function') {
-      event.preventDefault();
+      event.preventDefault()
     }
-    setCategoryError(null);
+    setCategoryError(null)
     try {
       const draft = new Category({
         name: newCategoryNameInput,
         isPredefined: false,
         createdAt: formatIsoDateTime(now()),
-      });
-      const saved = await catRepo.save(draft);
-      const updatedCategories = await catRepo.findAll();
-      setCategories(updatedCategories);
-      await loadCountsForCategories(updatedCategories, expenses);
-      setCategoryId(saved.id);
-      setNewCategoryNameInput('');
+      })
+      const saved = await catRepo.save(draft)
+      const updatedCategories = await catRepo.findAll()
+      setCategories(updatedCategories)
+      await loadCountsForCategories(updatedCategories, expenses)
+      setCategoryId(saved.id)
+      setNewCategoryNameInput('')
       if (typeof onCategoriesChanged === 'function') {
-        onCategoriesChanged(updatedCategories);
+        onCategoriesChanged(updatedCategories)
       }
-      return saved;
+      return saved
     } catch (err) {
       if (err instanceof DomainException) {
-        setCategoryError(err.message);
-        return null;
+        setCategoryError(err.message)
+        return null
       }
-      throw err;
+      throw err
     }
-  };
+  }
 
   const handleRequestDeleteCategory = async (cat) => {
-    setCategoryError(null);
+    setCategoryError(null)
     if (cat.isPredefined) {
       setCategoryError(
         new PredefinedCategoryDeletionNotAllowed(cat.name).message,
-      );
-      return;
+      )
+      return
     }
     const count =
       typeof catRepo.countExpenses === 'function'
         ? await catRepo.countExpenses(cat.id)
-        : (categoryExpenseCounts[cat.id] ?? 0);
-    setDeletingCategoryId(cat.id);
-    setDeletingCategoryExpenseCount(count);
+        : (categoryExpenseCounts[cat.id] ?? 0)
+    setDeletingCategoryId(cat.id)
+    setDeletingCategoryExpenseCount(count)
     if (count > 0) {
-      const fallback = categories.find((c) => c.id !== cat.id);
-      setReassignTargetCategoryId(fallback ? fallback.id : null);
+      const fallback = categories.find((c) => c.id !== cat.id)
+      setReassignTargetCategoryId(fallback ? fallback.id : null)
     } else {
-      setReassignTargetCategoryId(null);
+      setReassignTargetCategoryId(null)
     }
-  };
+  }
 
   const handleCancelDeleteCategory = () => {
-    setDeletingCategoryId(null);
-    setDeletingCategoryExpenseCount(0);
-    setReassignTargetCategoryId(null);
-    setCategoryError(null);
-  };
+    setDeletingCategoryId(null)
+    setDeletingCategoryExpenseCount(0)
+    setReassignTargetCategoryId(null)
+    setCategoryError(null)
+  }
 
-  const handleConfirmDeleteCategory = async (catId, targetReassignId = reassignTargetCategoryId) => {
-    setCategoryError(null);
+  const handleConfirmDeleteCategory = async (
+    catId,
+    targetReassignId = reassignTargetCategoryId,
+  ) => {
+    setCategoryError(null)
     try {
       const options =
         targetReassignId !== null && targetReassignId !== undefined
           ? { reassignToCategoryId: Number(targetReassignId) }
-          : {};
-      await catRepo.deleteById(catId, options);
-      setDeletingCategoryId(null);
-      setDeletingCategoryExpenseCount(0);
-      setReassignTargetCategoryId(null);
+          : {}
+      await catRepo.deleteById(catId, options)
+      setDeletingCategoryId(null)
+      setDeletingCategoryExpenseCount(0)
+      setReassignTargetCategoryId(null)
 
-      const updatedCategories = await catRepo.findAll();
-      const updatedExpenses = await expRepo.findByYearMonth(activeYearMonth);
-      setCategories(updatedCategories);
-      setExpenses(updatedExpenses);
-      await loadCountsForCategories(updatedCategories, updatedExpenses);
+      const updatedCategories = await catRepo.findAll()
+      const updatedExpenses = await expRepo.findByYearMonth(activeYearMonth)
+      setCategories(updatedCategories)
+      setExpenses(updatedExpenses)
+      await loadCountsForCategories(updatedCategories, updatedExpenses)
 
       if (Number(categoryId) === Number(catId)) {
         const nextCat =
           targetReassignId &&
           updatedCategories.some((c) => c.id === Number(targetReassignId))
             ? Number(targetReassignId)
-            : (updatedCategories[0]?.id ?? 1);
-        setCategoryId(nextCat);
+            : (updatedCategories[0]?.id ?? 1)
+        setCategoryId(nextCat)
       }
       if (typeof onCategoriesChanged === 'function') {
-        onCategoriesChanged(updatedCategories);
+        onCategoriesChanged(updatedCategories)
       }
     } catch (err) {
       if (err instanceof DomainException) {
-        setCategoryError(err.message);
-        return;
+        setCategoryError(err.message)
+        return
       }
-      throw err;
+      throw err
     }
-  };
+  }
 
   const handleConfirm = async (event) => {
     if (event && typeof event.preventDefault === 'function') {
-      event.preventDefault();
+      event.preventDefault()
     }
-    setAmountError(null);
-    setFormError(null);
-    setFocusRequestedOnAmount(false);
+    setAmountError(null)
+    setFormError(null)
+    setFocusRequestedOnAmount(false)
 
-    let amountCents;
+    let amountCents
     try {
-      amountCents = parseAmountToCents(amountInput);
+      amountCents = parseAmountToCents(amountInput)
     } catch (err) {
       if (err instanceof InvalidAmount) {
-        setAmountError(err.message);
-        return null;
+        setAmountError(err.message)
+        return null
       }
-      throw err;
+      throw err
     }
 
     try {
-      const timestamp = formatIsoDateTime(now());
+      const timestamp = formatIsoDateTime(now())
       if (isEditing) {
-        const existingItem = expenses.find((item) => item.id === editingExpenseId);
+        const existingItem = expenses.find(
+          (item) => item.id === editingExpenseId,
+        )
         const draftToUpdate = new Expense({
           id: Number(editingExpenseId),
           amountCents,
@@ -1421,22 +1478,22 @@ export function ExpenseFormScreen({
           note: noteInput,
           createdAt: existingItem?.createdAt ?? timestamp,
           updatedAt: timestamp,
-        });
-        const updated = await expRepo.update(draftToUpdate);
-        const updatedList = await expRepo.findByYearMonth(activeYearMonth);
-        const updatedCategories = await catRepo.findAll();
-        setExpenses(updatedList);
-        setCategories(updatedCategories);
-        await loadCountsForCategories(updatedCategories, updatedList);
-        setEditingExpenseId(null);
-        setAmountInput('');
-        setSubcategoryInput('');
-        setNoteInput('');
-        setDateInput(defaultToday);
+        })
+        const updated = await expRepo.update(draftToUpdate)
+        const updatedList = await expRepo.findByYearMonth(activeYearMonth)
+        const updatedCategories = await catRepo.findAll()
+        setExpenses(updatedList)
+        setCategories(updatedCategories)
+        await loadCountsForCategories(updatedCategories, updatedList)
+        setEditingExpenseId(null)
+        setAmountInput('')
+        setSubcategoryInput('')
+        setNoteInput('')
+        setDateInput(defaultToday)
         if (typeof onExpenseSaved === 'function') {
-          onExpenseSaved(updated);
+          onExpenseSaved(updated)
         }
-        return updated;
+        return updated
       }
 
       const draft = new Expense({
@@ -1447,45 +1504,45 @@ export function ExpenseFormScreen({
         note: noteInput,
         createdAt: timestamp,
         updatedAt: timestamp,
-      });
-      const saved = await expRepo.save(draft);
-      const savedYearMonth = extractYearMonth(saved.date);
-      setActiveYearMonth(savedYearMonth);
-      const updatedList = await expRepo.findByYearMonth(savedYearMonth);
-      const updatedCategories = await catRepo.findAll();
-      setExpenses(updatedList);
-      setCategories(updatedCategories);
-      await loadCountsForCategories(updatedCategories, updatedList);
-      setAmountInput('');
-      setSubcategoryInput('');
-      setNoteInput('');
+      })
+      const saved = await expRepo.save(draft)
+      const savedYearMonth = extractYearMonth(saved.date)
+      setActiveYearMonth(savedYearMonth)
+      const updatedList = await expRepo.findByYearMonth(savedYearMonth)
+      const updatedCategories = await catRepo.findAll()
+      setExpenses(updatedList)
+      setCategories(updatedCategories)
+      await loadCountsForCategories(updatedCategories, updatedList)
+      setAmountInput('')
+      setSubcategoryInput('')
+      setNoteInput('')
       if (typeof onExpenseSaved === 'function') {
-        onExpenseSaved(saved);
+        onExpenseSaved(saved)
       }
-      return saved;
+      return saved
     } catch (err) {
       if (err instanceof InvalidAmount) {
-        setAmountError(err.message);
-        return null;
+        setAmountError(err.message)
+        return null
       }
       if (
         err instanceof InvalidExpenseDate ||
         err instanceof InvalidCategory ||
         err instanceof DomainException
       ) {
-        setFormError(err.message);
-        return null;
+        setFormError(err.message)
+        return null
       }
-      throw err;
+      throw err
     }
-  };
+  }
 
   const handleFormKeyDown = (event) => {
     if (event && event.key === 'Enter') {
-      return handleConfirm(event);
+      return handleConfirm(event)
     }
-    return undefined;
-  };
+    return undefined
+  }
 
   return h(
     'section',
@@ -1524,7 +1581,11 @@ export function ExpenseFormScreen({
             'h2',
             {
               'data-testid': 'expense-form-title',
-              style: { marginTop: 0, marginBottom: 16, fontSize: layout.isMobile ? 19 : 22 },
+              style: {
+                marginTop: 0,
+                marginBottom: 16,
+                fontSize: layout.isMobile ? 19 : 22,
+              },
             },
             isEditing ? 'Editar gasto' : 'Registrar un gasto',
           ),
@@ -1548,10 +1609,10 @@ export function ExpenseFormScreen({
               'aria-invalid': amountError ? 'true' : 'false',
               style: styles.amountInput,
               onChange: (e) => {
-                setAmountInput(e?.target?.value ?? '');
-                setFocusRequestedOnAmount(false);
+                setAmountInput(e?.target?.value ?? '')
+                setFocusRequestedOnAmount(false)
                 if (amountError) {
-                  setAmountError(null);
+                  setAmountError(null)
                 }
               },
             }),
@@ -1583,7 +1644,8 @@ export function ExpenseFormScreen({
                 value: String(categoryId),
                 tabIndex: 0,
                 style: styles.input,
-                onChange: (e) => setCategoryId(Number(e?.target?.value ?? defaultCategoryId)),
+                onChange: (e) =>
+                  setCategoryId(Number(e?.target?.value ?? defaultCategoryId)),
               },
               ...categories.map((cat) =>
                 h(
@@ -1736,9 +1798,9 @@ export function ExpenseFormScreen({
               tabIndex: 0,
               style: styles.input,
               onChange: (e) => {
-                setNewCategoryNameInput(e?.target?.value ?? '');
+                setNewCategoryNameInput(e?.target?.value ?? '')
                 if (categoryError) {
-                  setCategoryError(null);
+                  setCategoryError(null)
                 }
               },
             }),
@@ -1772,11 +1834,11 @@ export function ExpenseFormScreen({
               style: { listStyle: 'none', margin: 0, padding: 0 },
             },
             ...categories.map((cat) => {
-              const catExpenseCount = categoryExpenseCounts[cat.id] ?? 0;
-              const isDeletingThis = deletingCategoryId === cat.id;
-              const availableTargets = categories.filter((c) => c.id !== cat.id);
+              const catExpenseCount = categoryExpenseCounts[cat.id] ?? 0
+              const isDeletingThis = deletingCategoryId === cat.id
+              const availableTargets = categories.filter((c) => c.id !== cat.id)
               const selectedTarget =
-                reassignTargetCategoryId ?? availableTargets[0]?.id ?? '';
+                reassignTargetCategoryId ?? availableTargets[0]?.id ?? ''
 
               return h(
                 'li',
@@ -1790,12 +1852,22 @@ export function ExpenseFormScreen({
                   { style: styles.categoryItemMain },
                   h(
                     'div',
-                    { style: { display: 'flex', alignItems: 'center', gap: 8, flexWrap: 'wrap' } },
+                    {
+                      style: {
+                        display: 'flex',
+                        alignItems: 'center',
+                        gap: 8,
+                        flexWrap: 'wrap',
+                      },
+                    },
                     h(
                       'strong',
                       {
                         'data-testid': `category-manager-name-${cat.id}`,
-                        style: { fontSize: 14, color: CORPORATE_THEME.textPrimary },
+                        style: {
+                          fontSize: 14,
+                          color: CORPORATE_THEME.textPrimary,
+                        },
                       },
                       cat.name,
                     ),
@@ -1913,7 +1985,10 @@ export function ExpenseFormScreen({
                               tabIndex: 0,
                               style: styles.confirmDeleteButton,
                               onClick: () =>
-                                handleConfirmDeleteCategory(cat.id, selectedTarget),
+                                handleConfirmDeleteCategory(
+                                  cat.id,
+                                  selectedTarget,
+                                ),
                             },
                             'Reasignar y eliminar',
                           ),
@@ -1959,7 +2034,8 @@ export function ExpenseFormScreen({
                               'data-testid': `confirm-delete-category-button-${cat.id}`,
                               tabIndex: 0,
                               style: styles.confirmDeleteButton,
-                              onClick: () => handleConfirmDeleteCategory(cat.id, null),
+                              onClick: () =>
+                                handleConfirmDeleteCategory(cat.id, null),
                             },
                             'Confirmar eliminación',
                           ),
@@ -1977,7 +2053,7 @@ export function ExpenseFormScreen({
                         ),
                       )
                   : null,
-              );
+              )
             }),
           ),
         ),
@@ -1992,7 +2068,11 @@ export function ExpenseFormScreen({
         h(
           'h2',
           {
-            style: { marginTop: 0, marginBottom: 12, fontSize: layout.isMobile ? 19 : 22 },
+            style: {
+              marginTop: 0,
+              marginBottom: 12,
+              fontSize: layout.isMobile ? 19 : 22,
+            },
           },
           `Gastos del mes (${activeYearMonth})`,
         ),
@@ -2091,8 +2171,8 @@ export function ExpenseFormScreen({
                 style: { listStyle: 'none', margin: 0, padding: 0 },
               },
               ...expenses.map((item) => {
-                const itemId = item.id ?? 'draft';
-                const isConfirmingDelete = confirmingDeleteId === item.id;
+                const itemId = item.id ?? 'draft'
+                const isConfirmingDelete = confirmingDeleteId === item.id
                 return h(
                   'li',
                   {
@@ -2110,7 +2190,11 @@ export function ExpenseFormScreen({
                         'strong',
                         {
                           'data-testid': 'expense-item-category',
-                          style: { display: 'block', fontSize: 15, color: '#0f172a' },
+                          style: {
+                            display: 'block',
+                            fontSize: 15,
+                            color: '#0f172a',
+                          },
                         },
                         item.subcategory
                           ? `${item.categoryName ?? 'Categoría'} · ${item.subcategory}`
@@ -2120,7 +2204,11 @@ export function ExpenseFormScreen({
                         'span',
                         {
                           'data-testid': 'expense-item-date',
-                          style: { display: 'block', fontSize: 13, color: '#64748b' },
+                          style: {
+                            display: 'block',
+                            fontSize: 13,
+                            color: '#64748b',
+                          },
                         },
                         item.date,
                       ),
@@ -2144,7 +2232,11 @@ export function ExpenseFormScreen({
                       'span',
                       {
                         'data-testid': 'expense-item-amount',
-                        style: { fontWeight: 700, fontSize: 16, color: '#0f172a' },
+                        style: {
+                          fontWeight: 700,
+                          fontSize: 16,
+                          color: '#0f172a',
+                        },
                       },
                       formatCentsToArs(item.amountCents),
                     ),
@@ -2223,13 +2315,14 @@ export function ExpenseFormScreen({
                         ),
                       )
                     : null,
-                );
+                )
               }),
             ),
       ),
     ),
-  );
+  )
 }
 
-ExpenseFormScreen.createController = (options) => new ExpenseFormController(options);
-ExpenseFormScreen.buildStyles = buildExpenseFormStyles;
+ExpenseFormScreen.createController = (options) =>
+  new ExpenseFormController(options)
+ExpenseFormScreen.buildStyles = buildExpenseFormStyles
